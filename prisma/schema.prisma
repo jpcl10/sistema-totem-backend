@@ -1,0 +1,451 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  OPERATOR
+}
+
+enum OrderStatus {
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  NOT_REQUIRED
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  PIX_MANUAL
+  PIX_AUTOMATIC
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  COURTESY
+  OTHER
+}
+
+enum PaymentProvider {
+  MANUAL
+  MERCADO_PAGO
+  STONE
+  PAGSEGURO
+  CIELO
+  GETNET
+  OTHER
+}
+
+enum PaymentTransactionStatus {
+  CREATED
+  WAITING_PAYMENT
+  APPROVED
+  REJECTED
+  CANCELLED
+  REFUNDED
+  EXPIRED
+  ERROR
+}
+
+enum CategorySector {
+  BAR
+  KITCHEN
+}
+
+enum PrintJobStatus {
+  PENDING
+  PRINTED
+  ERROR
+  CANCELLED
+}
+
+enum PrintMode {
+  FULL_ORDER
+  BY_SECTOR
+  BOTH
+}
+
+enum PrinterSector {
+  FULL_ORDER
+  BAR
+  KITCHEN
+}
+
+enum PrinterConnectionType {
+  TCP_IP
+  SK210_LOCAL
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  users                   User[]
+  events                  Event[]
+  catalogCategories       CatalogCategory[]
+  catalogProducts         CatalogProduct[]
+  paymentProviderSettings PaymentProviderSettings[]
+  eventClosings EventClosing[]
+}
+
+model User {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  email          String   @unique
+  password       String
+  role           UserRole
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  eventClosings EventClosing[]
+}
+
+model Event {
+  id             String @id @default(cuid())
+  organizationId String
+
+  name String
+  slug String
+
+  primaryColor   String?
+  secondaryColor String?
+  logoUrl        String?
+  bannerUrl      String?
+
+  totemWelcomeMessage  String?
+  totemBackgroundColor String?
+  totemTextColor       String?
+
+  totemShowPrices            Boolean @default(true)
+  totemShowLowStock          Boolean @default(true)
+  totemRequireCustomerName   Boolean @default(true)
+  totemAutoResetSeconds      Int     @default(60)
+  totemShowLogo              Boolean @default(true)
+  totemFullscreenRecommended Boolean @default(true)
+
+  pixEnabled      Boolean @default(false)
+  pixKey          String?
+  pixReceiverName String?
+  pixCity         String?
+  pixInstructions String?
+
+  printingEnabled  Boolean   @default(false)
+  autoPrintEnabled Boolean   @default(false)
+  printMode        PrintMode @default(FULL_ORDER)
+  printerPaperSize String    @default("80mm")
+
+  closed   Boolean   @default(false)
+  closedAt DateTime?
+
+  active Boolean @default(true)
+
+  startsAt DateTime?
+  endsAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  orders        Order[]
+  eventProducts EventProduct[]
+  printJobs     EventPrintJob[]
+  printers      EventPrinter[]
+
+  closing EventClosing?
+
+  @@unique([organizationId, slug])
+}
+
+model Order {
+  id      String @id @default(cuid())
+  eventId String
+
+  customerName String?
+  orderNumber  Int
+
+  status        OrderStatus    @default(CONFIRMED)
+  paymentStatus PaymentStatus  @default(PENDING)
+  paymentMethod PaymentMethod?
+
+  totalInCents Int
+
+  amountPaidInCents Int?
+  changeForInCents  Int?
+
+  paidAt       DateTime?
+  paymentNotes String?
+
+  cancelReason String?
+  cancelledAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  event               Event                @relation(fields: [eventId], references: [id])
+  items               OrderItem[]
+  printJobs           EventPrintJob[]
+  paymentTransactions PaymentTransaction[]
+}
+
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+
+  productId        String?
+  catalogProductId String?
+
+  quantity         Int
+  unitPriceInCents Int
+  totalInCents     Int
+
+  productName String
+
+  order          Order           @relation(fields: [orderId], references: [id])
+  catalogProduct CatalogProduct? @relation(fields: [catalogProductId], references: [id])
+}
+
+model PaymentTransaction {
+  id      String @id @default(cuid())
+  orderId String
+
+  provider PaymentProvider
+  status   PaymentTransactionStatus @default(CREATED)
+
+  method PaymentMethod?
+
+  amountInCents Int
+
+  externalId        String?
+  externalReference String?
+
+  qrCode       String?
+  qrCodeBase64 String?
+  pixCopyPaste String?
+
+  gatewayStatus  String?
+  gatewayMessage String?
+
+  approvedAt  DateTime?
+  rejectedAt  DateTime?
+  cancelledAt DateTime?
+  refundedAt  DateTime?
+  expiredAt   DateTime?
+
+  errorMessage String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([provider])
+  @@index([status])
+  @@index([externalId])
+}
+
+model CatalogCategory {
+  id             String @id @default(cuid())
+  organizationId String
+
+  name String
+  slug String
+
+  sector CategorySector @default(KITCHEN)
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  products     CatalogProduct[]
+
+  @@unique([organizationId, slug])
+}
+
+model CatalogProduct {
+  id                String @id @default(cuid())
+  organizationId    String
+  catalogCategoryId String
+
+  name        String
+  slug        String
+  description String?
+  imageUrl    String?
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  organization    Organization    @relation(fields: [organizationId], references: [id])
+  catalogCategory CatalogCategory @relation(fields: [catalogCategoryId], references: [id])
+
+  eventProducts EventProduct[]
+  orderItems    OrderItem[]
+
+  @@unique([organizationId, slug])
+}
+
+model EventProduct {
+  id               String @id @default(cuid())
+  eventId          String
+  catalogProductId String
+
+  priceInCents Int
+
+  trackStock    Boolean @default(false)
+  stockQuantity Int?
+  soldOut       Boolean @default(false)
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  event          Event          @relation(fields: [eventId], references: [id])
+  catalogProduct CatalogProduct @relation(fields: [catalogProductId], references: [id])
+
+  @@unique([eventId, catalogProductId])
+}
+
+model EventPrintJob {
+  id      String @id @default(cuid())
+  eventId String
+  orderId String
+
+  printerId String?
+
+  sector CategorySector
+  status PrintJobStatus @default(PENDING)
+
+  payload Json
+
+  printedAt    DateTime?
+  errorMessage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  event   Event         @relation(fields: [eventId], references: [id])
+  order   Order         @relation(fields: [orderId], references: [id])
+  printer EventPrinter? @relation(fields: [printerId], references: [id])
+}
+
+model EventPrinter {
+  id      String @id @default(cuid())
+  eventId String
+
+  name   String
+  sector PrinterSector
+
+  connectionType PrinterConnectionType @default(TCP_IP)
+
+  ipAddress String
+  port      Int    @default(9100)
+
+  paperSize String  @default("80mm")
+  active    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  event     Event           @relation(fields: [eventId], references: [id])
+  printJobs EventPrintJob[]
+}
+
+model PaymentProviderSettings {
+  id             String @id @default(cuid())
+  organizationId String
+
+  provider PaymentProvider
+
+  enabled Boolean @default(false)
+
+  pixEnabled      Boolean @default(false)
+  cardEnabled     Boolean @default(false)
+  terminalEnabled Boolean @default(false)
+
+  accessToken   String?
+  publicKey     String?
+  webhookSecret String?
+  webhookUrl    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, provider])
+  @@index([organizationId])
+  @@index([provider])
+}
+
+model EventClosing {
+  id String @id @default(cuid())
+
+  eventId        String
+  organizationId String
+  closedByUserId String?
+
+  totalOrders     Int
+  paidOrders      Int
+  pendingOrders   Int
+  cancelledOrders Int
+
+  receivedInCents      Int
+  pendingInCents       Int
+  cancelledInCents     Int
+  averageTicketInCents Int
+
+  pixManualInCents    Int @default(0)
+  pixAutomaticInCents Int @default(0)
+  cashInCents         Int @default(0)
+  creditCardInCents   Int @default(0)
+  debitCardInCents    Int @default(0)
+  courtesyInCents     Int @default(0)
+  otherInCents        Int @default(0)
+
+  printPendingCount   Int @default(0)
+  printPrintedCount   Int @default(0)
+  printErrorCount     Int @default(0)
+  printCancelledCount Int @default(0)
+
+  notes String?
+
+  closedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event        Event        @relation(fields: [eventId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  closedByUser User?        @relation(fields: [closedByUserId], references: [id])
+
+  @@unique([eventId])
+  @@index([organizationId])
+  @@index([closedByUserId])
+  @@index([closedAt])
+}

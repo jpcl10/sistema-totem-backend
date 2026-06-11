@@ -1,0 +1,34 @@
+# Dependências
+node_modules/
+
+# Variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Build
+dist/
+build/
+
+# Prisma gerado
+/generated/prisma/
+node_modules/.prisma/
+
+# Uploads dos usuários/eventos
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# Testes
+coverage/
+
+# Editor
+.vscode/
+.idea/
+
+# Sistema
+.DS_Store
+Thumbs.db
