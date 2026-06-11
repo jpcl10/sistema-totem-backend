@@ -331,7 +331,7 @@ Eventos emitidos:
 | `PATCH` | `/orders/:orderId/payment-status` | Sim | Atualiza apenas status financeiro |
 | `PATCH` | `/orders/:orderId/payment` | Sim | Marca pagamento com detalhes |
 | `GET` | `/events/:eventId/financial-summary` | Sim | Retorna resumo financeiro |
-| `GET` | `/events/:eventId/metrics` | Sim | Retorna metricas do evento |
+| `GET` | `/events/:eventId/metrics` | Sim | Retorna metricas do evento (aceita parametros `period`, `startDate` e `endDate` para filtro por periodo) |
 
 ### Payments
 

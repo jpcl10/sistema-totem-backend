@@ -1,10 +1,33 @@
-import { FastifyReply, FastifyRequest } from 'fastify'
+import {
+  FastifyReply,
+  FastifyRequest
+} from 'fastify'
 import { z } from 'zod'
 
 import { GetEventFinancialSummaryService } from '../services/get-event-financial-summary-service.js'
 
 const getEventFinancialSummaryParamsSchema = z.object({
-  eventId: z.string()
+  eventId: z.string().min(1)
+})
+
+const getEventFinancialSummaryQuerySchema = z.object({
+  period: z
+    .enum([
+      'EVENT',
+      'TODAY',
+      '24H',
+      '7D',
+      'CUSTOM'
+    ])
+    .default('EVENT'),
+
+  startDate: z
+    .string()
+    .optional(),
+
+  endDate: z
+    .string()
+    .optional()
 })
 
 export async function getEventFinancialSummaryController(
@@ -12,7 +35,18 @@ export async function getEventFinancialSummaryController(
   reply: FastifyReply
 ) {
   const { eventId } =
-    getEventFinancialSummaryParamsSchema.parse(request.params)
+    getEventFinancialSummaryParamsSchema.parse(
+      request.params
+    )
+
+  const {
+    period,
+    startDate,
+    endDate
+  } =
+    getEventFinancialSummaryQuerySchema.parse(
+      request.query
+    )
 
   const organizationId =
     request.user.organizationId
@@ -23,7 +57,10 @@ export async function getEventFinancialSummaryController(
   const { summary } =
     await getEventFinancialSummaryService.execute({
       organizationId,
-      eventId
+      eventId,
+      period,
+      startDate,
+      endDate
     })
 
   return reply.status(200).send({
