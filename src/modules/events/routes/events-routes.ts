@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify'
+import { deleteEventController } from '../controllers/delete-event-controller.js'
 import { archiveEventController } from '../controllers/archive-event-controller.js'
 import { restoreEventController } from '../controllers/restore-event-controller.js'
 import { reopenEventController } from '../controllers/reopen-event-controller.js'
@@ -109,5 +110,12 @@ export async function eventsRoutes(app: FastifyInstance)
     preHandler: [verifyJWT]
   },
   restoreEventController
+  )
+  app.delete(
+  '/events/:eventId',
+  {
+    preHandler: [verifyJWT]
+  },
+  deleteEventController
   )
   }

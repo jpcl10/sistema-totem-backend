@@ -126,12 +126,12 @@ export class MercadoPagoWebhookService {
 
     if (!paymentTransaction) {
       return {
-        received: true,
-        ignored: true,
-        reason: 'payment_transaction_not_found',
-        paymentId
-      }
+      received: true,
+      ignored: true,
+      reason: 'payment_transaction_not_found',
+      paymentId
     }
+  }
 
     const mercadoPagoSettings =
       await prisma.paymentProviderSettings.findUnique({
@@ -254,13 +254,16 @@ export class MercadoPagoWebhookService {
         return updated
       })
 
-    if (updatedOrder.paymentStatus === PaymentStatus.PAID) {
-      const createPrintJobsForOrderService =
-        new CreatePrintJobsForOrderService()
+    if (
+      paymentTransaction.order.paymentStatus !== PaymentStatus.PAID &&
+      updatedOrder.paymentStatus === PaymentStatus.PAID
+      ) {
+    const createPrintJobsForOrderService =
+    new CreatePrintJobsForOrderService()
 
-      await createPrintJobsForOrderService.execute({
-        orderId: updatedOrder.id
-      })
+    await createPrintJobsForOrderService.execute({
+      orderId: updatedOrder.id
+    })
     }
 
     io.to(`event:${updatedOrder.eventId}`).emit('order-updated', {

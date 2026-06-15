@@ -177,16 +177,16 @@ export class UpdatePaymentTransactionStatusService {
     })
 
     if (
-      updatedOrder &&
+        updatedOrder &&
+        transaction.order.paymentStatus !== PaymentStatus.PAID &&
       status === PaymentTransactionStatus.APPROVED
-    ) {
-      const createPrintJobsForOrderService =
-        new CreatePrintJobsForOrderService()
-
-      await createPrintJobsForOrderService.execute({
-        orderId: updatedOrder.id
-      })
-    }
+     ) {
+    const createPrintJobsForOrderService =
+    new CreatePrintJobsForOrderService()
+    await createPrintJobsForOrderService.execute({
+      orderId: updatedOrder.id
+    })
+  }
 
     if (updatedOrder) {
       io.to(`event:${updatedOrder.eventId}`).emit('order-updated', {

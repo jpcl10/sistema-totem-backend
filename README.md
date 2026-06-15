@@ -180,6 +180,7 @@ npx tsc --noEmit
 | `PaymentProviderSettings` | Configuracao do provedor por organizacao |
 | `EventPrinter` | Impressora vinculada ao evento |
 | `EventPrintJob` | Job de impressao gerado para um pedido |
+| `EventClosing` | Fechamento do evento com resumo financeiro |
 
 ## Regras De Negocio
 
@@ -307,6 +308,13 @@ Eventos emitidos:
 | `GET` | `/events/:id` | Sim | Busca um evento |
 | `PATCH` | `/events/:id` | Sim | Atualiza configuracoes do evento |
 | `POST` | `/events/:id/logo` | Sim | Faz upload de logo |
+| `DELETE` | `/events/:eventId` | Sim | Deleta evento |
+| `PATCH` | `/events/:eventId/archive` | Sim | Arquiva evento |
+| `PATCH` | `/events/:eventId/restore` | Sim | Restaura evento arquivado |
+| `POST` | `/events/:eventId/close` | Sim | Fecha evento |
+| `POST` | `/events/:eventId/reopen` | Sim | Reabre evento fechado |
+| `GET` | `/events/:eventId/closing-preview` | Sim | Preview do fechamento do evento |
+| `GET` | `/events/:eventId/closing` | Sim | Fechamento do evento |
 | `GET` | `/public/events/:slug/menu` | Nao | Menu publico simples |
 | `GET` | `/public/events/:slug/catalog-menu` | Nao | Menu publico baseado em catalogo |
 | `POST` | `/catalog/categories` | Sim | Cria categoria |
@@ -326,6 +334,8 @@ Eventos emitidos:
 | Metodo | Endpoint | Protegido | Descricao |
 | --- | --- | --- | --- |
 | `POST` | `/public/events/:slug/orders` | Nao | Cria pedido publico pelo totem |
+| `GET` | `/public/events/:slug/orders` | Nao | Lista pedidos para tela de chamada (alias) |
+| `GET` | `/public/events/:slug/call-screen-orders` | Nao | Lista pedidos para tela de chamada |
 | `GET` | `/events/:eventId/orders` | Sim | Lista pedidos do evento |
 | `PATCH` | `/orders/:id/status` | Sim | Atualiza status operacional |
 | `PATCH` | `/orders/:orderId/payment-status` | Sim | Atualiza apenas status financeiro |
@@ -463,19 +473,21 @@ Eventos emitidos:
 | `Insufficient stock` | Estoque menor que a quantidade pedida | Ajuste estoque ou quantidade |
 | Print job em `ERROR` | Impressora ausente, inativa ou mal configurada | Revise cadastro e conexao |
 | Checkout cai para `operator` | Provedor nao esta habilitado ou configurado | Revise `payment-provider-settings` e credenciais |
-\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
 ## Status Atual
 
 ### Ja Implementado
 
 - Autenticacao com JWT
 - CRUD principal de eventos, usuarios e catalogo
+- Arquivar, restaurar, fechar e reabrir eventos
+- Fechamento de evento com preview
 - Criacao publica de pedidos
 - Fluxo financeiro manual com historico em `PaymentTransaction`
 - Checkout publico para decidir o proximo passo do pagamento
 - Configuracao de provedores por organizacao
 - PIX automatico com Mercado Pago
-- Webh'ook do Mercado Pago
+- Webhook do Mercado Pago
 - Emissao de eventos via Socket.IO
 - Cadastro de impressoras e fila de impressao
 - Integracao com app Android SK210

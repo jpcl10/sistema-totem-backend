@@ -90,6 +90,24 @@ enum PrinterConnectionType {
   SK210_LOCAL
 }
 
+enum DeviceType {
+  TOTEM
+  PRINTER
+  CALL_SCREEN
+  SK210
+}
+
+enum DeviceStatus {
+  ACTIVE
+  PAUSED
+  OFFLINE
+  MAINTENANCE
+}
+enum DeviceAuthStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+}
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -99,6 +117,7 @@ model Organization {
 
   users                   User[]
   events                  Event[]
+  devices Device[]
   catalogCategories       CatalogCategory[]
   catalogProducts         CatalogProduct[]
   paymentProviderSettings PaymentProviderSettings[]
@@ -167,6 +186,7 @@ model Event {
   organization Organization @relation(fields: [organizationId], references: [id])
 
   orders        Order[]
+  devices Device[]
   eventProducts EventProduct[]
   printJobs     EventPrintJob[]
   printers      EventPrinter[]
@@ -263,7 +283,7 @@ model PaymentTransaction {
   @@index([orderId])
   @@index([provider])
   @@index([status])
-  @@index([externalId])
+  @@unique([provider, externalId])
 }
 
 model CatalogCategory {
@@ -448,4 +468,45 @@ model EventClosing {
   @@index([organizationId])
   @@index([closedByUserId])
   @@index([closedAt])
+}
+model Device {
+  id String @id @default(cuid())
+
+  organizationId String
+  eventId String?
+
+  name String
+  code String @unique
+
+  locationName String?
+
+  type DeviceType
+  status DeviceStatus @default(ACTIVE)
+
+  authStatus DeviceAuthStatus @default(PENDING)
+
+  tokenHash String?
+  deviceSecretHash String?
+
+  appVersion String?
+
+  lastSeenAt DateTime?
+  lastHeartbeatAt DateTime?
+
+  lastIpAddress String?
+  lastUserAgent String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  event Event? @relation(fields: [eventId], references: [id])
+
+  @@index([organizationId])
+  @@index([eventId])
+  @@index([status])
+  @@index([authStatus])
+  @@index([type])
 }

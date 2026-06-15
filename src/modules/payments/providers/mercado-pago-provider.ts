@@ -224,26 +224,29 @@ export class MercadoPagoProvider implements PaymentProviderAdapter {
 
       const payment = new Payment(client)
 
-      const result = await payment.create({
-        body: {
-          transaction_amount: data.amountInCents / 100,
-          description:
-            data.description ?? `Pedido ${data.orderId}`,
-          payment_method_id: 'pix',
-          external_reference: externalReference,
-          payer: {
-            email:
-              data.payerEmail ??
-              `cliente-${data.orderId}@sistema-totem.local`,
-            first_name:
-              data.payerName ?? 'Cliente'
-          },
-          metadata: {
-            organizationId: data.organizationId,
-            orderId: data.orderId
-          }
+    const result = await payment.create({
+      body: {
+      transaction_amount: data.amountInCents / 100,
+      description:
+      data.description ?? `Pedido ${data.orderId}`,
+      payment_method_id: 'pix',
+      external_reference: externalReference,
+      payer: {
+        email:
+        data.payerEmail ??
+        'pix@sistema-totem.local',
+        first_name:
+        data.payerName ?? 'Cliente'
+        },
+        metadata: {
+          organizationId: data.organizationId,
+          orderId: data.orderId
         }
-      })
+      },
+      requestOptions: {
+        idempotencyKey: externalReference
+      }
+    })
 
       const mercadoPagoPayment =
         result as any
