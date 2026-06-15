@@ -362,6 +362,7 @@ model EventPrintJob {
   orderId String
 
   printerId String?
+  deviceId String?
 
   sector CategorySector
   status PrintJobStatus @default(PENDING)
@@ -377,6 +378,8 @@ model EventPrintJob {
   event   Event         @relation(fields: [eventId], references: [id])
   order   Order         @relation(fields: [orderId], references: [id])
   printer EventPrinter? @relation(fields: [printerId], references: [id])
+  device  Device?       @relation(fields: [deviceId], references: [id])
+  @@index([deviceId])
 }
 
 model EventPrinter {
@@ -510,6 +513,7 @@ model Device {
   event Event? @relation(fields: [eventId], references: [id])
 
   orders Order[]
+  printJobs EventPrintJob[]
 
   @@index([organizationId])
   @@index([eventId])

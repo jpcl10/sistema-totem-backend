@@ -60,7 +60,8 @@ backend/
 │  │  ├─ payment-provider-settings/
 │  │  ├─ printers/
 │  │  ├─ print-jobs/
-│  │  └─ device-print-jobs/
+│  │  ├─ device-print-jobs/
+│  │  └─ devices/
 │  ├─ shared/
 │  │  └─ config/
 │  ├─ app.ts
@@ -88,6 +89,7 @@ backend/
 | `printers` | Cadastro e teste de impressoras do evento |
 | `print-jobs` | Fila administrativa de impressao |
 | `device-print-jobs` | Fila para o app Android SK210 |
+| `devices` | Gerenciamento de dispositivos (totem, impressora, tela de chamada, SK210) |
 
 > Observacao: o modelo `Organization` existe no banco e participa da autorizacao, mas nao possui um modulo HTTP proprio em `src/modules/organizations`.
 
@@ -181,6 +183,7 @@ npx tsc --noEmit
 | `EventPrinter` | Impressora vinculada ao evento |
 | `EventPrintJob` | Job de impressao gerado para um pedido |
 | `EventClosing` | Fechamento do evento com resumo financeiro |
+| `Device` | Dispositivo vinculado a organizacao ou evento (totem, impressora, tela de chamada, SK210) |
 
 ## Regras De Negocio
 
@@ -379,6 +382,19 @@ Eventos emitidos:
 | `PATCH` | `/device/print-jobs/:printJobId/printed` | Sim | Marca job como impresso pelo device |
 | `PATCH` | `/device/print-jobs/:printJobId/error` | Sim | Marca job com erro pelo device |
 
+### Dispositivos
+
+| Metodo | Endpoint | Protegido | Descricao |
+| --- | --- | --- | --- |
+| `POST` | `/devices` | Sim | Cria dispositivo |
+| `GET` | `/devices` | Sim | Lista dispositivos da organizacao |
+| `GET` | `/devices/:id` | Sim | Busca dispositivo por ID |
+| `PATCH` | `/devices/:id` | Sim | Atualiza dispositivo |
+| `POST` | `/devices/:id/regenerate-credentials` | Sim | Regera credenciais do dispositivo |
+| `POST` | `/devices/activate` | Nao | Ativa dispositivo usando codigo e segredo |
+| `GET` | `/devices/me/config` | Dispositivo | Retorna configuracoes do dispositivo autenticado |
+| `POST` | `/devices/heartbeat` | Dispositivo | Envia heartbeat do dispositivo |
+
 ## Payloads De Exemplo
 
 ### Login
@@ -491,6 +507,7 @@ Eventos emitidos:
 - Emissao de eventos via Socket.IO
 - Cadastro de impressoras e fila de impressao
 - Integracao com app Android SK210
+- Gerenciamento de dispositivos (totem, impressora, tela de chamada, SK210)
 
 ### Evolucoes Naturais
 

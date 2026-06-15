@@ -2,10 +2,11 @@ import { FastifyInstance } from 'fastify'
 
 import { verifyJWT } from '../../auth/middlewares/verify-jwt.js'
 import { verifyDeviceJWT } from '../middlewares/verify-device-jwt.js'
+
 import { deviceHeartbeatController } from '../controllers/device-heartbeat-controller.js'
-
-
-
+import { listDevicePendingPrintJobsController } from '../controllers/list-device-pending-print-jobs-controller.js'
+import { markDevicePrintJobPrintedController } from '../controllers/mark-device-print-job-printed-controller.js'
+import { markDevicePrintJobErrorController } from '../controllers/mark-device-print-job-error-controller.js'
 
 import { activateDeviceController } from '../controllers/activate-device-controller.js'
 import { createDeviceController } from '../controllers/create-device-controller.js'
@@ -18,7 +19,7 @@ import { getDeviceConfigController } from '../controllers/get-device-config-cont
 export async function devicesRoutes(
   app: FastifyInstance
 ) {
-  // Rotas públicas do dispositivo
+  // Rotas públicas / device
   app.post(
     '/devices/activate',
     activateDeviceController
@@ -30,6 +31,38 @@ export async function devicesRoutes(
       preHandler: verifyDeviceJWT
     },
     getDeviceConfigController
+  )
+
+  app.post(
+    '/devices/heartbeat',
+    {
+      preHandler: verifyDeviceJWT
+    },
+    deviceHeartbeatController
+  )
+
+  app.get(
+    '/devices/print-jobs/pending',
+    {
+      preHandler: verifyDeviceJWT
+    },
+    listDevicePendingPrintJobsController
+  )
+
+  app.patch(
+    '/devices/print-jobs/:id/printed',
+    {
+      preHandler: verifyDeviceJWT
+    },
+    markDevicePrintJobPrintedController
+  )
+
+  app.patch(
+    '/devices/print-jobs/:id/error',
+    {
+      preHandler: verifyDeviceJWT
+    },
+    markDevicePrintJobErrorController
   )
 
   // Rotas administrativas
@@ -62,11 +95,4 @@ export async function devicesRoutes(
     '/devices/:id/regenerate-credentials',
     regenerateDeviceCredentialsController
   )
-  app.post(
-  '/devices/heartbeat',
-  {
-    preHandler: verifyDeviceJWT
-  },
-  deviceHeartbeatController
-)
 }
