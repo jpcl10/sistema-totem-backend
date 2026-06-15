@@ -7,6 +7,8 @@ import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create
 interface CreateOrderServiceRequest {
   eventSlug: string
 
+  deviceId?: string | null
+
   customerName?: string
 
   paymentStatus?: PaymentStatus
@@ -20,6 +22,7 @@ interface CreateOrderServiceRequest {
 export class CreateOrderService {
   async execute({
     eventSlug,
+    deviceId,
     customerName,
     paymentStatus,
     items
@@ -33,6 +36,30 @@ export class CreateOrderService {
 
     if (!event) {
       throw new Error('Event not found')
+    }
+
+    if (deviceId) {
+      const device = await prisma.device.findFirst({
+        where: {
+          id: deviceId,
+          organizationId: event.organizationId,
+          OR: [
+            {
+              eventId: event.id
+            },
+            {
+              eventId: null
+            }
+          ]
+        },
+        select: {
+          id: true
+        }
+      })
+
+      if (!device) {
+        throw new Error('Device not allowed for this event')
+      }
     }
 
     const eventProductIds = items.map(
@@ -120,6 +147,7 @@ export class CreateOrderService {
       const createdOrder = await tx.order.create({
         data: {
           eventId: event.id,
+          deviceId: deviceId ?? null,
           customerName,
           orderNumber: nextOrderNumber,
           paymentStatus: paymentStatus ?? PaymentStatus.PENDING,
@@ -129,6 +157,15 @@ export class CreateOrderService {
           }
         },
         include: {
+          device: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              type: true,
+              locationName: true
+            }
+          },
           items: {
             include: {
               catalogProduct: {

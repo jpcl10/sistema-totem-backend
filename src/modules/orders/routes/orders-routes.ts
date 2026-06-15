@@ -1,8 +1,10 @@
 import { FastifyInstance } from 'fastify'
-import { listPublicCallScreenOrdersController } from '../controllers/list-public-call-screen-orders-controller.js'
-import { verifyJWT } from '../../auth/middlewares/verify-jwt.js'
-import { markOrderPaymentController } from '../controllers/mark-order-payment-controller.js'
 
+import { verifyJWT } from '../../auth/middlewares/verify-jwt.js'
+import { tryVerifyDeviceJWT } from '../../devices/middlewares/try-verify-device-jwt.js'
+
+import { listPublicCallScreenOrdersController } from '../controllers/list-public-call-screen-orders-controller.js'
+import { markOrderPaymentController } from '../controllers/mark-order-payment-controller.js'
 import { createOrderController } from '../controllers/create-order-controller.js'
 import { getEventFinancialSummaryController } from '../controllers/get-event-financial-summary-controller.js'
 import { listOrdersController } from '../controllers/list-orders-controller.js'
@@ -14,6 +16,9 @@ export async function ordersRoutes(
 ) {
   app.post(
     '/public/events/:slug/orders',
+    {
+      preHandler: [tryVerifyDeviceJWT]
+    },
     createOrderController
   )
 
@@ -56,7 +61,7 @@ export async function ordersRoutes(
     },
     markOrderPaymentController
   )
-  
+
   app.get(
     '/public/events/:slug/orders',
     listPublicCallScreenOrdersController
@@ -66,6 +71,4 @@ export async function ordersRoutes(
     '/public/events/:slug/call-screen-orders',
     listPublicCallScreenOrdersController
   )
-
 }
-

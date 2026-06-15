@@ -21,6 +21,7 @@ export async function createOrderController(
 
   const { order } = await createOrderService.execute({
     eventSlug: slug,
+    deviceId: request.device?.deviceId ?? null,
     customerName,
     paymentStatus,
     items

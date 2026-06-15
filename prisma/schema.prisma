@@ -200,6 +200,8 @@ model Order {
   id      String @id @default(cuid())
   eventId String
 
+  deviceId String?
+
   customerName String?
   orderNumber  Int
 
@@ -221,10 +223,12 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
-  event               Event                @relation(fields: [eventId], references: [id])
-  items               OrderItem[]
-  printJobs           EventPrintJob[]
+  event    Event      @relation(fields: [eventId], references: [id])
+  device   Device?              @relation(fields: [deviceId], references: [id])
+  items    OrderItem[]
+  printJobs EventPrintJob[]
   paymentTransactions PaymentTransaction[]
+  @@index([deviceId])
 }
 
 model OrderItem {
@@ -492,6 +496,7 @@ model Device {
 
   lastSeenAt DateTime?
   lastHeartbeatAt DateTime?
+  lastActivatedAt DateTime?
 
   lastIpAddress String?
   lastUserAgent String?
@@ -504,9 +509,12 @@ model Device {
   organization Organization @relation(fields: [organizationId], references: [id])
   event Event? @relation(fields: [eventId], references: [id])
 
+  orders Order[]
+
   @@index([organizationId])
   @@index([eventId])
   @@index([status])
   @@index([authStatus])
   @@index([type])
+  
 }
