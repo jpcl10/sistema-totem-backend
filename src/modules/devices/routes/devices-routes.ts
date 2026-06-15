@@ -19,7 +19,6 @@ import { getDeviceConfigController } from '../controllers/get-device-config-cont
 export async function devicesRoutes(
   app: FastifyInstance
 ) {
-  // Rotas públicas / device
   app.post(
     '/devices/activate',
     activateDeviceController
@@ -65,34 +64,43 @@ export async function devicesRoutes(
     markDevicePrintJobErrorController
   )
 
-  // Rotas administrativas
-  app.addHook(
-    'preHandler',
-    verifyJWT
-  )
-
   app.post(
     '/devices',
+    {
+      preHandler: verifyJWT
+    },
     createDeviceController
   )
 
   app.get(
     '/devices',
+    {
+      preHandler: verifyJWT
+    },
     listDevicesController
   )
 
   app.get(
     '/devices/:id',
+    {
+      preHandler: verifyJWT
+    },
     getDeviceController
   )
 
   app.patch(
     '/devices/:id',
+    {
+      preHandler: verifyJWT
+    },
     updateDeviceController
   )
 
   app.post(
     '/devices/:id/regenerate-credentials',
+    {
+      preHandler: verifyJWT
+    },
     regenerateDeviceCredentialsController
   )
 }

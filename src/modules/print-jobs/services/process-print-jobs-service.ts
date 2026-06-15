@@ -23,7 +23,14 @@ export class ProcessPrintJobsService {
   async execute() {
     const jobs = await prisma.eventPrintJob.findMany({
       where: {
-        status: 'PENDING'
+        status: 'PENDING',
+
+        /**
+         * IMPORTANTE:
+         * Jobs com deviceId são processados pelo APK/SK210.
+         * O worker do backend só deve processar impressoras legadas.
+         */
+        deviceId: null
       },
       include: {
         printer: true,
@@ -38,30 +45,14 @@ export class ProcessPrintJobsService {
 
     for (const job of jobs) {
       try {
-        /**
-         * Se a impressão estiver desativada no evento,
-         * não processa agora.
-         *
-         * Mantém PENDING para não perder a comanda.
-         */
         if (!job.event.printingEnabled) {
           continue
         }
 
-        /**
-         * Se impressão automática estiver desativada,
-         * não processa automaticamente.
-         *
-         * Mantém PENDING para impressão manual ou futura.
-         */
         if (!job.event.autoPrintEnabled) {
           continue
         }
 
-        /**
-         * Se o job não tiver impressora vinculada,
-         * aí sim é erro de configuração.
-         */
         if (!job.printer) {
           await prisma.eventPrintJob.update({
             where: {
@@ -76,9 +67,6 @@ export class ProcessPrintJobsService {
           continue
         }
 
-        /**
-         * Impressora inativa não deve receber impressão.
-         */
         if (!job.printer.active) {
           await prisma.eventPrintJob.update({
             where: {
@@ -93,31 +81,12 @@ export class ProcessPrintJobsService {
           continue
         }
 
-        /**
-         * IMPORTANTE:
-         *
-         * Impressora SK210_LOCAL não deve ser impressa pelo backend.
-         * Ela será processada pelo app Android instalado no totem.
-         *
-         * Então o backend deixa o job como PENDING.
-         * O app Android vai buscar em:
-         *
-         * GET /device/print-jobs/pending
-         *
-         * Depois o app marca como:
-         *
-         * PATCH /device/print-jobs/:id/printed
-         * ou
-         * PATCH /device/print-jobs/:id/error
-         */
         if (job.printer.connectionType === 'SK210_LOCAL') {
           continue
         }
 
-        /**
-         * A partir daqui, o backend só processa TCP/IP.
-         */
-        const printerDriver = PrinterFactory.getPrinter(job.printer)
+        const printerDriver =
+          PrinterFactory.getPrinter(job.printer)
 
         if (!printerDriver) {
           await prisma.eventPrintJob.update({
@@ -134,7 +103,8 @@ export class ProcessPrintJobsService {
           continue
         }
 
-        const payload = job.payload as PrintPayload
+        const payload =
+          job.payload as PrintPayload
 
         let content = ''
 
@@ -168,7 +138,8 @@ export class ProcessPrintJobsService {
         content += '------------------------------\n\n'
 
         if (payload.totalInCents !== undefined) {
-          const total = payload.totalInCents / 100
+          const total =
+            payload.totalInCents / 100
 
           content += `Total: R$ ${total
             .toFixed(2)

@@ -3,12 +3,14 @@ import { prisma } from '../../../lib/prisma.js'
 interface MarkDevicePrintJobErrorServiceRequest {
   printJobId: string
   deviceId: string
+  errorMessage?: string | null
 }
 
 export class MarkDevicePrintJobErrorService {
   async execute({
     printJobId,
-    deviceId
+    deviceId,
+    errorMessage
   }: MarkDevicePrintJobErrorServiceRequest) {
     const printJob =
       await prisma.eventPrintJob.findFirst({
@@ -28,7 +30,9 @@ export class MarkDevicePrintJobErrorService {
           id: printJobId
         },
         data: {
-          status: 'ERROR'
+          status: 'ERROR',
+          errorMessage:
+            errorMessage ?? 'Erro não informado pelo dispositivo'
         }
       })
 
