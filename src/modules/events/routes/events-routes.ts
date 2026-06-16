@@ -12,7 +12,6 @@ import { listEventsController } from '../controllers/list-events-controller.js'
 import { getEventController } from '../controllers/get-event-controller.js'
 import { updateEventController } from '../controllers/update-event-controller.js'
 import { getPublicEventMenuController } from '../controllers/get-public-event-menu-controller.js'
-import { uploadEventLogoController } from '../controllers/upload-event-logo-controller.js'
 import { closeEventController } from '../controllers/close-event-controller.js'
 export async function eventsRoutes(app: FastifyInstance) 
 
@@ -54,13 +53,6 @@ export async function eventsRoutes(app: FastifyInstance)
   app.get(
   '/public/events/:slug/menu',
   getPublicEventMenuController
-  )
-  app.post(
-  '/events/:id/logo',
-  {
-    preHandler: [verifyJWT]
-  },
-  uploadEventLogoController
   )
   app.get(
   '/public/events/:slug/catalog-menu',

@@ -14,10 +14,6 @@ build/
 /generated/prisma/
 node_modules/.prisma/
 
-# Uploads dos usuários/eventos
-uploads/*
-!uploads/.gitkeep
-
 # Logs
 *.log
 logs/

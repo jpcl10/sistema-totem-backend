@@ -2,10 +2,6 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
-import fastifyStatic from '@fastify/static'
-
-// Node
-import path from 'node:path'
 
 // Modules
 import { uploadsRoutes } from './modules/uploads/routes/uploads-routes.js'
@@ -44,11 +40,6 @@ app.register(cors, {
 })
 
 app.register(multipart)
-
-app.register(fastifyStatic, {
-  root: path.resolve('uploads'),
-  prefix: '/uploads/'
-})
 
 // Auth
 app.register(authRoutes)

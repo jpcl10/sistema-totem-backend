@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { r2UrlSchema } from '../../../shared/utils/r2-url-schema.js'
+
 export const updateEventSchema = z.object({
   name: z.string().min(2).optional(),
   slug: z.string().min(2).optional(),
@@ -7,13 +9,11 @@ export const updateEventSchema = z.object({
   primaryColor: z.string().optional(),
   secondaryColor: z.string().optional(),
 
-  logoUrl: z.string()
-    .url()
+  logoUrl: r2UrlSchema
     .optional()
     .nullable(),
 
-  bannerUrl: z.string()
-    .url()
+  bannerUrl: r2UrlSchema
     .optional()
     .nullable(),
 

@@ -37,8 +37,9 @@ Fluxo operacional principal:
 | JWT | Autenticacao de usuarios e dispositivos |
 | Zod | Validacao de payloads |
 | Mercado Pago SDK | PIX automatico e consulta de pagamentos |
+| Cloudflare R2 | Armazenamento de imagens |
+| AWS SDK S3 | Integracao com o bucket R2 |
 | `@fastify/multipart` | Upload de arquivos |
-| `@fastify/static` | Servir arquivos enviados |
 
 ## Funcionalidades Atuais
 
@@ -104,7 +105,6 @@ backend/
 │  │  └─ utils/
 │  ├─ app.ts
 │  └─ server.ts
-├─ uploads/
 ├─ package.json
 └─ tsconfig.json
 ```
@@ -156,6 +156,11 @@ MERCADO_PAGO_ACCESS_TOKEN=""
 MERCADO_PAGO_PUBLIC_KEY=""
 MERCADO_PAGO_WEBHOOK_SECRET=""
 MERCADO_PAGO_WEBHOOK_URL=""
+R2_ACCOUNT_ID=""
+R2_ACCESS_KEY_ID=""
+R2_SECRET_ACCESS_KEY=""
+R2_BUCKET_NAME=""
+R2_PUBLIC_URL=""
 ```
 
 | Variavel | Obrigatoria | Descricao |
@@ -166,12 +171,18 @@ MERCADO_PAGO_WEBHOOK_URL=""
 | `MERCADO_PAGO_PUBLIC_KEY` | Recomendado para frontend | Chave publica usada no checkout |
 | `MERCADO_PAGO_WEBHOOK_SECRET` | Recomendado | Segredo para validacao do webhook |
 | `MERCADO_PAGO_WEBHOOK_URL` | Recomendado | URL publica configurada no Mercado Pago |
+| `R2_ACCOUNT_ID` | Sim para upload | Account ID do Cloudflare R2 |
+| `R2_ACCESS_KEY_ID` | Sim para upload | Access key do bucket R2 |
+| `R2_SECRET_ACCESS_KEY` | Sim para upload | Secret key do bucket R2 |
+| `R2_BUCKET_NAME` | Sim para upload | Nome do bucket usado para imagens |
+| `R2_PUBLIC_URL` | Sim para URLs publicas | Base publica usada para compor URLs completas das imagens |
 
 Importante:
 
 - Nunca commite tokens reais, chaves ou segredos no repositorio.
 - O arquivo `.env` deve permanecer fora do versionamento.
 - Em ambientes compartilhados, prefira secrets do provedor de deploy.
+- Todas as imagens devem ser armazenadas e servidas pelo Cloudflare R2.
 
 ## Como Rodar Localmente
 
@@ -186,7 +197,6 @@ Observacoes:
 
 - O servidor HTTP sobe na porta `3333`.
 - O Socket.IO compartilha o mesmo servidor HTTP.
-- Uploads ficam disponiveis em `/uploads/*`.
 - O worker interno de impressao roda a cada `3` segundos.
 - O job de expiracao de PIX roda a cada `30` segundos.
 
@@ -287,7 +297,6 @@ Recomendacoes:
 | `GET` | `/events` | Lista eventos |
 | `GET` | `/events/:id` | Busca evento por ID |
 | `PATCH` | `/events/:id` | Atualiza configuracoes do evento |
-| `POST` | `/events/:id/logo` | Upload de logo |
 | `PATCH` | `/events/:eventId/archive` | Arquiva evento |
 | `PATCH` | `/events/:eventId/restore` | Restaura evento |
 | `POST` | `/events/:eventId/close` | Fecha evento |
@@ -306,7 +315,6 @@ Rotas relacionadas ao catalogo:
 | `POST` | `/catalog/products` | Cria produto |
 | `GET` | `/catalog/products` | Lista produtos |
 | `PATCH` | `/catalog/products/:id` | Atualiza produto |
-| `POST` | `/catalog/products/:id/image` | Upload de imagem do produto |
 | `POST` | `/events/:eventId/catalog-products` | Vincula produto ao evento |
 | `GET` | `/events/:eventId/catalog-products` | Lista produtos do evento |
 | `PATCH` | `/events/:eventId/catalog-products/:eventProductId` | Atualiza produto do evento |
@@ -387,6 +395,12 @@ Rotas relacionadas ao catalogo:
 | `GET` | `/public/events/:slug/call-screen-orders` | Tela publica de chamada |
 | `GET` | `/public/orders/:orderId` | Consulta pedido publico |
 | `POST` | `/public/orders/:orderId/checkout-payment` | Prepara checkout publico |
+
+### Uploads
+
+| Metodo | Rota | Descricao |
+| --- | --- | --- |
+| `POST` | `/uploads/images` | Faz upload de imagem para o Cloudflare R2 e retorna a URL publica |
 
 ## Jobs
 
@@ -487,7 +501,7 @@ Eventos principais:
 - Ao aprovar pagamento, o pedido e sincronizado para `PAID`
 - Valores monetarios sao armazenados em centavos
 - Cancelamento pode restaurar estoque quando `restoreStock = true`
-- Arquivos enviados sao expostos em `/uploads/*`
+- Arquivos enviados geram URLs publicas completas do Cloudflare R2
 
 ## Changelog Resumido
 

@@ -15,6 +15,15 @@ export async function uploadImageController(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
+  const publicBaseUrl =
+    process.env.R2_PUBLIC_URL?.replace(/\/+$/, '')
+
+  if (!publicBaseUrl) {
+    return reply.status(500).send({
+      message: 'R2_PUBLIC_URL não configurada'
+    })
+  }
+
   const organizationId = request.user.organizationId
 
   const file = await request.file()
@@ -58,13 +67,8 @@ export async function uploadImageController(
     })
   )
 
-  const publicBaseUrl =
-    process.env.R2_PUBLIC_URL
-
   const imageUrl =
-    publicBaseUrl
-      ? `${publicBaseUrl}/${key}`
-      : key
+    `${publicBaseUrl}/${key}`
 
   return reply.status(201).send({
     imageUrl,

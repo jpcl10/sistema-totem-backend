@@ -3,7 +3,6 @@ import { listCatalogProductsController } from '../controllers/list-catalog-produ
 import { verifyJWT } from '../../../auth/middlewares/verify-jwt.js'
 import { updateCatalogProductController } from '../controllers/update-catalog-product-controller.js'
 import { createCatalogProductController } from '../controllers/create-catalog-product-controller.js'
-import { uploadCatalogProductImageController } from '../controllers/upload-catalog-product-image-controller.js'
 
 export async function catalogProductsRoutes(
   app: FastifyInstance
@@ -29,12 +28,4 @@ export async function catalogProductsRoutes(
     },
     updateCatalogProductController
   )
-  app.post(
-    '/catalog/products/:id/image',
-    {
-      preHandler: [verifyJWT]
-    },
-    uploadCatalogProductImageController
-  )
-
 }

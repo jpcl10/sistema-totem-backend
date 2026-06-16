@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { r2UrlSchema } from '../../../../shared/utils/r2-url-schema.js'
+
 export const createCatalogProductSchema =
   z.object({
     categoryId: z.string(),
@@ -10,5 +12,5 @@ export const createCatalogProductSchema =
 
     description: z.string().optional(),
 
-    imageUrl: z.string().optional()
+    imageUrl: r2UrlSchema.optional()
   })
