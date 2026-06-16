@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { preparePublicCheckoutPaymentController } from '../controllers/prepare-public-checkout-payment-controller.js'
 import { mercadoPagoWebhookController } from '../controllers/mercado-pago-webhook-controller.js'
-
+import { expirePendingPixPaymentsController } from '../controllers/expire-pending-pix-payments-controller.js'
 import { verifyJWT } from '../../auth/middlewares/verify-jwt.js'
 import { createPaymentTransactionController } from '../controllers/create-payment-transaction-controller.js'
 import { listOrderPaymentTransactionsController } from '../controllers/list-order-payment-transactions-controller.js'
@@ -57,5 +57,9 @@ app.post(
 app.post(
   '/webhooks/mercado-pago',
   mercadoPagoWebhookController
+)
+app.post(
+  '/expire-pending-pix-payments',
+  expirePendingPixPaymentsController
 )
 }

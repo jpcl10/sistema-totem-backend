@@ -48,6 +48,18 @@ function toSafeString(value: unknown): string | null {
   }
 }
 
+function toIsoDate(value: Date | string | null | undefined) {
+  if (!value) {
+    return undefined
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString()
+  }
+
+  return new Date(value).toISOString()
+}
+
 function getMercadoPagoErrorDetails(
   error: unknown
 ): MercadoPagoErrorDetails {
@@ -108,6 +120,7 @@ export class MercadoPagoProvider implements PaymentProviderAdapter {
   async createPayment(
     data: CreatePaymentProviderRequest
   ): Promise<CreatePaymentProviderResponse> {
+    console.log('CHAMOU MERCADO PAGO PROVIDER', data)
     const externalReference =
       `mp-${data.orderId}-${Date.now()}`
 
@@ -218,41 +231,63 @@ export class MercadoPagoProvider implements PaymentProviderAdapter {
     }
 
     try {
-      const client = new MercadoPagoConfig({
-        accessToken
-      })
+      const client =
+        new MercadoPagoConfig({
+          accessToken
+        })
 
-      const payment = new Payment(client)
+      const payment =
+        new Payment(client)
 
-    const result = await payment.create({
-      body: {
-      transaction_amount: data.amountInCents / 100,
-      description:
-      data.description ?? `Pedido ${data.orderId}`,
-      payment_method_id: 'pix',
-      external_reference: externalReference,
-      payer: {
-        email:
-        data.payerEmail ??
-        'pix@sistema-totem.local',
-        first_name:
-        data.payerName ?? 'Cliente'
-        },
-        metadata: {
-          organizationId: data.organizationId,
-          orderId: data.orderId
-        }
-      },
-      requestOptions: {
-        idempotencyKey: externalReference
-      }
-    })
+      const dateOfExpiration =
+        toIsoDate(data.expiresAt)
+      console.log('PIX DATE OF EXPIRATION', {
+        expiresAt: data.expiresAt,
+        dateOfExpiration
+        })
+
+      const result =
+        await payment.create({
+          body: {
+            transaction_amount:
+              data.amountInCents / 100,
+
+            description:
+              data.description ?? `Pedido ${data.orderId}`,
+
+            payment_method_id: 'pix',
+
+            external_reference:
+              externalReference,
+
+            date_of_expiration:
+              dateOfExpiration,
+
+            payer: {
+              email:
+                data.payerEmail ??
+                'cliente@email.com',
+
+              first_name:
+                data.payerName ?? 'Cliente'
+            },
+
+            metadata: {
+              organizationId: data.organizationId,
+              orderId: data.orderId
+            }
+          },
+          requestOptions: {
+            idempotencyKey: externalReference
+          }
+        })
 
       const mercadoPagoPayment =
         result as any
 
       const transactionData =
-        mercadoPagoPayment.point_of_interaction?.transaction_data
+        mercadoPagoPayment.point_of_interaction
+          ?.transaction_data
 
       return {
         provider: PaymentProvider.MERCADO_PAGO,
@@ -288,7 +323,9 @@ export class MercadoPagoProvider implements PaymentProviderAdapter {
           mercadoPagoPaymentId:
             mercadoPagoPayment.id ?? null,
           ticketUrl:
-            transactionData?.ticket_url ?? null
+            transactionData?.ticket_url ?? null,
+          expiresAt:
+            dateOfExpiration ?? null
         }
       }
     } catch (error) {

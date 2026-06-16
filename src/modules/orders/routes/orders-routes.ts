@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 
 import { verifyJWT } from '../../auth/middlewares/verify-jwt.js'
 import { tryVerifyDeviceJWT } from '../../devices/middlewares/try-verify-device-jwt.js'
+import { getPublicOrderController } from '../controllers/get-public-order-controller.js'
 
 import { listPublicCallScreenOrdersController } from '../controllers/list-public-call-screen-orders-controller.js'
 import { markOrderPaymentController } from '../controllers/mark-order-payment-controller.js'
@@ -70,5 +71,10 @@ export async function ordersRoutes(
   app.get(
     '/public/events/:slug/call-screen-orders',
     listPublicCallScreenOrdersController
+  )
+
+  app.get(
+    '/public/orders/:orderId',
+    getPublicOrderController
   )
 }

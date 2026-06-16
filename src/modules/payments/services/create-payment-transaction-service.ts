@@ -44,7 +44,12 @@ export class CreatePaymentTransactionService {
         paymentStatus: true,
         eventId: true,
         orderNumber: true,
-        customerName: true
+        customerName: true,
+        event: {
+          select: {
+            pixPaymentExpirationMinutes: true
+          }
+        }
       }
     })
 
@@ -62,19 +67,38 @@ export class CreatePaymentTransactionService {
     const finalMethod =
       method ?? PaymentMethod.OTHER
 
+    const expirationMinutes =
+      order.event.pixPaymentExpirationMinutes ?? 5
+
+    const safeExpirationMinutes =
+      Math.min(
+        Math.max(expirationMinutes, 2),
+        15
+      )
+
+    const expiresAt =
+      provider === PaymentProvider.MERCADO_PAGO &&
+      finalMethod === PaymentMethod.PIX_AUTOMATIC
+        ? new Date(
+            Date.now() +
+              safeExpirationMinutes * 60 * 1000
+          )
+        : null
+
     const paymentProvider =
       makePaymentProvider(provider)
 
     const providerResponse =
-    await paymentProvider.createPayment({
-    organizationId,
-    orderId: order.id,
-    amountInCents: finalAmountInCents,
-    method: finalMethod,
-    description: `Pedido #${order.orderNumber}`,
-    payerName: order.customerName,
-    metadata
-  })
+      await paymentProvider.createPayment({
+        organizationId,
+        orderId: order.id,
+        amountInCents: finalAmountInCents,
+        method: finalMethod,
+        description: `Pedido #${order.orderNumber}`,
+        payerName: order.customerName,
+        expiresAt,
+        metadata
+      })
 
     const paymentTransaction =
       await prisma.paymentTransaction.create({
@@ -94,6 +118,8 @@ export class CreatePaymentTransactionService {
           qrCode: providerResponse.qrCode ?? null,
           qrCodeBase64: providerResponse.qrCodeBase64 ?? null,
           pixCopyPaste: providerResponse.pixCopyPaste ?? null,
+
+          expiresAt,
 
           gatewayStatus:
             providerResponse.gatewayStatus ??

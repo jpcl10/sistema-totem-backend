@@ -167,6 +167,8 @@ model Event {
   pixCity         String?
   pixInstructions String?
 
+   pixPaymentExpirationMinutes Int @default(5)
+
   printingEnabled  Boolean   @default(false)
   autoPrintEnabled Boolean   @default(false)
   printMode        PrintMode @default(FULL_ORDER)
@@ -274,6 +276,7 @@ model PaymentTransaction {
   cancelledAt DateTime?
   refundedAt  DateTime?
   expiredAt   DateTime?
+  expiresAt   DateTime?
 
   errorMessage String?
 
@@ -287,6 +290,7 @@ model PaymentTransaction {
   @@index([orderId])
   @@index([provider])
   @@index([status])
+  @@index([expiresAt])
   @@unique([provider, externalId])
 }
 

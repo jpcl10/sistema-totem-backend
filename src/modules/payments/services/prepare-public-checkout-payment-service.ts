@@ -42,6 +42,10 @@ export class PreparePublicCheckoutPaymentService {
       throw new Error('Order not found')
     }
 
+    const isPaymentConfirmed =
+      order.paymentStatus === PaymentStatus.PAID ||
+      order.paymentStatus === PaymentStatus.NOT_REQUIRED
+
     const manualPix = {
       enabled: order.event.pixEnabled,
       pixKey: order.event.pixEnabled ? order.event.pixKey : null,
@@ -54,9 +58,10 @@ export class PreparePublicCheckoutPaymentService {
         : null
     }
 
-    if (order.paymentStatus === PaymentStatus.PAID) {
+    if (isPaymentConfirmed) {
       return {
         paymentStep: 'paid',
+        isPaymentConfirmed: true,
         order,
         manualPix,
         paymentTransaction: null,
@@ -70,6 +75,7 @@ export class PreparePublicCheckoutPaymentService {
     ) {
       return {
         paymentStep: 'operator',
+        isPaymentConfirmed: false,
         order,
         manualPix,
         paymentTransaction: null,
@@ -103,6 +109,7 @@ export class PreparePublicCheckoutPaymentService {
       if (manualPix.enabled) {
         return {
           paymentStep: 'pix_manual',
+          isPaymentConfirmed: false,
           order,
           manualPix,
           paymentTransaction: null,
@@ -112,6 +119,7 @@ export class PreparePublicCheckoutPaymentService {
 
       return {
         paymentStep: 'operator',
+        isPaymentConfirmed: false,
         order,
         manualPix,
         paymentTransaction: null,
@@ -142,6 +150,7 @@ export class PreparePublicCheckoutPaymentService {
     ) {
       return {
         paymentStep: 'pix_automatic',
+        isPaymentConfirmed: false,
         order,
         manualPix,
         paymentTransaction: existingWaitingTransaction,
@@ -176,6 +185,7 @@ export class PreparePublicCheckoutPaymentService {
     ) {
       return {
         paymentStep: 'pix_automatic',
+        isPaymentConfirmed: false,
         order,
         manualPix,
         paymentTransaction,
@@ -186,6 +196,7 @@ export class PreparePublicCheckoutPaymentService {
     if (manualPix.enabled) {
       return {
         paymentStep: 'pix_manual',
+        isPaymentConfirmed: false,
         order,
         manualPix,
         paymentTransaction,
@@ -195,6 +206,7 @@ export class PreparePublicCheckoutPaymentService {
 
     return {
       paymentStep: 'operator',
+      isPaymentConfirmed: false,
       order,
       manualPix,
       paymentTransaction,

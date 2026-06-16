@@ -13,6 +13,7 @@ export interface CreatePaymentProviderRequest {
   description?: string | null
   payerEmail?: string | null
   payerName?: string | null
+  expiresAt?: Date | string | null
   metadata?: Prisma.InputJsonValue | null
 }
 
