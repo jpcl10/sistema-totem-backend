@@ -11,7 +11,8 @@ export async function mercadoPagoWebhookController(
 
   const result = await mercadoPagoWebhookService.execute({
     body: request.body,
-    query: request.query
+    query: request.query,
+    headers: request.headers
   })
 
   return reply.status(200).send(result)

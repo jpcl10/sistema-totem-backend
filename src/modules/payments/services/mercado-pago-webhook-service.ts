@@ -1,8 +1,10 @@
 import {
+  OrderStatus,
   PaymentProvider,
   PaymentStatus,
   PaymentTransactionStatus
 } from '@prisma/client'
+import crypto from 'node:crypto'
 import {
   MercadoPagoConfig,
   Payment
@@ -15,6 +17,7 @@ import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create
 interface MercadoPagoWebhookServiceRequest {
   body: unknown
   query: unknown
+  headers: Record<string, unknown>
 }
 
 function getNestedValue(
@@ -254,16 +257,13 @@ export class MercadoPagoWebhookService {
         return updated
       })
 
-    if (
-      paymentTransaction.order.paymentStatus !== PaymentStatus.PAID &&
-      updatedOrder.paymentStatus === PaymentStatus.PAID
-      ) {
-    const createPrintJobsForOrderService =
-    new CreatePrintJobsForOrderService()
+    if (updatedOrder.paymentStatus === PaymentStatus.PAID) {
+      const createPrintJobsForOrderService =
+        new CreatePrintJobsForOrderService()
 
-    await createPrintJobsForOrderService.execute({
-      orderId: updatedOrder.id
-    })
+      await createPrintJobsForOrderService.execute({
+        orderId: updatedOrder.id
+      })
     }
 
     io.to(`event:${updatedOrder.eventId}`).emit('order-updated', {
