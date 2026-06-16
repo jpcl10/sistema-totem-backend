@@ -29,6 +29,7 @@ interface UpdateEventServiceRequest {
   pixReceiverName?: string | null
   pixCity?: string | null
   pixInstructions?: string | null
+  pixPaymentExpirationMinutes?: number
 
   printingEnabled?: boolean
   autoPrintEnabled?: boolean
@@ -76,6 +77,7 @@ export class UpdateEventService {
     pixReceiverName,
     pixCity,
     pixInstructions,
+    pixPaymentExpirationMinutes,
 
     printingEnabled,
     autoPrintEnabled,
@@ -183,6 +185,10 @@ export class UpdateEventService {
 
         ...(pixInstructions !== undefined && {
           pixInstructions
+        }),
+
+        ...(pixPaymentExpirationMinutes !== undefined && {
+          pixPaymentExpirationMinutes
         }),
 
         ...(printingEnabled !== undefined && {

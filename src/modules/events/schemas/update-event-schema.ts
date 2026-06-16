@@ -72,6 +72,13 @@ export const updateEventSchema = z.object({
     z.string()
       .optional()
       .nullable(),
+
+  pixPaymentExpirationMinutes:
+    z.number()
+      .int()
+      .min(2)
+      .max(15)
+      .optional(),    
   
   printingEnabled:
   z.boolean().optional(),

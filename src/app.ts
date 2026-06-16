@@ -7,6 +7,9 @@ import fastifyStatic from '@fastify/static'
 // Node
 import path from 'node:path'
 
+// Modules
+import { uploadsRoutes } from './modules/uploads/routes/uploads-routes.js'
+
 // Services
 import { ProcessPrintJobsService } from './modules/print-jobs/services/process-print-jobs-service.js'
 
@@ -73,6 +76,9 @@ app.register(metricsRoutes)
 app.register(printersRoutes)
 app.register(printJobsRoutes)
 app.register(devicePrintJobsRoutes)
+
+// Uploads
+app.register(uploadsRoutes)
 
 // Devices
 app.register(devicesRoutes)
