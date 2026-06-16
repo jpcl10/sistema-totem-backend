@@ -31,6 +31,7 @@ import { printJobsRoutes } from './modules/print-jobs/routes/print-jobs-routes.j
 import { devicePrintJobsRoutes } from './modules/device-print-jobs/routes/device-print-jobs-routes.js'
 
 import { devicesRoutes } from './modules/devices/routes/devices-routes.js'
+import { auditLogsRoutes } from './modules/audit-logs/routes/audit-logs-routes.js'
 
 export const app = Fastify()
 
@@ -73,6 +74,9 @@ app.register(uploadsRoutes)
 
 // Devices
 app.register(devicesRoutes)
+
+// Audit Logs
+app.register(auditLogsRoutes)
 
 app.get('/', async () => {
   return {

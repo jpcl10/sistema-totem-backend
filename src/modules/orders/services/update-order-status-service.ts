@@ -126,9 +126,10 @@ export class UpdateOrderStatusService {
       order: updatedOrder
     })
 
+    const createAuditLogService = new CreateAuditLogService()
+    
     // Audit: ORDER_CANCELLED (manual)
     if (status === 'CANCELLED') {
-      const createAuditLogService = new CreateAuditLogService()
       await createAuditLogService.execute({
         organizationId,
         eventId: order.eventId,
@@ -140,6 +141,22 @@ export class UpdateOrderStatusService {
           orderId: order.id,
           motivo: cancelReason,
           valor: order.totalInCents
+        }
+      })
+    } else {
+      // Audit: ORDER_UPDATED
+      await createAuditLogService.execute({
+        organizationId,
+        eventId: order.eventId,
+        entity: 'Order',
+        entityId: order.id,
+        action: AuditAction.ORDER_UPDATED,
+        description: 'Status do pedido atualizado',
+        metadata: {
+          oldStatus: order.status,
+          newStatus: status,
+          orderNumber: order.orderNumber,
+          paymentStatus: order.paymentStatus
         }
       })
     }

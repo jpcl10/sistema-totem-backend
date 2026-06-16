@@ -209,6 +209,23 @@ export class ProcessPrintJobsService {
             errorMessage: null
           }
         })
+
+        // Audit: PRINT_JOB_PRINTED
+        await createAuditLogService.execute({
+          organizationId: job.event.organizationId,
+          eventId: job.eventId,
+          entity: 'PrintJob',
+          entityId: job.id,
+          action: AuditAction.PRINT_JOB_PRINTED,
+          description: 'Impressão concluída',
+          metadata: {
+            printJobId: job.id,
+            orderId: job.orderId,
+            printerId: job.printerId,
+            sector: job.sector,
+            deviceId: job.deviceId
+          }
+        })
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Print error'

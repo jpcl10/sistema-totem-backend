@@ -1,4 +1,6 @@
 import { prisma } from '../../../../lib/prisma.js'
+import { AuditAction } from '@prisma/client'
+import { CreateAuditLogService } from '../../../audit-logs/services/create-audit-log-service.js'
 
 interface UpdateCatalogProductServiceRequest {
   organizationId: string
@@ -53,6 +55,47 @@ export class UpdateCatalogProductService {
       }
     }
 
+    // Determine which fields were changed
+    const changedFields: string[] = []
+    const auditMetadata: Record<string, any> = {}
+
+    // Check name
+    if (name !== undefined && name !== product.name) {
+      changedFields.push('name')
+      auditMetadata.name = name
+    } else {
+      auditMetadata.name = product.name
+    }
+
+    // Check slug
+    if (slug !== undefined && slug !== product.slug) {
+      changedFields.push('slug')
+      auditMetadata.slug = slug
+    } else {
+      auditMetadata.slug = product.slug
+    }
+
+    // Check active
+    if (active !== undefined && active !== product.active) {
+      changedFields.push('active')
+      auditMetadata.active = active
+    } else {
+      auditMetadata.active = product.active
+    }
+
+    // Check imageUrl
+    if (imageUrl !== undefined && imageUrl !== product.imageUrl) {
+      changedFields.push('imageUrl')
+      auditMetadata.imageUrl = imageUrl
+    } else {
+      auditMetadata.imageUrl = product.imageUrl
+    }
+
+    // Add changed fields to metadata
+    if (changedFields.length > 0) {
+      auditMetadata.changedFields = changedFields
+    }
+
     const updatedProduct =
       await prisma.catalogProduct.update({
         where: {
@@ -84,6 +127,17 @@ export class UpdateCatalogProductService {
           })
         }
       })
+
+    // Create audit log
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId: organizationId,
+      entity: 'CatalogProduct',
+      entityId: updatedProduct.id,
+      action: AuditAction.PRODUCT_UPDATED,
+      description: 'Produto atualizado',
+      metadata: auditMetadata
+    })
 
     return {
       product: updatedProduct
