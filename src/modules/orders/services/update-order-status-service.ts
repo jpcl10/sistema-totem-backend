@@ -1,5 +1,7 @@
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
+import { AuditAction } from '@prisma/client'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface UpdateOrderStatusServiceRequest {
   organizationId: string
@@ -123,6 +125,24 @@ export class UpdateOrderStatusService {
     io.to(`event:${order.eventId}`).emit('order-updated', {
       order: updatedOrder
     })
+
+    // Audit: ORDER_CANCELLED (manual)
+    if (status === 'CANCELLED') {
+      const createAuditLogService = new CreateAuditLogService()
+      await createAuditLogService.execute({
+        organizationId,
+        eventId: order.eventId,
+        entity: 'Order',
+        entityId: order.id,
+        action: AuditAction.ORDER_CANCELLED,
+        description: 'Pedido cancelado manualmente',
+        metadata: {
+          orderId: order.id,
+          motivo: cancelReason,
+          valor: order.totalInCents
+        }
+      })
+    }
 
     return {
       order: updatedOrder

@@ -1,6 +1,7 @@
-import { DeviceType } from '@prisma/client'
+import { DeviceType, AuditAction } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface CreatePrintJobsForOrderServiceRequest {
   orderId: string
@@ -301,6 +302,7 @@ export class CreatePrintJobsForOrderService {
     }
 
     const printJobs = []
+    const createAuditLogService = new CreateAuditLogService()
 
     for (const job of jobsToCreate) {
       const printJob =
@@ -311,6 +313,21 @@ export class CreatePrintJobsForOrderService {
             device: true
           }
         })
+
+      // Audit: PRINT_JOB_CREATED
+      await createAuditLogService.execute({
+        organizationId: order.event.organizationId,
+        eventId: order.eventId,
+        entity: 'PrintJob',
+        entityId: printJob.id,
+        action: AuditAction.PRINT_JOB_CREATED,
+        description: 'Impressão criada',
+        metadata: {
+          printJobId: printJob.id,
+          orderId: order.id,
+          printerId: printJob.printerId
+        }
+      })
 
       printJobs.push(printJob)
     }

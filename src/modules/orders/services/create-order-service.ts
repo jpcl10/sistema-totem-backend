@@ -1,8 +1,9 @@
-import { PaymentStatus } from '@prisma/client'
+import { PaymentStatus, AuditAction } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
 import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface CreateOrderServiceRequest {
   eventSlug: string
@@ -215,6 +216,24 @@ export class CreateOrderService {
 
     await createPrintJobsForOrderService.execute({
       orderId: order.id
+    })
+
+    // Audit: ORDER_CREATED
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId: event.organizationId,
+      eventId: event.id,
+      deviceId: deviceId ?? null,
+      entity: 'Order',
+      entityId: order.id,
+      action: AuditAction.ORDER_CREATED,
+      description: 'Pedido criado',
+      metadata: {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerName: order.customerName,
+        totalAmount: order.totalInCents
+      }
     })
 
     return {

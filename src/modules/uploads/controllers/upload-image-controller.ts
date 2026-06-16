@@ -2,8 +2,10 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { PutObjectCommand } from '@aws-sdk/client-s3'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
+import { AuditAction } from '@prisma/client'
 
 import { r2 } from '../../../lib/r2.js'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 const allowedMimeTypes = [
   'image/jpeg',
@@ -40,11 +42,9 @@ export async function uploadImageController(
     })
   }
 
-  const buffer =
-    await file.toBuffer()
+  const buffer = await file.toBuffer()
 
-  const maxSizeInBytes =
-    5 * 1024 * 1024
+  const maxSizeInBytes = 5 * 1024 * 1024
 
   if (buffer.length > maxSizeInBytes) {
     return reply.status(400).send({
@@ -69,6 +69,25 @@ export async function uploadImageController(
 
   const imageUrl =
     `${publicBaseUrl}/${key}`
+
+  const createAuditLogService =
+    new CreateAuditLogService()
+
+  await createAuditLogService.execute({
+    organizationId,
+    userId: null,
+    entity: 'Image',
+    entityId: key,
+    action: AuditAction.IMAGE_UPLOADED,
+    description: 'Imagem enviada para o Cloudflare R2',
+    metadata: {
+      key,
+      imageUrl,
+      originalFilename: file.filename,
+      mimetype: file.mimetype,
+      sizeInBytes: buffer.length
+    }
+  })
 
   return reply.status(201).send({
     imageUrl,

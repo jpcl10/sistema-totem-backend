@@ -115,6 +115,8 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
+  auditLogs AuditLog[]
+
   users                   User[]
   events                  Event[]
   devices Device[]
@@ -133,6 +135,8 @@ model User {
   role           UserRole
   createdAt      DateTime @default(now())
   updatedAt      DateTime @default(now()) @updatedAt
+
+  auditLogs AuditLog[]
 
   organization Organization @relation(fields: [organizationId], references: [id])
   eventClosings EventClosing[]
@@ -153,6 +157,8 @@ model Event {
   totemWelcomeMessage  String?
   totemBackgroundColor String?
   totemTextColor       String?
+
+  auditLogs AuditLog[]
 
   totemShowPrices            Boolean @default(true)
   totemShowLowStock          Boolean @default(true)
@@ -489,6 +495,8 @@ model Device {
   name String
   code String @unique
 
+  auditLogs AuditLog[]
+
   locationName String?
 
   type DeviceType
@@ -525,4 +533,67 @@ model Device {
   @@index([authStatus])
   @@index([type])
   
+}
+enum AuditAction {
+  ORDER_CREATED
+  ORDER_UPDATED
+  ORDER_CANCELLED
+
+  PAYMENT_CREATED
+  PAYMENT_APPROVED
+  PAYMENT_EXPIRED
+  PAYMENT_REJECTED
+  PAYMENT_REFUNDED
+
+  EVENT_CREATED
+  EVENT_UPDATED
+
+  PRODUCT_CREATED
+  PRODUCT_UPDATED
+
+  IMAGE_UPLOADED
+
+  DEVICE_CREATED
+  DEVICE_ACTIVATED
+  DEVICE_REVOKED
+
+  PRINT_JOB_CREATED
+  PRINT_JOB_PRINTED
+  PRINT_JOB_ERROR
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  organizationId String
+  eventId String?
+
+  userId String?
+  deviceId String?
+
+  entity String
+  entityId String?
+
+  action AuditAction
+
+  description String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  event Event? @relation(fields: [eventId], references: [id])
+
+  user User? @relation(fields: [userId], references: [id])
+
+  device Device? @relation(fields: [deviceId], references: [id])
+
+  @@index([organizationId])
+  @@index([eventId])
+  @@index([userId])
+  @@index([deviceId])
+  @@index([action])
+  @@index([createdAt])
 }

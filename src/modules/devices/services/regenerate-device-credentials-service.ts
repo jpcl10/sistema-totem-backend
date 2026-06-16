@@ -1,8 +1,9 @@
 import { randomBytes, createHash } from 'node:crypto'
 
-import { DeviceAuthStatus } from '@prisma/client'
+import { DeviceAuthStatus, AuditAction } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface RegenerateDeviceCredentialsServiceRequest {
   organizationId: string
@@ -42,17 +43,32 @@ export class RegenerateDeviceCredentialsService {
       hashSecret(deviceSecret)
 
     const updatedDevice =
-      await prisma.device.update({
-        where: {
-          id: device.id
-        },
-        data: {
-          deviceSecretHash,
-          authStatus: DeviceAuthStatus.PENDING,
-          tokenHash: null,
-          lastSeenAt: null
-        }
-      })
+        await prisma.device.update({
+          where: {
+            id: device.id
+          },
+          data: {
+            deviceSecretHash,
+            authStatus: DeviceAuthStatus.PENDING,
+            tokenHash: null,
+            lastSeenAt: null
+          }
+        })
+
+    // Audit: DEVICE_REVOKED
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId: updatedDevice.organizationId,
+      eventId: updatedDevice.eventId,
+      entity: 'Device',
+      entityId: updatedDevice.id,
+      action: AuditAction.DEVICE_REVOKED,
+      description: 'Dispositivo revogado, credenciais regeneradas',
+      metadata: {
+        deviceId: updatedDevice.id,
+        code: updatedDevice.code
+      }
+    })
 
     return {
       device: updatedDevice,

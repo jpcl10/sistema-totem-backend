@@ -2,10 +2,12 @@ import { createHash } from 'node:crypto'
 
 import {
   DeviceAuthStatus,
-  DeviceStatus
+  DeviceStatus,
+  AuditAction
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface ActivateDeviceServiceRequest {
   code: string
@@ -103,29 +105,46 @@ export class ActivateDeviceService {
     const now = new Date()
 
     const updatedDevice =
-      await prisma.device.update({
-        where: {
-          id: device.id
-        },
-        data: {
-          tokenHash,
-          authStatus: DeviceAuthStatus.ACTIVE,
-          lastActivatedAt: now,
-          lastSeenAt: now,
-          appVersion: appVersion ?? device.appVersion,
-          lastIpAddress: ipAddress ?? device.lastIpAddress,
-          lastUserAgent: userAgent ?? device.lastUserAgent
-        },
-        include: {
-          event: {
-            select: {
-              id: true,
-              name: true,
-              slug: true
+        await prisma.device.update({
+          where: {
+            id: device.id
+          },
+          data: {
+            tokenHash,
+            authStatus: DeviceAuthStatus.ACTIVE,
+            lastActivatedAt: now,
+            lastSeenAt: now,
+            appVersion: appVersion ?? device.appVersion,
+            lastIpAddress: ipAddress ?? device.lastIpAddress,
+            lastUserAgent: userAgent ?? device.lastUserAgent
+          },
+          include: {
+            event: {
+              select: {
+                id: true,
+                name: true,
+                slug: true
+              }
             }
           }
-        }
-      })
+        })
+
+    // Audit: DEVICE_ACTIVATED
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId: updatedDevice.organizationId,
+      eventId: updatedDevice.eventId,
+      deviceId: updatedDevice.id,
+      entity: 'Device',
+      entityId: updatedDevice.id,
+      action: AuditAction.DEVICE_ACTIVATED,
+      description: 'Dispositivo ativado',
+      metadata: {
+        deviceId: updatedDevice.id,
+        code: updatedDevice.code,
+        appVersion
+      }
+    })
 
     return {
       deviceToken,

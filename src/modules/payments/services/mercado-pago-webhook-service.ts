@@ -2,7 +2,8 @@ import {
   OrderStatus,
   PaymentProvider,
   PaymentStatus,
-  PaymentTransactionStatus
+  PaymentTransactionStatus,
+  AuditAction
 } from '@prisma/client'
 import crypto from 'node:crypto'
 import {
@@ -13,6 +14,7 @@ import {
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
 import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface MercadoPagoWebhookServiceRequest {
   body: unknown
@@ -258,6 +260,24 @@ export class MercadoPagoWebhookService {
       })
 
     if (updatedOrder.paymentStatus === PaymentStatus.PAID) {
+      // Audit: PAYMENT_APPROVED
+      const createAuditLogService = new CreateAuditLogService()
+      await createAuditLogService.execute({
+        organizationId: paymentTransaction.order.event.organizationId,
+        eventId: paymentTransaction.order.eventId,
+        entity: 'PaymentTransaction',
+        entityId: paymentTransaction.id,
+        action: AuditAction.PAYMENT_APPROVED,
+        description: 'Pagamento aprovado via PIX',
+        metadata: {
+          paymentId: paymentTransaction.id,
+          orderId: updatedOrder.id,
+          amountInCents: paymentTransaction.amountInCents,
+          provider: PaymentProvider.MERCADO_PAGO,
+          gatewayStatus: mercadoPagoStatus
+        }
+      })
+
       const createPrintJobsForOrderService =
         new CreatePrintJobsForOrderService()
 

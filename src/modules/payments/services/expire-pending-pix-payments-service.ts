@@ -3,11 +3,13 @@ import {
   PaymentStatus,
   PaymentTransactionStatus,
   PaymentMethod,
-  PaymentProvider
+  PaymentProvider,
+  AuditAction
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 export class ExpirePendingPixPaymentsService {
   async execute() {
@@ -91,6 +93,37 @@ export class ExpirePendingPixPaymentsService {
 
           return order
         })
+
+      // Audit: PAYMENT_EXPIRED
+      const createAuditLogService = new CreateAuditLogService()
+      await createAuditLogService.execute({
+        organizationId: updatedOrder.event.organizationId,
+        eventId: updatedOrder.eventId,
+        entity: 'PaymentTransaction',
+        entityId: transaction.id,
+        action: AuditAction.PAYMENT_EXPIRED,
+        description: 'Pagamento PIX expirado',
+        metadata: {
+          paymentId: transaction.id,
+          orderId: updatedOrder.id,
+          expiresAt: transaction.expiresAt?.toISOString()
+        }
+      })
+
+      // Audit: ORDER_CANCELLED (auto)
+      await createAuditLogService.execute({
+        organizationId: updatedOrder.event.organizationId,
+        eventId: updatedOrder.eventId,
+        entity: 'Order',
+        entityId: updatedOrder.id,
+        action: AuditAction.ORDER_CANCELLED,
+        description: 'Pedido cancelado automaticamente por expiração do PIX',
+        metadata: {
+          orderId: updatedOrder.id,
+          motivo: 'PIX expirado por falta de pagamento',
+          valor: updatedOrder.totalInCents
+        }
+      })
 
       io.to(`event:${updatedOrder.eventId}`).emit(
         'order-updated',

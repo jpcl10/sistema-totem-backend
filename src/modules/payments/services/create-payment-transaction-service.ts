@@ -1,11 +1,13 @@
 import {
   PaymentMethod,
   PaymentProvider,
-  Prisma
+  Prisma,
+  AuditAction
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
 import { makePaymentProvider } from '../providers/payment-provider-factory.js'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface CreatePaymentTransactionServiceRequest {
   organizationId: string
@@ -137,6 +139,22 @@ export class CreatePaymentTransactionService {
             undefined
         }
       })
+
+    // Audit: PAYMENT_CREATED
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId,
+      eventId: order.eventId,
+      entity: 'PaymentTransaction',
+      entityId: paymentTransaction.id,
+      action: AuditAction.PAYMENT_CREATED,
+      description: 'Cobrança PIX criada',
+      metadata: {
+        paymentId: paymentTransaction.id,
+        orderId: order.id,
+        amountInCents: paymentTransaction.amountInCents
+      }
+    })
 
     return {
       paymentTransaction
