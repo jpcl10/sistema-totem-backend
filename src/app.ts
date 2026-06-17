@@ -35,11 +35,40 @@ import { devicePrintJobsRoutes } from './modules/device-print-jobs/routes/device
 import { devicesRoutes } from './modules/devices/routes/devices-routes.js'
 import { auditLogsRoutes } from './modules/audit-logs/routes/audit-logs-routes.js'
 
+const isDevelopment = process.env.NODE_ENV !== 'production'
+
+export const app = Fastify({
+  logger: {
+    level: isDevelopment ? 'debug' : 'info',
+    transport: isDevelopment ? {
+      target: 'pino-pretty',
+      options: {
+        translateTime: 'HH:MM:ss Z',
+        ignore: 'pid,hostname'
+      }
+    } : undefined,
+    redact: {
+      paths: [
+        'req.headers.authorization',
+        'req.headers.cookie',
+        'res.headers["set-cookie"]',
+        'accessToken',
+        'webhookSecret',
+        'jwt',
+        'password',
+        'secret',
+        'secretAccessKey',
+        'accessKeyId',
+        'token'
+      ],
+      censor: '[REDACTED]'
+    }
+  }
+})
+
 // Carregar ALLOWED_ORIGINS
 const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000'
 const allowedOrigins = allowedOriginsEnv.split(',').map(origin => origin.trim())
-
-export const app = Fastify()
 
 app.register(cors, {
   origin: (origin, callback) => {
@@ -130,10 +159,7 @@ setInterval(async () => {
   try {
     await processPrintJobsService.execute()
   } catch (error) {
-    console.error(
-      'Print worker error:',
-      error
-    )
+    app.log.error(error, 'Print worker error')
   }
 }, 3000)
 

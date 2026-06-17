@@ -5,6 +5,7 @@ import path from 'node:path'
 import { AuditAction } from '@prisma/client'
 
 import { r2 } from '../../../lib/r2.js'
+import { logger } from '../../../lib/logger.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 const allowedMimeTypes = [
@@ -21,6 +22,8 @@ export async function uploadImageController(
     process.env.R2_PUBLIC_URL?.replace(/\/+$/, '')
 
   if (!publicBaseUrl) {
+    const error = new Error('R2_PUBLIC_URL não configurada')
+    logger.error(error)
     return reply.status(500).send({
       message: 'R2_PUBLIC_URL não configurada'
     })
@@ -58,39 +61,48 @@ export async function uploadImageController(
   const key =
     `organizations/${organizationId}/images/${randomUUID()}${extension}`
 
-  await r2.send(
-    new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME!,
-      Key: key,
-      Body: buffer,
-      ContentType: file.mimetype
+  try {
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME!,
+        Key: key,
+        Body: buffer,
+        ContentType: file.mimetype
+      })
+    )
+
+    const imageUrl =
+      `${publicBaseUrl}/${key}`
+
+    const createAuditLogService =
+      new CreateAuditLogService()
+
+    await createAuditLogService.execute({
+      organizationId,
+      userId: request.user.sub,
+      entity: 'Image',
+      entityId: key,
+      action: AuditAction.IMAGE_UPLOADED,
+      description: 'Imagem enviada para o Cloudflare R2',
+      metadata: {
+        key,
+        imageUrl,
+        originalFilename: file.filename,
+        mimetype: file.mimetype,
+        sizeInBytes: buffer.length
+      }
     })
-  )
 
-  const imageUrl =
-    `${publicBaseUrl}/${key}`
+    logger.info({ organizationId, key, imageUrl }, 'Imagem enviada para o R2')
 
-  const createAuditLogService =
-    new CreateAuditLogService()
-
-  await createAuditLogService.execute({
-    organizationId,
-    userId: request.user.sub,
-    entity: 'Image',
-    entityId: key,
-    action: AuditAction.IMAGE_UPLOADED,
-    description: 'Imagem enviada para o Cloudflare R2',
-    metadata: {
-      key,
+    return reply.status(201).send({
       imageUrl,
-      originalFilename: file.filename,
-      mimetype: file.mimetype,
-      sizeInBytes: buffer.length
-    }
-  })
-
-  return reply.status(201).send({
-    imageUrl,
-    key
-  })
+      key
+    })
+  } catch (error) {
+    logger.error(error, 'Erro ao enviar imagem para o R2')
+    return reply.status(500).send({
+      message: 'Erro interno ao enviar imagem'
+    })
+  }
 }

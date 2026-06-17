@@ -13,6 +13,7 @@ import {
 
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
+import { logger } from '../../../lib/logger.js'
 import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
@@ -34,7 +35,7 @@ function validateMercadoPagoSignature(
   const webhookSecret = process.env.MERCADO_PAGO_WEBHOOK_SECRET
 
   if (!webhookSecret) {
-    console.error('[Mercado Pago Webhook] Missing MERCADO_PAGO_WEBHOOK_SECRET')
+    logger.error('Missing MERCADO_PAGO_WEBHOOK_SECRET')
     return { valid: false, reason: 'webhook_secret_not_configured' }
   }
 
@@ -42,12 +43,12 @@ function validateMercadoPagoSignature(
   const xRequestId = headers['x-request-id'] as string | undefined
 
   if (!xSignature) {
-    console.error('[Mercado Pago Webhook] Missing x-signature header')
+    logger.error('Missing x-signature header')
     return { valid: false, reason: 'missing_x_signature' }
   }
 
   if (!xRequestId) {
-    console.error('[Mercado Pago Webhook] Missing x-request-id header')
+    logger.error('Missing x-request-id header')
     return { valid: false, reason: 'missing_x_request_id' }
   }
 
@@ -63,12 +64,12 @@ function validateMercadoPagoSignature(
   }
 
   if (!ts) {
-    console.error('[Mercado Pago Webhook] Missing ts in x-signature')
+    logger.error('Missing ts in x-signature')
     return { valid: false, reason: 'missing_ts' }
   }
 
   if (!v1) {
-    console.error('[Mercado Pago Webhook] Missing v1 in x-signature')
+    logger.error('Missing v1 in x-signature')
     return { valid: false, reason: 'missing_v1' }
   }
 
@@ -85,14 +86,14 @@ function validateMercadoPagoSignature(
   const receivedBuffer = Buffer.from(v1, 'hex')
 
   if (expectedBuffer.length !== receivedBuffer.length) {
-    console.error('[Mercado Pago Webhook] Invalid signature length')
+    logger.error('Invalid signature length')
     return { valid: false, reason: 'invalid_signature' }
   }
 
   const isValid = crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
 
   if (!isValid) {
-    console.error('[Mercado Pago Webhook] Invalid signature')
+    logger.error('Invalid signature')
     return { valid: false, reason: 'invalid_signature' }
   }
 
@@ -224,7 +225,7 @@ export class MercadoPagoWebhookService {
       reason: 'payment_transaction_not_found',
       paymentId
     }
-  }
+    }
 
     const mercadoPagoSettings =
       await prisma.paymentProviderSettings.findUnique({

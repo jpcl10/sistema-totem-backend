@@ -6,7 +6,6 @@ import { startExpirePendingPixJob } from './jobs/expire-pending-pix-job.js'
 const start = async () => {
   try {
     setupSocket(app.server, allowedOrigins)
-
     startExpirePendingPixJob()
 
     await app.listen({
@@ -14,10 +13,10 @@ const start = async () => {
       host: '0.0.0.0'
     })
 
-    console.log('HTTP + Socket Server Running 🚀')
-    console.log('PIX Expiration Job Running ⏰')
-  } catch (err) {
-    app.log.error(err)
+    app.log.info('HTTP + Socket Server Running 🚀')
+    app.log.info('PIX Expiration Job Running ⏰')
+  } catch (error) {
+    app.log.error(error)
     process.exit(1)
   }
 }

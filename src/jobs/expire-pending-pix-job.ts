@@ -1,4 +1,5 @@
 import { ExpirePendingPixPaymentsService } from '../modules/payments/services/expire-pending-pix-payments-service.js'
+import { logger } from '../lib/logger.js'
 
 export function startExpirePendingPixJob() {
   const service = new ExpirePendingPixPaymentsService()
@@ -8,12 +9,10 @@ export function startExpirePendingPixJob() {
       const result = await service.execute()
 
       if (result.expiredCount > 0) {
-        console.log(
-          `PIX expirados: ${result.expiredCount}`
-        )
+        logger.info({ expiredCount: result.expiredCount }, 'PIX expirados')
       }
     } catch (error) {
-      console.error(error)
+      logger.error(error, 'Erro no job de expiração de PIX')
     }
   }, 30000)
 }

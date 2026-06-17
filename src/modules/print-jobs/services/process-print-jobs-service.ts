@@ -1,5 +1,6 @@
 import { prisma } from '../../../lib/prisma.js'
 import { AuditAction } from '@prisma/client'
+import { logger } from '../../../lib/logger.js'
 import { PrinterFactory } from '../../../lib/printers/printer-factory.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
@@ -67,6 +68,8 @@ export class ProcessPrintJobsService {
             }
           })
 
+          logger.error({ printJobId: job.id, error: 'Printer not configured' }, 'Falha na impressão: impressora não configurada')
+
           // Audit: PRINT_JOB_ERROR
           await createAuditLogService.execute({
             organizationId: job.event.organizationId,
@@ -94,6 +97,8 @@ export class ProcessPrintJobsService {
               errorMessage: 'Printer is inactive'
             }
           })
+
+          logger.error({ printJobId: job.id, error: 'Printer is inactive' }, 'Falha na impressão: impressora inativa')
 
           // Audit: PRINT_JOB_ERROR
           await createAuditLogService.execute({
@@ -130,6 +135,8 @@ export class ProcessPrintJobsService {
                 'Printer driver not available for this connection type'
             }
           })
+
+          logger.error({ printJobId: job.id, error: 'Printer driver not available for this connection type' }, 'Falha na impressão: driver não disponível')
 
           // Audit: PRINT_JOB_ERROR
           await createAuditLogService.execute({
@@ -229,7 +236,9 @@ export class ProcessPrintJobsService {
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : 'Print error'
-          
+
+        logger.error({ printJobId: job.id, error: errorMessage }, 'Falha na impressão')
+
         await prisma.eventPrintJob.update({
           where: {
             id: job.id
