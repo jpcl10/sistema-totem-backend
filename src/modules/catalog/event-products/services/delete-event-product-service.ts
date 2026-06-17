@@ -4,6 +4,7 @@ import { CreateAuditLogService } from '../../../audit-logs/services/create-audit
 
 interface DeleteEventProductServiceRequest {
   organizationId: string
+  userId: string
 
   eventId: string
 
@@ -13,6 +14,7 @@ interface DeleteEventProductServiceRequest {
 export class DeleteEventProductService {
   async execute({
     organizationId,
+    userId,
     eventId,
     eventProductId
   }: DeleteEventProductServiceRequest) {
@@ -51,6 +53,7 @@ export class DeleteEventProductService {
     await createAuditLogService.execute({
       organizationId,
       eventId,
+      userId,
       entity: 'EventProduct',
       entityId: eventProductId,
       action: AuditAction.EVENT_PRODUCT_DELETED,

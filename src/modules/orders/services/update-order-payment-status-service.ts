@@ -5,6 +5,7 @@ import { CreateAuditLogService } from '../../audit-logs/services/create-audit-lo
 
 interface UpdateOrderPaymentStatusServiceRequest {
   organizationId: string
+  userId: string
   orderId: string
   paymentStatus:
     | 'NOT_REQUIRED'
@@ -16,6 +17,7 @@ interface UpdateOrderPaymentStatusServiceRequest {
 export class UpdateOrderPaymentStatusService {
   async execute({
     organizationId,
+    userId,
     orderId,
     paymentStatus
   }: UpdateOrderPaymentStatusServiceRequest) {
@@ -61,6 +63,7 @@ export class UpdateOrderPaymentStatusService {
     await createAuditLogService.execute({
       organizationId: order.event.organizationId,
       eventId: order.eventId,
+      userId,
       entity: 'Order',
       entityId: order.id,
       action: AuditAction.ORDER_PAYMENT_STATUS_UPDATED,

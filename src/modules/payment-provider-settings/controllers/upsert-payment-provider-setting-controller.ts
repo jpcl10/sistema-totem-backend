@@ -40,6 +40,7 @@ export async function upsertPaymentProviderSettingController(
   } = upsertPaymentProviderSettingBodySchema.parse(request.body)
 
   const organizationId = request.user.organizationId
+  const userId = request.user.sub
 
   const upsertPaymentProviderSettingService =
     new UpsertPaymentProviderSettingService()
@@ -47,6 +48,7 @@ export async function upsertPaymentProviderSettingController(
   const { setting } =
     await upsertPaymentProviderSettingService.execute({
       organizationId,
+      userId,
       provider,
       enabled,
       pixEnabled,

@@ -11,7 +11,7 @@ export async function listEventAuditLogsController(
   reply: FastifyReply
 ) {
   const { eventId } = listEventAuditLogsParamsSchema.parse(request.params)
-  const { page, limit, action, entity, startDate, endDate } =
+  const { page, limit, action, entity, userId, deviceId, startDate, endDate } =
     listEventAuditLogsQuerySchema.parse(request.query)
 
   const organizationId = request.user.organizationId
@@ -24,6 +24,8 @@ export async function listEventAuditLogsController(
     limit,
     action,
     entity,
+    userId,
+    deviceId,
     startDate,
     endDate
   })

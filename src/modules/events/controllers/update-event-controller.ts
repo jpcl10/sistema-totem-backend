@@ -12,6 +12,7 @@ export async function updateEventController(
   }
 
   const organizationId = request.user.organizationId
+  const userId = request.user.sub
 
   const data = updateEventSchema.parse(request.body)
 
@@ -20,6 +21,7 @@ export async function updateEventController(
   const { event } = await updateEventService.execute({
     eventId: id,
     organizationId,
+    userId,
     ...data
   })
 

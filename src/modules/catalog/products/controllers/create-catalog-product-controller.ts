@@ -18,6 +18,7 @@ export async function createCatalogProductController(
 
   const organizationId =
     request.user.organizationId
+  const userId = request.user.sub
 
   const service =
     new CreateCatalogProductService()
@@ -25,6 +26,7 @@ export async function createCatalogProductController(
   const { product } =
     await service.execute({
       organizationId,
+      userId,
 
       categoryId: body.categoryId,
 

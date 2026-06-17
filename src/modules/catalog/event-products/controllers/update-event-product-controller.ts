@@ -23,6 +23,7 @@ export async function updateEventProductController(
 
   const organizationId =
     request.user.organizationId
+  const userId = request.user.sub
 
   const service =
     new UpdateEventProductService()
@@ -30,6 +31,7 @@ export async function updateEventProductController(
   const { eventProduct } =
     await service.execute({
       organizationId,
+      userId,
 
       eventId: params.eventId,
 

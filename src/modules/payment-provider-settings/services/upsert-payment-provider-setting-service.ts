@@ -5,6 +5,7 @@ import { CreateAuditLogService } from '../../audit-logs/services/create-audit-lo
 
 interface UpsertPaymentProviderSettingServiceRequest {
   organizationId: string
+  userId: string
   provider: PaymentProvider
 
   enabled?: boolean
@@ -21,6 +22,7 @@ interface UpsertPaymentProviderSettingServiceRequest {
 export class UpsertPaymentProviderSettingService {
   async execute({
     organizationId,
+    userId,
     provider,
     enabled,
     pixEnabled,
@@ -85,6 +87,7 @@ export class UpsertPaymentProviderSettingService {
     const createAuditLogService = new CreateAuditLogService()
     await createAuditLogService.execute({
       organizationId: setting.organizationId,
+      userId,
       entity: 'PaymentProviderSettings',
       entityId: setting.id,
       action: AuditAction.PAYMENT_PROVIDER_SETTINGS_UPDATED,

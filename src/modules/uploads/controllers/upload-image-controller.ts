@@ -75,7 +75,7 @@ export async function uploadImageController(
 
   await createAuditLogService.execute({
     organizationId,
-    userId: null,
+    userId: request.user.sub,
     entity: 'Image',
     entityId: key,
     action: AuditAction.IMAGE_UPLOADED,

@@ -52,6 +52,7 @@ export async function markOrderPaymentController(
 
   const organizationId =
     request.user.organizationId
+  const userId = request.user.sub
 
   const markOrderPaymentService =
     new MarkOrderPaymentService()
@@ -59,6 +60,7 @@ export async function markOrderPaymentController(
   const { order } =
     await markOrderPaymentService.execute({
       organizationId,
+      userId,
       orderId,
       paymentStatus,
       paymentMethod,

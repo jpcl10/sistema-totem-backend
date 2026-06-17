@@ -4,6 +4,7 @@ import { CreateAuditLogService } from '../../../audit-logs/services/create-audit
 
 interface UpdateCatalogProductServiceRequest {
   organizationId: string
+  userId: string
 
   productId: string
 
@@ -20,6 +21,7 @@ interface UpdateCatalogProductServiceRequest {
 export class UpdateCatalogProductService {
   async execute({
     organizationId,
+    userId,
     productId,
     categoryId,
     name,
@@ -132,6 +134,7 @@ export class UpdateCatalogProductService {
     const createAuditLogService = new CreateAuditLogService()
     await createAuditLogService.execute({
       organizationId: organizationId,
+      userId,
       entity: 'CatalogProduct',
       entityId: updatedProduct.id,
       action: AuditAction.PRODUCT_UPDATED,

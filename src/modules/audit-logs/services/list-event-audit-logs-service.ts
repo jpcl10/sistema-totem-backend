@@ -8,6 +8,8 @@ interface ListEventAuditLogsServiceRequest {
   limit?: number
   action?: AuditAction
   entity?: string
+  userId?: string
+  deviceId?: string
   startDate?: string
   endDate?: string
 }
@@ -20,6 +22,8 @@ export class ListEventAuditLogsService {
     limit = 50,
     action,
     entity,
+    userId,
+    deviceId,
     startDate,
     endDate
   }: ListEventAuditLogsServiceRequest) {
@@ -48,6 +52,14 @@ export class ListEventAuditLogsService {
 
     if (entity) {
       whereClause.entity = entity
+    }
+
+    if (userId) {
+      whereClause.userId = userId
+    }
+
+    if (deviceId) {
+      whereClause.deviceId = deviceId
     }
 
     if (startDate || endDate) {

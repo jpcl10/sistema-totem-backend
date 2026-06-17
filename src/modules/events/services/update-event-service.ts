@@ -5,6 +5,7 @@ import { CreateAuditLogService } from '../../audit-logs/services/create-audit-lo
 interface UpdateEventServiceRequest {
   eventId: string
   organizationId: string
+  userId: string
 
   name?: string
   slug?: string
@@ -35,7 +36,6 @@ interface UpdateEventServiceRequest {
 
   printingEnabled?: boolean
   autoPrintEnabled?: boolean
-
   printMode?:
     | 'FULL_ORDER'
     | 'BY_SECTOR'
@@ -53,6 +53,7 @@ export class UpdateEventService {
   async execute({
     eventId,
     organizationId,
+    userId,
 
     name,
     slug,
@@ -287,6 +288,7 @@ export class UpdateEventService {
     await createAuditLogService.execute({
       organizationId: organizationId,
       eventId: eventId,
+      userId,
       entity: 'Event',
       entityId: updatedEvent.id,
       action: AuditAction.EVENT_UPDATED,

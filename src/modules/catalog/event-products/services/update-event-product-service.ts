@@ -4,6 +4,7 @@ import { CreateAuditLogService } from '../../../audit-logs/services/create-audit
 
 interface UpdateEventProductServiceRequest {
   organizationId: string
+  userId: string
 
   eventId: string
 
@@ -21,6 +22,7 @@ interface UpdateEventProductServiceRequest {
 export class UpdateEventProductService {
   async execute({
     organizationId,
+    userId,
     eventId,
     eventProductId,
     priceInCents,
@@ -86,6 +88,7 @@ export class UpdateEventProductService {
     await createAuditLogService.execute({
       organizationId,
       eventId,
+      userId,
       entity: 'EventProduct',
       entityId: updatedEventProduct.id,
       action: AuditAction.EVENT_PRODUCT_UPDATED,

@@ -22,6 +22,7 @@ export async function updateOrderPaymentStatusController(
 
   const organizationId =
     request.user.organizationId
+  const userId = request.user.sub
 
   const service =
     new UpdateOrderPaymentStatusService()
@@ -29,6 +30,7 @@ export async function updateOrderPaymentStatusController(
   const { order } =
     await service.execute({
       organizationId,
+      userId,
       orderId: params.orderId,
       paymentStatus:
         body.paymentStatus

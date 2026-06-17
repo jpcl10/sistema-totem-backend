@@ -13,6 +13,7 @@ import { CreateAuditLogService } from '../../audit-logs/services/create-audit-lo
 
 interface MarkOrderPaymentServiceRequest {
   organizationId: string
+  userId: string
   orderId: string
   paymentStatus: PaymentStatus
   paymentMethod?: PaymentMethod | null
@@ -24,6 +25,7 @@ interface MarkOrderPaymentServiceRequest {
 export class MarkOrderPaymentService {
   async execute({
     organizationId,
+    userId,
     orderId,
     paymentStatus,
     paymentMethod,
@@ -166,6 +168,7 @@ export class MarkOrderPaymentService {
     await createAuditLogService.execute({
       organizationId: updatedOrder.event.organizationId,
       eventId: updatedOrder.eventId,
+      userId,
       entity: 'PaymentTransaction',
       action: AuditAction.PAYMENT_MANUAL_MARKED,
       description: 'Pagamento marcado manualmente',

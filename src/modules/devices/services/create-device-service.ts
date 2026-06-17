@@ -1,12 +1,15 @@
 import {
   DeviceStatus,
-  DeviceType
+  DeviceType,
+  AuditAction
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface CreateDeviceServiceRequest {
   organizationId: string
+  userId: string
   eventId?: string | null
   name: string
   code: string
@@ -17,6 +20,7 @@ interface CreateDeviceServiceRequest {
 export class CreateDeviceService {
   async execute({
     organizationId,
+    userId,
     eventId,
     name,
     code,
@@ -62,6 +66,24 @@ export class CreateDeviceService {
         type,
         status: DeviceStatus.ACTIVE,
         locationName: locationName?.trim() || null
+      }
+    })
+
+    // Create audit log for device created
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId,
+      eventId: eventId ?? null,
+      userId,
+      entity: 'Device',
+      entityId: device.id,
+      action: AuditAction.DEVICE_CREATED,
+      description: 'Dispositivo criado',
+      metadata: {
+        deviceId: device.id,
+        code: device.code,
+        name: device.name,
+        type: device.type
       }
     })
 

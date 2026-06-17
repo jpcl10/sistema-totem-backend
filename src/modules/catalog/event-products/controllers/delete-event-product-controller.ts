@@ -16,12 +16,14 @@ export async function deleteEventProductController(
 
   const organizationId =
     request.user.organizationId
+  const userId = request.user.sub
 
   const service =
     new DeleteEventProductService()
 
   await service.execute({
     organizationId,
+    userId,
 
     eventId: params.eventId,
 

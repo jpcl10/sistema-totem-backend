@@ -22,6 +22,7 @@ export async function updateCatalogProductController(
 
   const organizationId =
     request.user.organizationId
+  const userId = request.user.sub
 
   const service =
     new UpdateCatalogProductService()
@@ -29,6 +30,7 @@ export async function updateCatalogProductController(
   const { product } =
     await service.execute({
       organizationId,
+      userId,
 
       productId: params.id,
 

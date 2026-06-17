@@ -10,6 +10,8 @@ export const listEventAuditLogsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   action: z.nativeEnum(AuditAction).optional(),
   entity: z.string().optional(),
+  userId: z.string().optional(),
+  deviceId: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional()
 })

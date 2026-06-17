@@ -35,6 +35,7 @@ export async function createDeviceController(
   const result = await service.execute({
     organizationId:
       request.user.organizationId,
+    userId: request.user.sub,
 
     name,
     code,
