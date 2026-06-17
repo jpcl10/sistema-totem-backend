@@ -34,10 +34,25 @@ import { devicePrintJobsRoutes } from './modules/device-print-jobs/routes/device
 import { devicesRoutes } from './modules/devices/routes/devices-routes.js'
 import { auditLogsRoutes } from './modules/audit-logs/routes/audit-logs-routes.js'
 
+// Carregar ALLOWED_ORIGINS
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000'
+const allowedOrigins = allowedOriginsEnv.split(',').map(origin => origin.trim())
+
 export const app = Fastify()
 
 app.register(cors, {
-  origin: true,
+  origin: (origin, callback) => {
+    // Allow requests without origin (Insomnia/Postman/webhooks/server-to-server)
+    if (!origin) {
+      return callback(null, true)
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true)
+    }
+
+    return callback(new Error('Not allowed by CORS'), false)
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 })
 
@@ -117,3 +132,5 @@ setInterval(async () => {
     )
   }
 }, 3000)
+
+export { allowedOrigins }

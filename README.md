@@ -147,42 +147,53 @@ Responsabilidade por area:
 
 ## Variaveis De Ambiente
 
-Crie um arquivo `.env` na pasta `backend/`.
+Crie um arquivo `.env` na pasta `backend/` baseado no `.env.example`.
 
 ```env
-DATABASE_URL=""
-JWT_SECRET=""
-MERCADO_PAGO_ACCESS_TOKEN=""
-MERCADO_PAGO_PUBLIC_KEY=""
-MERCADO_PAGO_WEBHOOK_SECRET=""
-MERCADO_PAGO_WEBHOOK_URL=""
-R2_ACCOUNT_ID=""
-R2_ACCESS_KEY_ID=""
-R2_SECRET_ACCESS_KEY=""
-R2_BUCKET_NAME=""
-R2_PUBLIC_URL=""
+DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/DATABASE?schema=public"
+
+PORT=3333
+
+JWT_SECRET="sua-chave-jwt-segura"
+
+ALLOWED_ORIGINS="http://localhost:3000,http://localhost:5173,https://defumar.lovable.app"
+
+R2_ACCOUNT_ID="seu-account-id-cloudflare"
+R2_ACCESS_KEY_ID="sua-access-key-id"
+R2_SECRET_ACCESS_KEY="sua-secret-access-key"
+R2_BUCKET_NAME="totem-images"
+R2_PUBLIC_URL="https://pub-xxxxx.r2.dev"
+
+MERCADO_PAGO_ACCESS_TOKEN="seu-access-token"
+MERCADO_PAGO_PUBLIC_KEY="sua-public-key"
+MERCADO_PAGO_WEBHOOK_SECRET="seu-webhook-secret"
+MERCADO_PAGO_WEBHOOK_URL="https://seu-backend.com/webhooks/mercado-pago"
+
+NODE_ENV="development"
 ```
 
 | Variavel | Obrigatoria | Descricao |
 | --- | --- | --- |
 | `DATABASE_URL` | Sim | String de conexao do PostgreSQL usada pelo Prisma |
+| `PORT` | Nao (padrao: 3333) | Porta onde o servidor HTTP ira rodar |
 | `JWT_SECRET` | Sim | Segredo usado para assinar JWT de usuarios e dispositivos |
+| `ALLOWED_ORIGINS` | Sim | Lista de origens permitidas para CORS, separadas por virgula. Deve incluir a URL do frontend Lovable e localhost (ex: http://localhost:3000,http://localhost:5173) |
 | `MERCADO_PAGO_ACCESS_TOKEN` | Sim para PIX automatico | Token privado de integracao com Mercado Pago |
 | `MERCADO_PAGO_PUBLIC_KEY` | Recomendado para frontend | Chave publica usada no checkout |
-| `MERCADO_PAGO_WEBHOOK_SECRET` | Recomendado | Segredo para validacao do webhook |
-| `MERCADO_PAGO_WEBHOOK_URL` | Recomendado | URL publica configurada no Mercado Pago |
+| `MERCADO_PAGO_WEBHOOK_SECRET` | Recomendado | Segredo para validar o webhook do Mercado Pago, deve ser igual ao configurado no painel do Mercado Pago |
+| `MERCADO_PAGO_WEBHOOK_URL` | Recomendado | URL publica configurada no Mercado Pago para receber webhooks |
 | `R2_ACCOUNT_ID` | Sim para upload | Account ID do Cloudflare R2 |
 | `R2_ACCESS_KEY_ID` | Sim para upload | Access key do bucket R2 |
 | `R2_SECRET_ACCESS_KEY` | Sim para upload | Secret key do bucket R2 |
 | `R2_BUCKET_NAME` | Sim para upload | Nome do bucket usado para imagens |
-| `R2_PUBLIC_URL` | Sim para URLs publicas | Base publica usada para compor URLs completas das imagens |
+| `R2_PUBLIC_URL` | Sim para URLs publicas | URL publica do bucket R2 usada para compor URLs completas das imagens |
+| `NODE_ENV` | Nao (padrao: development) | Ambiente de execucao (development ou production) |
 
 Importante:
-
-- Nunca commite tokens reais, chaves ou segredos no repositorio.
-- O arquivo `.env` deve permanecer fora do versionamento.
-- Em ambientes compartilhados, prefira secrets do provedor de deploy.
-- Todas as imagens devem ser armazenadas e servidas pelo Cloudflare R2.
+- Nunca commite o arquivo `.env` real no repositorio
+- Sempre use o `.env.example` como referência
+- Em ambientes compartilhados, prefira secrets do provedor de deploy
+- Todas as imagens devem ser armazenadas e servidas pelo Cloudflare R2
 
 ## Como Rodar Localmente
 
