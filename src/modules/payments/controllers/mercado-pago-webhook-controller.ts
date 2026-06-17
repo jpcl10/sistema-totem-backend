@@ -15,5 +15,18 @@ export async function mercadoPagoWebhookController(
     headers: request.headers
   })
 
+  const validationFailures = [
+    'webhook_secret_not_configured',
+    'missing_x_signature',
+    'missing_x_request_id',
+    'missing_ts',
+    'missing_v1',
+    'invalid_signature'
+  ]
+
+  if (validationFailures.includes(result.reason || '')) {
+    return reply.status(401).send(result)
+  }
+
   return reply.status(200).send(result)
 }

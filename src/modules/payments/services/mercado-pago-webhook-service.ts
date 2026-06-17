@@ -22,6 +22,83 @@ interface MercadoPagoWebhookServiceRequest {
   headers: Record<string, unknown>
 }
 
+interface ValidationResult {
+  valid: boolean
+  reason?: string
+}
+
+function validateMercadoPagoSignature(
+  headers: Record<string, unknown>,
+  paymentId: string
+): ValidationResult {
+  const webhookSecret = process.env.MERCADO_PAGO_WEBHOOK_SECRET
+
+  if (!webhookSecret) {
+    console.error('[Mercado Pago Webhook] Missing MERCADO_PAGO_WEBHOOK_SECRET')
+    return { valid: false, reason: 'webhook_secret_not_configured' }
+  }
+
+  const xSignature = headers['x-signature'] as string | undefined
+  const xRequestId = headers['x-request-id'] as string | undefined
+
+  if (!xSignature) {
+    console.error('[Mercado Pago Webhook] Missing x-signature header')
+    return { valid: false, reason: 'missing_x_signature' }
+  }
+
+  if (!xRequestId) {
+    console.error('[Mercado Pago Webhook] Missing x-request-id header')
+    return { valid: false, reason: 'missing_x_request_id' }
+  }
+
+  // Extrair ts e v1 do x-signature
+  const parts = xSignature.split(',')
+  let ts: string | null = null
+  let v1: string | null = null
+
+  for (const part of parts) {
+    const [key, value] = part.split('=')
+    if (key === 'ts') ts = value
+    if (key === 'v1') v1 = value
+  }
+
+  if (!ts) {
+    console.error('[Mercado Pago Webhook] Missing ts in x-signature')
+    return { valid: false, reason: 'missing_ts' }
+  }
+
+  if (!v1) {
+    console.error('[Mercado Pago Webhook] Missing v1 in x-signature')
+    return { valid: false, reason: 'missing_v1' }
+  }
+
+  // Montar manifest
+  const manifest = `id:${paymentId};request-id:${xRequestId};ts:${ts};`
+
+  // Gerar HMAC SHA256
+  const hmac = crypto.createHmac('sha256', webhookSecret)
+  hmac.update(manifest)
+  const expectedSignature = hmac.digest('hex')
+
+  // Comparar usando timingSafeEqual para evitar ataques de timing
+  const expectedBuffer = Buffer.from(expectedSignature, 'hex')
+  const receivedBuffer = Buffer.from(v1, 'hex')
+
+  if (expectedBuffer.length !== receivedBuffer.length) {
+    console.error('[Mercado Pago Webhook] Invalid signature length')
+    return { valid: false, reason: 'invalid_signature' }
+  }
+
+  const isValid = crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
+
+  if (!isValid) {
+    console.error('[Mercado Pago Webhook] Invalid signature')
+    return { valid: false, reason: 'invalid_signature' }
+  }
+
+  return { valid: true }
+}
+
 function getNestedValue(
   value: unknown,
   path: string[]
@@ -94,7 +171,8 @@ function mapMercadoPagoStatusToTransactionStatus(
 export class MercadoPagoWebhookService {
   async execute({
     body,
-    query
+    query,
+    headers
   }: MercadoPagoWebhookServiceRequest) {
     const paymentId = getPaymentIdFromWebhook(body, query)
 
@@ -103,6 +181,16 @@ export class MercadoPagoWebhookService {
         received: true,
         ignored: true,
         reason: 'payment_id_not_found'
+      }
+    }
+
+    // Validar assinatura antes de qualquer outra coisa
+    const validation = validateMercadoPagoSignature(headers, paymentId)
+    if (!validation.valid) {
+      return {
+        received: true,
+        ignored: true,
+        reason: validation.reason || 'invalid_signature'
       }
     }
 
