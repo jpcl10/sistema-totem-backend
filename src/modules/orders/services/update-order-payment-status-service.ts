@@ -1,5 +1,7 @@
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
+import { AuditAction } from '@prisma/client'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface UpdateOrderPaymentStatusServiceRequest {
   organizationId: string
@@ -51,6 +53,23 @@ export class UpdateOrderPaymentStatusService {
             }
           }
         }
+      }
+    })
+
+    // Create audit log for order payment status updated
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId: order.event.organizationId,
+      eventId: order.eventId,
+      entity: 'Order',
+      entityId: order.id,
+      action: AuditAction.ORDER_PAYMENT_STATUS_UPDATED,
+      description: 'Status de pagamento do pedido atualizado',
+      metadata: {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        oldPaymentStatus: order.paymentStatus,
+        newPaymentStatus: paymentStatus
       }
     })
 

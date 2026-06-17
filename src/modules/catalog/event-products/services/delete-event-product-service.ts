@@ -1,4 +1,6 @@
 import { prisma } from '../../../../lib/prisma.js'
+import { AuditAction } from '@prisma/client'
+import { CreateAuditLogService } from '../../../audit-logs/services/create-audit-log-service.js'
 
 interface DeleteEventProductServiceRequest {
   organizationId: string
@@ -41,6 +43,20 @@ export class DeleteEventProductService {
     await prisma.eventProduct.delete({
       where: {
         id: eventProductId
+      }
+    })
+
+    // Create audit log for event product deleted
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId,
+      eventId,
+      entity: 'EventProduct',
+      entityId: eventProductId,
+      action: AuditAction.EVENT_PRODUCT_DELETED,
+      description: 'Produto removido do evento',
+      metadata: {
+        eventProductId
       }
     })
 

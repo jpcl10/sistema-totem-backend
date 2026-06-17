@@ -1,5 +1,7 @@
 import { prisma } from '../../../lib/prisma.js'
 import { GetEventClosingPreviewService } from './get-event-closing-preview-service.js'
+import { AuditAction } from '@prisma/client'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface CloseEventServiceRequest {
   eventId: string
@@ -211,6 +213,23 @@ export class CloseEventService {
         }
       }
     )
+
+    // Audit log for event closed
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId,
+      eventId,
+      userId: closedByUserId,
+      entity: 'Event',
+      entityId: eventId,
+      action: AuditAction.EVENT_CLOSED,
+      description: 'Evento fechado',
+      metadata: {
+        eventId,
+        totalOrders: preview.summary.totalOrders,
+        receivedInCents: preview.summary.receivedInCents
+      }
+    })
 
     return {
       message: 'Event closed successfully',

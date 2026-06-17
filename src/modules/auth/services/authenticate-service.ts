@@ -2,6 +2,8 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 
 import { prisma } from '../../../lib/prisma.js'
+import { AuditAction } from '@prisma/client'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface AuthenticateRequest {
   email: string
@@ -60,6 +62,22 @@ export class AuthenticateService {
         expiresIn: '7d'
       }
     )
+
+    // Create audit log for user login
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId: user.organizationId,
+      userId: user.id,
+      entity: 'User',
+      entityId: user.id,
+      action: AuditAction.USER_LOGGED_IN,
+      description: 'Usuário fez login',
+      metadata: {
+        userId: user.id,
+        email: user.email,
+        role: user.role
+      }
+    })
 
     return {
       token,

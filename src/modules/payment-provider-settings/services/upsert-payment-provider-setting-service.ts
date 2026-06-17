@@ -1,6 +1,7 @@
-import { PaymentProvider } from '@prisma/client'
+import { PaymentProvider, AuditAction } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface UpsertPaymentProviderSettingServiceRequest {
   organizationId: string
@@ -77,6 +78,27 @@ export class UpsertPaymentProviderSettingService {
         ...(webhookUrl !== undefined && {
           webhookUrl
         })
+      }
+    })
+
+    // Create audit log for payment provider settings update
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId: setting.organizationId,
+      entity: 'PaymentProviderSettings',
+      entityId: setting.id,
+      action: AuditAction.PAYMENT_PROVIDER_SETTINGS_UPDATED,
+      description: 'Configurações de provedor de pagamento atualizadas',
+      metadata: {
+        provider,
+        enabled: setting.enabled,
+        pixEnabled: setting.pixEnabled,
+        cardEnabled: setting.cardEnabled,
+        terminalEnabled: setting.terminalEnabled,
+        accessTokenConfigured: Boolean(setting.accessToken),
+        publicKeyConfigured: Boolean(setting.publicKey),
+        webhookSecretConfigured: Boolean(setting.webhookSecret),
+        webhookUrl: setting.webhookUrl
       }
     })
 

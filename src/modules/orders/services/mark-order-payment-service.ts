@@ -2,12 +2,14 @@ import {
   PaymentMethod,
   PaymentProvider,
   PaymentStatus,
-  PaymentTransactionStatus
+  PaymentTransactionStatus,
+  AuditAction
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
 import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface MarkOrderPaymentServiceRequest {
   organizationId: string
@@ -158,6 +160,24 @@ export class MarkOrderPaymentService {
         orderId: updatedOrder.id
       })
     }
+
+    // Create audit log for payment manual marked
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId: updatedOrder.event.organizationId,
+      eventId: updatedOrder.eventId,
+      entity: 'PaymentTransaction',
+      action: AuditAction.PAYMENT_MANUAL_MARKED,
+      description: 'Pagamento marcado manualmente',
+      metadata: {
+        orderId: updatedOrder.id,
+        orderNumber: updatedOrder.orderNumber,
+        paymentStatus,
+        paymentMethod,
+        amountPaidInCents: paidAmount,
+        paymentNotes
+      }
+    })
 
     io.to(`event:${updatedOrder.eventId}`).emit('order-updated', {
       order: updatedOrder

@@ -1,6 +1,8 @@
 import bcrypt from 'bcryptjs'
 
 import { prisma } from '../../../lib/prisma.js'
+import { AuditAction } from '@prisma/client'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface CreateUserRequest {
   organizationId: string
@@ -34,6 +36,22 @@ export class CreateUserService {
         email: data.email,
         password: passwordHash,
         role: data.role
+      }
+    })
+
+    // Create audit log for user creation
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId: user.organizationId,
+      entity: 'User',
+      entityId: user.id,
+      action: AuditAction.USER_CREATED,
+      description: 'Usuário criado',
+      metadata: {
+        userId: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
       }
     })
 

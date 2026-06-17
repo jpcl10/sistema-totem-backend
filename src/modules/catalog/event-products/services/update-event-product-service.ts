@@ -1,4 +1,6 @@
 import { prisma } from '../../../../lib/prisma.js'
+import { AuditAction } from '@prisma/client'
+import { CreateAuditLogService } from '../../../audit-logs/services/create-audit-log-service.js'
 
 interface UpdateEventProductServiceRequest {
   organizationId: string
@@ -78,6 +80,25 @@ export class UpdateEventProductService {
           })
         }
       })
+
+    // Create audit log for event product updated
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId,
+      eventId,
+      entity: 'EventProduct',
+      entityId: updatedEventProduct.id,
+      action: AuditAction.EVENT_PRODUCT_UPDATED,
+      description: 'Produto do evento atualizado',
+      metadata: {
+        eventProductId: updatedEventProduct.id,
+        priceInCents: updatedEventProduct.priceInCents,
+        trackStock: updatedEventProduct.trackStock,
+        stockQuantity: updatedEventProduct.stockQuantity,
+        soldOut: updatedEventProduct.soldOut,
+        active: updatedEventProduct.active
+      }
+    })
 
     return {
       eventProduct: updatedEventProduct
