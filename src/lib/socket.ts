@@ -1,4 +1,5 @@
 import { Server } from 'socket.io'
+import { logger } from './logger.js'
 
 export let io: Server
 
@@ -20,15 +21,15 @@ export function setupSocket(server: any, allowedOrigins: string[]) {
   })
 
   io.on('connection', (socket) => {
-    console.log('Socket connected:', socket.id)
+    logger.info({ socketId: socket.id }, 'Socket connected')
 
     socket.on('join-event-room', (eventId: string) => {
       socket.join(`event:${eventId}`)
-      console.log(`Socket ${socket.id} joined event:${eventId}`)
+      logger.info({ socketId: socket.id, eventId }, 'Socket joined event room')
     })
 
     socket.on('disconnect', () => {
-      console.log('Socket disconnected:', socket.id)
+      logger.info({ socketId: socket.id }, 'Socket disconnected')
     })
   })
 }

@@ -9,6 +9,7 @@ import {
 } from 'mercadopago'
 
 import { prisma } from '../../../lib/prisma.js'
+import { logger } from '../../../lib/logger.js'
 import { mercadoPagoConfig } from '../../../shared/config/mercado-pago.js'
 import {
   CreatePaymentProviderRequest,
@@ -120,7 +121,7 @@ export class MercadoPagoProvider implements PaymentProviderAdapter {
   async createPayment(
     data: CreatePaymentProviderRequest
   ): Promise<CreatePaymentProviderResponse> {
-    console.log('CHAMOU MERCADO PAGO PROVIDER', data)
+    logger.info({ orderId: data.orderId, organizationId: data.organizationId }, 'Mercado Pago provider called')
     const externalReference =
       `mp-${data.orderId}-${Date.now()}`
 
@@ -241,10 +242,11 @@ export class MercadoPagoProvider implements PaymentProviderAdapter {
 
       const dateOfExpiration =
         toIsoDate(data.expiresAt)
-      console.log('PIX DATE OF EXPIRATION', {
-        expiresAt: data.expiresAt,
-        dateOfExpiration
-        })
+      logger.debug({ 
+          orderId: data.orderId, 
+          expiresAt: data.expiresAt,
+          dateOfExpiration 
+        }, 'PIX date of expiration set')
 
       const result =
         await payment.create({
