@@ -1,4 +1,7 @@
 import { prisma } from '../../../lib/prisma.js'
+import { io } from '../../../lib/socket.js'
+import { pixExpirationJobStatus } from '../../../jobs/expire-pending-pix-job.js'
+import { printProcessingJobStatus } from '../../../app.js'
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
@@ -14,6 +17,8 @@ export class HealthService {
     const databaseResult = await this.checkDatabase()
     const r2Result = this.checkR2()
     const mercadoPagoResult = this.checkMercadoPago()
+    const socketResult = this.checkSocket()
+    const jobsResult = this.checkJobs()
 
     const status = databaseResult === 'ok' ? 'ok' : 'error'
 
@@ -26,6 +31,8 @@ export class HealthService {
         r2: r2Result,
         mercadoPago: mercadoPagoResult
       },
+      socket: socketResult,
+      jobs: jobsResult,
       environment: process.env.NODE_ENV || 'development',
       version: packageJson.version
     }
@@ -65,5 +72,24 @@ export class HealthService {
   private checkMercadoPago() {
     const { MERCADO_PAGO_ACCESS_TOKEN } = process.env
     return MERCADO_PAGO_ACCESS_TOKEN ? 'configured' : 'not_configured'
+  }
+
+  private checkSocket() {
+    if (!io) {
+      return { status: 'error' }
+    }
+
+    const sockets = io.sockets.sockets
+    return {
+      status: 'ok',
+      connections: sockets.size
+    }
+  }
+
+  private checkJobs() {
+    return {
+      pixExpiration: pixExpirationJobStatus,
+      printProcessing: printProcessingJobStatus
+    }
   }
 }

@@ -152,6 +152,8 @@ app.get('/', async () => {
   }
 })
 
+export let printProcessingJobStatus: 'running' | 'stopped' = 'stopped'
+
 const processPrintJobsService =
   new ProcessPrintJobsService()
 
@@ -162,5 +164,7 @@ setInterval(async () => {
     app.log.error(error, 'Print worker error')
   }
 }, 3000)
+
+printProcessingJobStatus = 'running'
 
 export { allowedOrigins }
