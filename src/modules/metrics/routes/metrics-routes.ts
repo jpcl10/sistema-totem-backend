@@ -11,6 +11,14 @@ export async function metricsRoutes(
 
   app.get(
     '/events/:eventId/metrics',
+    {
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
+    },
     getEventMetricsController
   )
 }

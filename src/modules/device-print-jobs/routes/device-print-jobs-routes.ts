@@ -18,7 +18,13 @@ export async function devicePrintJobsRoutes(
   app.get(
     '/device/print-jobs/pending',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     listPendingDevicePrintJobsController
   )
@@ -26,7 +32,13 @@ export async function devicePrintJobsRoutes(
   app.patch(
     '/device/print-jobs/:printJobId/printed',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     markDevicePrintJobPrintedController
   )
@@ -34,7 +46,13 @@ export async function devicePrintJobsRoutes(
   app.patch(
     '/device/print-jobs/:printJobId/error',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     markDevicePrintJobErrorController
   )

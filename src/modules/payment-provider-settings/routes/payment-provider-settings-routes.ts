@@ -10,7 +10,13 @@ export async function paymentProviderSettingsRoutes(
   app.get(
     '/payment-provider-settings',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     listPaymentProviderSettingsController
   )
@@ -18,7 +24,13 @@ export async function paymentProviderSettingsRoutes(
   app.put(
     '/payment-provider-settings/:provider',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     upsertPaymentProviderSettingController
   )

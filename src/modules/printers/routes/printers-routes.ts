@@ -10,7 +10,13 @@ export async function printersRoutes(
   app.post(
     '/events/:eventId/printers',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     createPrinterController
   )
@@ -18,21 +24,39 @@ export async function printersRoutes(
   app.get(
     '/events/:eventId/printers',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     listPrintersController
   )
   app.patch(
   '/printers/:printerId',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   updatePrinterController
 )
   app.post(
   '/printers/:printerId/test',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   }, testPrinterController
 )
 }

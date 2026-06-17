@@ -11,28 +11,52 @@ export async function eventProductsRoutes(
   app.post(
     '/events/:eventId/catalog-products',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     createEventProductController
   )
   app.get(
     '/events/:eventId/catalog-products',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     listEventProductsController
   )
   app.delete(
     '/events/:eventId/catalog-products/:eventProductId',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     deleteEventProductController
   )
   app.patch(
   '/events/:eventId/catalog-products/:eventProductId',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   updateEventProductController
 )

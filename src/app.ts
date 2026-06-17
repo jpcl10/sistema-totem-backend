@@ -2,6 +2,7 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
+import fastifyRateLimit from '@fastify/rate-limit'
 
 // Modules
 import { uploadsRoutes } from './modules/uploads/routes/uploads-routes.js'
@@ -41,6 +42,24 @@ app.register(cors, {
 })
 
 app.register(multipart)
+
+// Registrar rate limiting global
+await app.register(fastifyRateLimit, {
+  global: false, // Não aplicar globalmente, vamos configurar por rota
+  errorResponseBuilder: (req, context) => {
+    return {
+      message: 'Muitas requisições. Tente novamente em instantes.'
+    }
+  },
+  keyGenerator: (req) => {
+    // Para rotas autenticadas, usar o ID do usuário como chave
+    if (req.user && 'sub' in req.user) {
+      return `user:${req.user.sub}`
+    }
+    // Para rotas públicas, usar o IP
+    return `ip:${req.ip}`
+  }
+})
 
 // Auth
 app.register(authRoutes)

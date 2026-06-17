@@ -18,7 +18,13 @@ export async function ordersRoutes(
   app.post(
     '/public/events/:slug/orders',
     {
-      preHandler: [tryVerifyDeviceJWT]
+      preHandler: [tryVerifyDeviceJWT],
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
     },
     createOrderController
   )
@@ -26,7 +32,13 @@ export async function ordersRoutes(
   app.get(
     '/events/:eventId/orders',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     listOrdersController
   )
@@ -34,7 +46,13 @@ export async function ordersRoutes(
   app.get(
     '/events/:eventId/financial-summary',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     getEventFinancialSummaryController
   )
@@ -42,7 +60,13 @@ export async function ordersRoutes(
   app.patch(
     '/orders/:id/status',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     updateOrderStatusController
   )
@@ -50,7 +74,13 @@ export async function ordersRoutes(
   app.patch(
     '/orders/:orderId/payment-status',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     updateOrderPaymentStatusController
   )
@@ -58,23 +88,53 @@ export async function ordersRoutes(
   app.patch(
     '/orders/:orderId/payment',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     markOrderPaymentController
   )
 
   app.get(
     '/public/events/:slug/orders',
+    {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
     listPublicCallScreenOrdersController
   )
 
   app.get(
     '/public/events/:slug/call-screen-orders',
+    {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
     listPublicCallScreenOrdersController
   )
 
   app.get(
     '/public/orders/:orderId',
+    {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
     getPublicOrderController
   )
 }

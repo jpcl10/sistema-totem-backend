@@ -9,7 +9,13 @@ export async function uploadsRoutes(
   app.post(
     '/uploads/images',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute'
+        }
+      }
     },
     uploadImageController
   )

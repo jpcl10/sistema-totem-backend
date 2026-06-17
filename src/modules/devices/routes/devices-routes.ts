@@ -21,13 +21,27 @@ export async function devicesRoutes(
 ) {
   app.post(
     '/devices/activate',
+    {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
     activateDeviceController
   )
 
   app.get(
     '/devices/me/config',
     {
-      preHandler: verifyDeviceJWT
+      preHandler: verifyDeviceJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     getDeviceConfigController
   )
@@ -35,7 +49,13 @@ export async function devicesRoutes(
   app.post(
     '/devices/heartbeat',
     {
-      preHandler: verifyDeviceJWT
+      preHandler: verifyDeviceJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     deviceHeartbeatController
   )
@@ -43,7 +63,13 @@ export async function devicesRoutes(
   app.get(
     '/devices/print-jobs/pending',
     {
-      preHandler: verifyDeviceJWT
+      preHandler: verifyDeviceJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     listDevicePendingPrintJobsController
   )
@@ -51,7 +77,13 @@ export async function devicesRoutes(
   app.patch(
     '/devices/print-jobs/:id/printed',
     {
-      preHandler: verifyDeviceJWT
+      preHandler: verifyDeviceJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     markDevicePrintJobPrintedController
   )
@@ -59,7 +91,13 @@ export async function devicesRoutes(
   app.patch(
     '/devices/print-jobs/:id/error',
     {
-      preHandler: verifyDeviceJWT
+      preHandler: verifyDeviceJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     markDevicePrintJobErrorController
   )
@@ -67,7 +105,13 @@ export async function devicesRoutes(
   app.post(
     '/devices',
     {
-      preHandler: verifyJWT
+      preHandler: verifyJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     createDeviceController
   )
@@ -75,7 +119,13 @@ export async function devicesRoutes(
   app.get(
     '/devices',
     {
-      preHandler: verifyJWT
+      preHandler: verifyJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     listDevicesController
   )
@@ -83,7 +133,13 @@ export async function devicesRoutes(
   app.get(
     '/devices/:id',
     {
-      preHandler: verifyJWT
+      preHandler: verifyJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     getDeviceController
   )
@@ -91,7 +147,13 @@ export async function devicesRoutes(
   app.patch(
     '/devices/:id',
     {
-      preHandler: verifyJWT
+      preHandler: verifyJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     updateDeviceController
   )
@@ -99,7 +161,13 @@ export async function devicesRoutes(
   app.post(
     '/devices/:id/regenerate-credentials',
     {
-      preHandler: verifyJWT
+      preHandler: verifyJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     regenerateDeviceCredentialsController
   )

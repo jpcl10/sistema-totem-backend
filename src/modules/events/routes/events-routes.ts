@@ -14,14 +14,20 @@ import { updateEventController } from '../controllers/update-event-controller.js
 import { getPublicEventMenuController } from '../controllers/get-public-event-menu-controller.js'
 import { closeEventController } from '../controllers/close-event-controller.js'
 export async function eventsRoutes(app: FastifyInstance) 
-
-
+ 
+ 
 
 {
   app.post(
     '/events',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     createEventController
   )
@@ -29,7 +35,13 @@ export async function eventsRoutes(app: FastifyInstance)
   app.get(
     '/events',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     listEventsController
   )
@@ -37,7 +49,13 @@ export async function eventsRoutes(app: FastifyInstance)
   app.get(
     '/events/:id',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     getEventController
   )
@@ -45,24 +63,52 @@ export async function eventsRoutes(app: FastifyInstance)
   app.patch(
     '/events/:id',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     updateEventController
   )
 
   app.get(
   '/public/events/:slug/menu',
+  {
+    config: {
+      rateLimit: {
+        max: 60,
+        timeWindow: '1 minute'
+      }
+    }
+  },
   getPublicEventMenuController
   )
   app.get(
   '/public/events/:slug/catalog-menu',
+  {
+    config: {
+      rateLimit: {
+        max: 60,
+        timeWindow: '1 minute'
+      }
+    }
+  },
   getPublicEventCatalogMenuController
   )
 
   app.get(
   '/events/:eventId/closing-preview',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   getEventClosingPreviewController
   )
@@ -70,28 +116,52 @@ export async function eventsRoutes(app: FastifyInstance)
   app.post(
   '/events/:eventId/close',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   closeEventController
   )
   app.get(
   '/events/:eventId/closing',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   getEventClosingController
   )
   app.post(
   '/events/:eventId/reopen',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   reopenEventController
   )
   app.patch(
   '/events/:eventId/archive',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   archiveEventController
   )
@@ -99,14 +169,26 @@ export async function eventsRoutes(app: FastifyInstance)
   app.patch(
   '/events/:eventId/restore',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   restoreEventController
   )
   app.delete(
   '/events/:eventId',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   deleteEventController
   )

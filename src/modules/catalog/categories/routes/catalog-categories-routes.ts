@@ -10,21 +10,39 @@ export async function catalogCategoriesRoutes(
   app.post(
     '/catalog/categories',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     createCatalogCategoryController
   )
   app.get(
   '/catalog/categories',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   listCatalogCategoriesController
 )
 app.patch(
   '/catalog/categories/:id',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   updateCatalogCategoryController
 )

@@ -13,14 +13,26 @@ export async function printJobsRoutes(
   app.get(
     '/events/:eventId/print-jobs',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     listPrintJobsController
   )
   app.patch(
   '/print-jobs/:printJobId/cancel',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   cancelPrintJobController
 )
@@ -28,7 +40,13 @@ export async function printJobsRoutes(
 app.patch(
   '/print-jobs/:printJobId/printed',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   markPrintJobPrintedController
 )
@@ -36,7 +54,13 @@ app.patch(
 app.patch(
   '/print-jobs/:printJobId/retry',
   {
-    preHandler: [verifyJWT]
+    preHandler: [verifyJWT],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
   },
   retryPrintJobController
 )

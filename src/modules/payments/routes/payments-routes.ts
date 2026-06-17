@@ -15,7 +15,13 @@ export async function paymentsRoutes(
   app.post(
     '/orders/:orderId/payment-transactions',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     createPaymentTransactionController
   )
@@ -23,7 +29,13 @@ export async function paymentsRoutes(
   app.get(
     '/orders/:orderId/payment-transactions',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     listOrderPaymentTransactionsController
   )
@@ -31,35 +43,89 @@ export async function paymentsRoutes(
   app.patch(
     '/payment-transactions/:paymentTransactionId/status',
     {
-      preHandler: [verifyJWT]
+      preHandler: [verifyJWT],
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
     },
     updatePaymentTransactionStatusController
   )
 
   app.get(
   '/events/:eventId/checkout-payment-settings',
+  {
+    config: {
+      rateLimit: {
+        max: 60,
+        timeWindow: '1 minute'
+      }
+    }
+  },
   getCheckoutPaymentSettingsController
 )
 
 app.post(
   '/orders/:orderId/pix-automatic-payment',
+  {
+    config: {
+      rateLimit: {
+        max: 60,
+        timeWindow: '1 minute'
+      }
+    }
+  },
   createPublicPixAutomaticPaymentController
 )
 
 app.post(
   '/orders/:orderId/checkout-payment',
+  {
+    config: {
+      rateLimit: {
+        max: 60,
+        timeWindow: '1 minute'
+      }
+    }
+  },
   preparePublicCheckoutPaymentController
 )
 app.post(
   '/public/orders/:orderId/checkout-payment',
+  {
+    config: {
+      rateLimit: {
+        max: 60,
+        timeWindow: '1 minute'
+      }
+    }
+  },
   preparePublicCheckoutPaymentController
 )
 app.post(
   '/webhooks/mercado-pago',
+  {
+    config: {
+      rateLimit: {
+        max: 120,
+        timeWindow: '1 minute'
+      }
+    }
+  },
   mercadoPagoWebhookController
 )
 app.post(
   '/expire-pending-pix-payments',
+  {
+    config: {
+      rateLimit: {
+        max: 60,
+        timeWindow: '1 minute'
+      }
+    }
+  },
   expirePendingPixPaymentsController
 )
 }

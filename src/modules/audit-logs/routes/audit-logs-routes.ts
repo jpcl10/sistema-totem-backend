@@ -8,6 +8,14 @@ export async function auditLogsRoutes(app: FastifyInstance) {
 
   app.get(
     '/events/:eventId/audit-logs',
+    {
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
+    },
     listEventAuditLogsController
   )
 }
