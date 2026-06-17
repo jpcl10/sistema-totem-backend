@@ -31,7 +31,7 @@ interface ValidationResult {
 function validateMercadoPagoSignature(
   headers: Record<string, unknown>,
   paymentId: string
-): ValidationResult {
+): ValidationResult & { xRequestId?: string } {
   const webhookSecret = process.env.MERCADO_PAGO_WEBHOOK_SECRET
 
   if (!webhookSecret) {
@@ -48,8 +48,7 @@ function validateMercadoPagoSignature(
   }
 
   if (!xRequestId) {
-    logger.error('Missing x-request-id header')
-    return { valid: false, reason: 'missing_x_request_id' }
+    logger.warn('Missing x-request-id header - proceeding without idempotency check')
   }
 
   // Extrair ts e v1 do x-signature
@@ -97,7 +96,7 @@ function validateMercadoPagoSignature(
     return { valid: false, reason: 'invalid_signature' }
   }
 
-  return { valid: true }
+  return { valid: true, xRequestId }
 }
 
 function getNestedValue(
@@ -195,6 +194,8 @@ export class MercadoPagoWebhookService {
       }
     }
 
+    const xRequestId = validation.xRequestId
+
     const paymentTransaction =
       await prisma.paymentTransaction.findFirst({
         where: {
@@ -217,6 +218,22 @@ export class MercadoPagoWebhookService {
           }
         }
       })
+
+    // Verificar idempotência usando x-request-id
+    if (xRequestId && paymentTransaction?.metadata) {
+      const metadata = paymentTransaction.metadata as Record<string, unknown>
+      const processedWebhookRequestIds = metadata.processedWebhookRequestIds as string[] | undefined
+      
+      if (processedWebhookRequestIds && processedWebhookRequestIds.includes(xRequestId)) {
+        logger.info({ xRequestId, paymentId }, 'Webhook already processed - skipping')
+        return {
+          received: true,
+          ignored: true,
+          reason: 'webhook_already_processed',
+          paymentId
+        }
+      }
+    }
 
     if (!paymentTransaction) {
       return {
@@ -273,6 +290,15 @@ export class MercadoPagoWebhookService {
 
     const updatedOrder =
       await prisma.$transaction(async tx => {
+        // Preservar metadata anterior e adicionar processedWebhookRequestIds
+        const existingMetadata = paymentTransaction.metadata as Record<string, unknown> || {}
+        const existingProcessedIds = Array.isArray(existingMetadata.processedWebhookRequestIds) 
+          ? existingMetadata.processedWebhookRequestIds 
+          : []
+        const updatedProcessedIds = xRequestId 
+          ? [...new Set([...existingProcessedIds, xRequestId])] 
+          : existingProcessedIds
+
         const updatedPaymentTransaction =
           await tx.paymentTransaction.update({
             where: {
@@ -304,10 +330,12 @@ export class MercadoPagoWebhookService {
                   ? now
                   : paymentTransaction.expiredAt,
               metadata: {
+                ...existingMetadata,
                 source: 'mercado-pago-webhook',
                 mercadoPagoPayment: JSON.parse(
                   JSON.stringify(mercadoPagoPayment)
-                )
+                ),
+                processedWebhookRequestIds: updatedProcessedIds
               }
             }
           })

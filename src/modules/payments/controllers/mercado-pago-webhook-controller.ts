@@ -18,7 +18,6 @@ export async function mercadoPagoWebhookController(
   const validationFailures = [
     'webhook_secret_not_configured',
     'missing_x_signature',
-    'missing_x_request_id',
     'missing_ts',
     'missing_v1',
     'invalid_signature'
