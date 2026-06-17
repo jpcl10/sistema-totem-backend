@@ -1,7 +1,10 @@
 import { prisma } from '../../../lib/prisma.js'
+import { AuditAction } from '@prisma/client'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface CreateEventServiceRequest {
   organizationId: string
+  userId: string
   name: string
   slug: string
   primaryColor?: string
@@ -14,6 +17,7 @@ interface CreateEventServiceRequest {
 export class CreateEventService {
   async execute({
     organizationId,
+    userId,
     name,
     slug,
     primaryColor,
@@ -43,6 +47,25 @@ export class CreateEventService {
         logoUrl,
         startsAt,
         endsAt
+      }
+    })
+
+    // Create audit log for event created
+    const createAuditLogService = new CreateAuditLogService()
+    await createAuditLogService.execute({
+      organizationId,
+      userId,
+      eventId: event.id,
+      entity: 'Event',
+      entityId: event.id,
+      action: AuditAction.EVENT_CREATED,
+      description: 'Evento criado',
+      metadata: {
+        eventId: event.id,
+        name: event.name,
+        slug: event.slug,
+        active: event.active,
+        organizationId
       }
     })
 

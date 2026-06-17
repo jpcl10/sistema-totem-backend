@@ -259,9 +259,10 @@ export class MercadoPagoWebhookService {
         return updated
       })
 
+    const createAuditLogService = new CreateAuditLogService()
+
     if (updatedOrder.paymentStatus === PaymentStatus.PAID) {
       // Audit: PAYMENT_APPROVED
-      const createAuditLogService = new CreateAuditLogService()
       await createAuditLogService.execute({
         organizationId: paymentTransaction.order.event.organizationId,
         eventId: paymentTransaction.order.eventId,
@@ -283,6 +284,42 @@ export class MercadoPagoWebhookService {
 
       await createPrintJobsForOrderService.execute({
         orderId: updatedOrder.id
+      })
+    } else if (transactionStatus === PaymentTransactionStatus.REJECTED) {
+      // Audit: PAYMENT_REJECTED
+      await createAuditLogService.execute({
+        organizationId: paymentTransaction.order.event.organizationId,
+        eventId: paymentTransaction.order.eventId,
+        entity: 'PaymentTransaction',
+        entityId: paymentTransaction.id,
+        action: AuditAction.PAYMENT_REJECTED,
+        description: 'Pagamento rejeitado',
+        metadata: {
+          paymentId: paymentTransaction.id,
+          orderId: paymentTransaction.orderId,
+          amountInCents: paymentTransaction.amountInCents,
+          provider: PaymentProvider.MERCADO_PAGO,
+          gatewayStatus: mercadoPagoStatus,
+          gatewayMessage: mercadoPagoPayment.status_detail
+        }
+      })
+    } else if (transactionStatus === PaymentTransactionStatus.REFUNDED) {
+      // Audit: PAYMENT_REFUNDED
+      await createAuditLogService.execute({
+        organizationId: paymentTransaction.order.event.organizationId,
+        eventId: paymentTransaction.order.eventId,
+        entity: 'PaymentTransaction',
+        entityId: paymentTransaction.id,
+        action: AuditAction.PAYMENT_REFUNDED,
+        description: 'Pagamento reembolsado',
+        metadata: {
+          paymentId: paymentTransaction.id,
+          orderId: paymentTransaction.orderId,
+          amountInCents: paymentTransaction.amountInCents,
+          provider: PaymentProvider.MERCADO_PAGO,
+          gatewayStatus: mercadoPagoStatus,
+          gatewayMessage: mercadoPagoPayment.status_detail
+        }
       })
     }
 

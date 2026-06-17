@@ -18,11 +18,13 @@ export async function createEventController(
   } = createEventSchema.parse(request.body)
 
   const organizationId = request.user.organizationId
+  const userId = request.user.sub
 
   const createEventService = new CreateEventService()
 
   const { event } = await createEventService.execute({
     organizationId,
+    userId,
     name,
     slug,
     primaryColor,
