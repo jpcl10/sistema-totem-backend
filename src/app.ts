@@ -6,6 +6,7 @@ import fastifyRateLimit from '@fastify/rate-limit'
 
 // Modules
 import { uploadsRoutes } from './modules/uploads/routes/uploads-routes.js'
+import { healthRoutes } from './modules/health/routes/health-routes.js'
 
 // Services
 import { ProcessPrintJobsService } from './modules/print-jobs/services/process-print-jobs-service.js'
@@ -79,6 +80,9 @@ await app.register(fastifyRateLimit, {
 // Auth
 app.register(authRoutes)
 app.register(usersRoutes)
+
+// Health
+app.register(healthRoutes)
 
 // Events
 app.register(eventsRoutes)
