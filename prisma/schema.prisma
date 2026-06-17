@@ -237,6 +237,7 @@ model Order {
   printJobs EventPrintJob[]
   paymentTransactions PaymentTransaction[]
   @@index([deviceId])
+  @@unique([eventId, orderNumber])
 }
 
 model OrderItem {

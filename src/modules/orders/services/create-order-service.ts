@@ -63,88 +63,88 @@ export class CreateOrderService {
       }
     }
 
-    const eventProductIds = items.map(
-      item => item.productId
-    )
+    const order = await prisma.$transaction(async tx => {
+      const eventProductIds = items.map(
+        item => item.productId
+      )
 
-    const eventProducts =
-      await prisma.eventProduct.findMany({
-        where: {
-          id: {
-            in: eventProductIds
+      const eventProducts =
+        await tx.eventProduct.findMany({
+          where: {
+            id: {
+              in: eventProductIds
+            },
+            eventId: event.id,
+            active: true,
+            soldOut: false
           },
-          eventId: event.id,
-          active: true,
-          soldOut: false
+          include: {
+            catalogProduct: true
+          }
+        })
+
+      if (eventProducts.length !== items.length) {
+        throw new Error('Some products were not found or are unavailable')
+      }
+
+      // Calcular próximo orderNumber dentro da transação
+      const lastOrder = await tx.order.findFirst({
+        where: {
+          eventId: event.id
         },
-        include: {
-          catalogProduct: true
+        orderBy: {
+          orderNumber: 'desc'
+        },
+        select: {
+          orderNumber: true
         }
       })
 
-    if (eventProducts.length !== items.length) {
-      throw new Error('Some products were not found or are unavailable')
-    }
+      const nextOrderNumber = lastOrder
+        ? lastOrder.orderNumber + 1
+        : 1
 
-    const lastOrder = await prisma.order.findFirst({
-      where: {
-        eventId: event.id
-      },
-      orderBy: {
-        orderNumber: 'desc'
-      }
-    })
-
-    const nextOrderNumber = lastOrder
-      ? lastOrder.orderNumber + 1
-      : 1
-
-    let totalInCents = 0
-
-    const orderItemsData = items.map(item => {
-      const eventProduct = eventProducts.find(
-        eventProduct =>
-          eventProduct.id === item.productId
-      )
-
-      if (!eventProduct) {
-        throw new Error('Product not found')
-      }
-
-      if (
-        eventProduct.trackStock &&
-        eventProduct.stockQuantity !== null &&
-        item.quantity > eventProduct.stockQuantity
-      ) {
-        throw new Error(
-          `Insufficient stock for ${eventProduct.catalogProduct.name}`
+      // Verificar estoque para cada item (usando os dados dentro da transação)
+      for (const item of items) {
+        const eventProduct = eventProducts.find(
+          ep => ep.id === item.productId
         )
+
+        if (!eventProduct) {
+          throw new Error('Product not found')
+        }
+
+        if (
+          eventProduct.trackStock &&
+          eventProduct.stockQuantity !== null &&
+          item.quantity > eventProduct.stockQuantity
+        ) {
+          throw new Error(
+            `Insufficient stock for ${eventProduct.catalogProduct.name}`
+          )
+        }
       }
 
-      const itemTotal =
-        eventProduct.priceInCents * item.quantity
+      // Calcular total e preparar order items
+      let totalInCents = 0
+      const orderItemsData = items.map(item => {
+        const eventProduct = eventProducts.find(
+          ep => ep.id === item.productId
+        )!
 
-      totalInCents += itemTotal
+        const itemTotal = eventProduct.priceInCents * item.quantity
+        totalInCents += itemTotal
 
-      return {
-        catalogProductId:
-          eventProduct.catalogProductId,
+        return {
+          catalogProductId: eventProduct.catalogProductId,
+          quantity: item.quantity,
+          unitPriceInCents: eventProduct.priceInCents,
+          totalInCents: itemTotal,
+          productName: eventProduct.catalogProduct.name
+        }
+      })
 
-        quantity:
-          item.quantity,
-
-        unitPriceInCents:
-          eventProduct.priceInCents,
-
-        totalInCents:
-          itemTotal,
-
-        productName:
-          eventProduct.catalogProduct.name
-      }
-    })
-
-    const order = await prisma.$transaction(async tx => {
+      // Criar pedido
       const createdOrder = await tx.order.create({
         data: {
           eventId: event.id,
@@ -179,28 +179,40 @@ export class CreateOrderService {
         }
       })
 
+      // Atualizar estoque de forma atômica
       for (const item of items) {
         const eventProduct = eventProducts.find(
-          eventProduct =>
-            eventProduct.id === item.productId
-        )
+          ep => ep.id === item.productId
+        )!
 
         if (
-          eventProduct?.trackStock &&
+          eventProduct.trackStock &&
           eventProduct.stockQuantity !== null
         ) {
-          const newStock =
-            eventProduct.stockQuantity - item.quantity
-
-          await tx.eventProduct.update({
+          const result = await tx.eventProduct.updateMany({
             where: {
-              id: eventProduct.id
+              id: eventProduct.id,
+              stockQuantity: {
+                gte: item.quantity // Garante que temos estoque suficiente
+              }
             },
             data: {
-              stockQuantity: newStock,
-              soldOut: newStock <= 0
+              stockQuantity: {
+                decrement: item.quantity
+              },
+              soldOut: {
+                set: eventProduct.stockQuantity - item.quantity <= 0
+              }
             }
           })
+
+          if (result.count === 0) {
+            // Se nenhum registro foi atualizado, significa que o estoque foi alterado
+            // por outra transação e não temos mais estoque suficiente
+            throw new Error(
+              `Insufficient stock for ${eventProduct.catalogProduct.name}`
+            )
+          }
         }
       }
 
