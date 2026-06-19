@@ -108,6 +108,19 @@ enum DeviceAuthStatus {
   ACTIVE
   REVOKED
 }
+
+enum NfcCardType {
+  CUSTOMER
+  STAFF
+  VIP
+  COMANDA
+}
+
+enum NfcCardStatus {
+  ACTIVE
+  BLOCKED
+  LOST
+}
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -124,6 +137,7 @@ model Organization {
   catalogProducts         CatalogProduct[]
   paymentProviderSettings PaymentProviderSettings[]
   eventClosings EventClosing[]
+  nfcCards NfcCard[]
 }
 
 model User {
@@ -198,6 +212,7 @@ model Event {
   eventProducts EventProduct[]
   printJobs     EventPrintJob[]
   printers      EventPrinter[]
+  nfcCards NfcCard[]
 
   closing EventClosing?
 
@@ -572,6 +587,11 @@ enum AuditAction {
 
   USER_LOGGED_IN
   USER_CREATED
+
+  NFC_CARD_CREATED
+  NFC_CARD_UPDATED
+  NFC_CARD_BLOCKED
+  NFC_CARD_READ
 }
 
 model AuditLog {
@@ -608,4 +628,28 @@ model AuditLog {
   @@index([deviceId])
   @@index([action])
   @@index([createdAt])
+}
+
+model NfcCard {
+  id             String        @id @default(cuid())
+  organizationId String
+  eventId        String
+  uid            String        @unique
+  code           String?
+  holderName     String?
+  type           NfcCardType   @default(CUSTOMER)
+  status         NfcCardStatus @default(ACTIVE)
+  balanceInCents Int           @default(0)
+  metadata       Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now()) @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  event        Event        @relation(fields: [eventId], references: [id])
+
+  @@index([organizationId])
+  @@index([eventId])
+  @@index([uid])
+  @@index([status])
+  @@index([type])
 }

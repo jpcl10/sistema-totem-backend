@@ -1,151 +1,116 @@
 # Sistema Totem Backend
 
-Backend do sistema de eventos e totem de autoatendimento, voltado para bares, festas e operacoes com pedidos em tempo real. O projeto atende tanto o fluxo publico do totem quanto o painel administrativo, integrando pagamentos, impressao, dispositivos e atualizacao em tempo real via Socket.IO.
+Backend profissional do sistema de eventos e totem de autoatendimento, voltado para bares, festas e operações com pedidos em tempo real. O projeto atende tanto o fluxo público do totem quanto o painel administrativo, integrando pagamentos, impressão, dispositivos e atualização em tempo real via Socket.IO.
 
-## Visao Geral Do Projeto
+## 1. Visão Geral do Projeto
 
 Este backend centraliza:
-
-- Sistema backend para eventos, bares e festas
-- Suporte a totem de autoatendimento
-- Painel administrativo
-- Pedidos em tempo real
-- Pagamentos via PIX Mercado Pago
-- Impressao automatica
-- Controle de dispositivos como SK210
-- Tela publica de chamada e acompanhamento de pedidos
+- Sistema multi-tenant por organização
+- Totem de autoatendimento com menu público
+- Painel administrativo completo
+- Pedidos em tempo real com controle de estoque
+- Pagamento PIX automático via Mercado Pago
+- Impressão automática por setor ou pedido completo
+- Controle de dispositivos (totem, impressora, tela de chamada, SK210)
+- Upload de imagens com Cloudflare R2
+- Audit Logs completo para auditoria
+- Health check completo
+- Rate limiting e segurança avançada
 
 Fluxo operacional principal:
-
-1. O cliente acessa o menu publico do evento.
+1. O cliente acessa o menu público do evento.
 2. O totem cria o pedido.
-3. O backend registra o pedido e emite eventos em tempo real.
-4. O pagamento segue por fluxo manual ou PIX automatico.
-5. Quando o pagamento e confirmado, os jobs de impressao sao criados.
+3. O backend registra o pedido, gerencia estoque e emite eventos em tempo real.
+4. O pagamento segue por fluxo manual ou PIX automático com expiração configurável.
+5. Quando o pagamento é confirmado (via webhook ou manualmente), os jobs de impressão são criados.
 6. Impressoras TCP/IP ou dispositivos SK210 processam a fila.
+7. Todo o ciclo é registrado em Audit Logs para auditoria.
 
-## Stack Utilizada
+## 2. Tecnologias Utilizadas
 
-| Tecnologia | Uso no projeto |
-| --- | --- |
-| Node.js | Runtime da aplicacao |
-| TypeScript | Tipagem e organizacao do codigo |
-| Fastify | Servidor HTTP |
-| Prisma | ORM e acesso ao banco |
+| Tecnologia | Uso no Projeto |
+|------------|----------------|
+| Node.js | Runtime da aplicação |
+| TypeScript | Tipagem e organização do código |
+| Fastify | Servidor HTTP de alta performance |
+| Prisma | ORM e acesso ao banco de dados |
 | PostgreSQL | Banco de dados principal |
-| Socket.IO | Atualizacao em tempo real por evento |
-| JWT | Autenticacao de usuarios e dispositivos |
-| Zod | Validacao de payloads |
-| Mercado Pago SDK | PIX automatico e consulta de pagamentos |
+| Socket.IO | Atualização em tempo real por evento |
+| JWT | Autenticação de usuários e dispositivos |
+| Zod | Validação de payloads |
+| Mercado Pago SDK | PIX automático e consulta de pagamentos |
 | Cloudflare R2 | Armazenamento de imagens |
-| AWS SDK S3 | Integracao com o bucket R2 |
-| `@fastify/multipart` | Upload de arquivos |
+| AWS SDK S3 | Integração com o bucket R2 |
+| @fastify/multipart | Upload de arquivos |
+| @fastify/rate-limit | Rate limiting para segurança |
+| @fastify/cors | Controle de origens permitidas |
+| Pino | Logs estruturados e performáticos |
 
-## Funcionalidades Atuais
-
-- Autenticacao JWT
-- Organizacoes
-- Usuarios
-- Eventos
-- Catalogo
-- Produtos por evento
-- Pedidos
-- Pagamento manual
-- PIX automatico Mercado Pago
-- Webhook Mercado Pago
-- Expiracao configuravel de PIX por evento
-- Cancelamento automatico de pedidos com PIX expirado
-- Job automatico de expiracao de pagamentos
-- Impressao automatica
-- Fila de impressao
-- Dispositivos SK210
-- Heartbeat de dispositivos
-- Socket.IO para atualizacao em tempo real
-- Tela publica de chamada de pedidos
-- Checkout publico do totem
-- Cadastro e teste de impressoras
-- Fechamento de evento com preview e resumo financeiro
-
-## Arquitetura De Modulos
+## 3. Arquitetura de Módulos
 
 Estrutura principal do backend:
 
 ```text
 backend/
 ├─ prisma/
-│  ├─ migrations/
-│  └─ schema.prisma
+│  ├─ migrations/          # Migrations do banco de dados
+│  └─ schema.prisma        # Schema do Prisma
 ├─ src/
-│  ├─ @types/
-│  ├─ jobs/
-│  │  └─ expire-pending-pix-job.ts
-│  ├─ lib/
-│  │  ├─ printers/
-│  │  ├─ prisma.ts
-│  │  ├─ socket.ts
-│  │  └─ thermal-printer.ts
-│  ├─ modules/
-│  │  ├─ auth/
-│  │  ├─ users/
-│  │  ├─ events/
-│  │  ├─ catalog/
-│  │  │  ├─ categories/
-│  │  │  ├─ products/
-│  │  │  └─ event-products/
-│  │  ├─ orders/
-│  │  ├─ payments/
-│  │  ├─ payment-provider-settings/
-│  │  ├─ devices/
-│  │  ├─ device-print-jobs/
-│  │  ├─ print-jobs/
-│  │  ├─ printers/
-│  │  └─ metrics/
-│  ├─ shared/
-│  │  ├─ config/
-│  │  └─ utils/
-│  ├─ app.ts
-│  └─ server.ts
+│  ├─ @types/              # Tipagens TypeScript
+│  ├─ jobs/                # Jobs periódicos (expiração de PIX, etc.)
+│  ├─ lib/                 # Libs e drivers compartilhados
+│  │  ├─ printers/         # Drivers de impressão (Gertec SK210, TCP)
+│  │  ├─ logger.ts         # Configuração do logger Pino
+│  │  ├─ prisma.ts         # Cliente Prisma
+│  │  ├─ r2.ts             # Integração com Cloudflare R2
+│  │  ├─ socket.ts         # Configuração do Socket.IO
+│  │  └─ thermal-printer.ts# Gerador de comandos ESC/POS
+│  ├─ modules/             # Módulos da aplicação
+│  │  ├─ audit-logs/       # Logs de auditoria
+│  │  ├─ auth/             # Autenticação JWT
+│  │  ├─ catalog/          # Catálogo (categorias, produtos, produtos por evento)
+│  │  ├─ device-print-jobs/# Jobs de impressão por dispositivo
+│  │  ├─ devices/          # Gestão de dispositivos
+│  │  ├─ events/           # Eventos, menu público, fechamento
+│  │  ├─ health/           # Health check completo
+│  │  ├─ metrics/          # Métricas do evento
+│  │  ├─ orders/           # Pedidos
+│  │  ├─ payment-provider-settings/# Configuração de provedores de pagamento
+│  │  ├─ payments/         # Pagamentos, webhooks, PIX
+│  │  ├─ print-jobs/       # Fila de impressão
+│  │  ├─ printers/         # Impressoras do evento
+│  │  ├─ uploads/          # Upload de imagens
+│  │  └─ users/            # Usuários
+│  └─ app.ts               # Arquivo principal da aplicação
+├─ .env.example            # Exemplo de variáveis de ambiente
 ├─ package.json
 └─ tsconfig.json
 ```
 
-Responsabilidade por area:
+## 4. Funcionalidades Principais
 
-| Caminho | Responsabilidade |
-| --- | --- |
-| `src/modules/auth` | Login e emissao de JWT |
-| `src/modules/users` | Criacao de usuarios e perfil autenticado |
-| `src/modules/organizations` | Dominio previsto pela arquitetura; no estado atual existe no banco e na autorizacao, sem pasta HTTP dedicada |
-| `src/modules/events` | Eventos, menu publico, fechamento, logo e configuracoes de operacao |
-| `src/modules/orders` | Criacao de pedidos, status operacional, resumo financeiro e tela de chamada |
-| `src/modules/payments` | Checkout, transacoes, webhook, PIX automatico e expiracao |
-| `src/modules/devices` | Ativacao, heartbeat, configuracao e autenticacao de dispositivos |
-| `src/modules/print-jobs` | Fila administrativa de impressao |
-| `src/modules/printers` | Cadastro e teste de impressoras |
-| `src/jobs` | Jobs periodicos do backend |
-| `src/lib` | Prisma, Socket.IO e drivers de impressao |
-| `src/shared` | Configuracoes compartilhadas e utilitarios |
+- **Autenticação JWT**: Para usuários do painel administrativo e dispositivos
+- **Multi-tenant por Organização**: Isolamento completo de dados por organização
+- **Eventos**: Criação, arquivamento, fechamento e reabertura de eventos
+- **Catálogo**: Categorias e produtos base, com vinculação a eventos
+- **Produtos por Evento**: Preço, estoque, disponibilidade e setor por evento
+- **Pedidos**: Criação, status operacional, status de pagamento e resumo financeiro
+- **PIX Automático Mercado Pago**: Geração de QR Code, expiração e confirmação via webhook
+- **Webhook Mercado Pago**: Validação de assinatura e idempotência com `x-request-id`
+- **Expiração Automática de PIX**: Job periódico que expira PIX pendentes
+- **Cancelamento Automático de Pedidos**: Pedidos com PIX expirado são cancelados automaticamente
+- **Impressão de Pedidos**: Impressão automática ou manual por pedido completo ou setor
+- **Dispositivos**: Controle de totens, impressoras, telas de chamada e SK210
+- **Upload de Imagens**: Integração com Cloudflare R2 para armazenamento de imagens
+- **Audit Logs Completo**: Registro de todas as ações importantes para auditoria
+- **Tela/API de Atividades**: Visualização de logs de auditoria por evento
+- **Rate Limiting**: Proteção contra abusos de API
+- **CORS Restrito**: Controle de origens permitidas
+- **Health Check Completo**: Verificação de status do servidor, banco de dados, etc.
+- **Logs Estruturados com Pino**: Logs performáticos com censura de dados sensíveis
+- **Proteção Contra Concorrência**: Garantia de unicidade de orderNumber por evento e controle de estoque
 
-## Modelos Principais
-
-| Modelo | Papel no sistema |
-| --- | --- |
-| `Organization` | Agrupa usuarios, eventos, catalogo e configuracoes de pagamento |
-| `User` | Usuario autenticado com papel de acesso |
-| `Event` | Evento com configuracoes de totem, PIX, impressao e operacao |
-| `CatalogCategory` | Categoria base do catalogo |
-| `CatalogProduct` | Produto base do catalogo |
-| `EventProduct` | Produto habilitado em um evento, com preco, estoque e disponibilidade |
-| `Order` | Pedido do evento |
-| `OrderItem` | Itens do pedido com snapshot de valores |
-| `PaymentTransaction` | Historico e auditoria de tentativas de pagamento |
-| `PaymentProviderSettings` | Configuracao do provedor por organizacao |
-| `EventPrinter` | Impressora legada vinculada ao evento |
-| `EventPrintJob` | Job de impressao gerado para um pedido |
-| `Device` | Equipamento do tipo totem, printer, call screen ou SK210 |
-| `EventClosing` | Resumo financeiro de fechamento do evento |
-
-## Variaveis De Ambiente
+## 5. Variáveis de Ambiente
 
 Crie um arquivo `.env` na pasta `backend/` baseado no `.env.example`.
 
@@ -172,367 +137,222 @@ MERCADO_PAGO_WEBHOOK_URL="https://seu-backend.com/webhooks/mercado-pago"
 NODE_ENV="development"
 ```
 
-| Variavel | Obrigatoria | Descricao |
-| --- | --- | --- |
-| `DATABASE_URL` | Sim | String de conexao do PostgreSQL usada pelo Prisma |
-| `PORT` | Nao (padrao: 3333) | Porta onde o servidor HTTP ira rodar |
-| `JWT_SECRET` | Sim | Segredo usado para assinar JWT de usuarios e dispositivos |
-| `ALLOWED_ORIGINS` | Sim | Lista de origens permitidas para CORS, separadas por virgula. Deve incluir a URL do frontend Lovable e localhost (ex: http://localhost:3000,http://localhost:5173) |
-| `MERCADO_PAGO_ACCESS_TOKEN` | Sim para PIX automatico | Token privado de integracao com Mercado Pago |
-| `MERCADO_PAGO_PUBLIC_KEY` | Recomendado para frontend | Chave publica usada no checkout |
-| `MERCADO_PAGO_WEBHOOK_SECRET` | Recomendado | Segredo para validar o webhook do Mercado Pago, deve ser igual ao configurado no painel do Mercado Pago |
-| `MERCADO_PAGO_WEBHOOK_URL` | Recomendado | URL publica configurada no Mercado Pago para receber webhooks |
+| Variável | Obrigatória | Descrição |
+|----------|-------------|-----------|
+| `DATABASE_URL` | Sim | String de conexão do PostgreSQL usada pelo Prisma |
+| `PORT` | Não (padrão: 3333) | Porta onde o servidor HTTP irá rodar |
+| `JWT_SECRET` | Sim | Segredo usado para assinar JWT de usuários e dispositivos |
+| `ALLOWED_ORIGINS` | Sim | Lista de origens permitidas para CORS, separadas por vírgula |
+| `MERCADO_PAGO_ACCESS_TOKEN` | Sim para PIX automático | Token privado de integração com Mercado Pago |
+| `MERCADO_PAGO_PUBLIC_KEY` | Recomendado para frontend | Chave pública usada no checkout |
+| `MERCADO_PAGO_WEBHOOK_SECRET` | Recomendado | Segredo para validar o webhook do Mercado Pago |
+| `MERCADO_PAGO_WEBHOOK_URL` | Recomendado | URL pública configurada no Mercado Pago para receber webhooks |
 | `R2_ACCOUNT_ID` | Sim para upload | Account ID do Cloudflare R2 |
 | `R2_ACCESS_KEY_ID` | Sim para upload | Access key do bucket R2 |
 | `R2_SECRET_ACCESS_KEY` | Sim para upload | Secret key do bucket R2 |
 | `R2_BUCKET_NAME` | Sim para upload | Nome do bucket usado para imagens |
-| `R2_PUBLIC_URL` | Sim para URLs publicas | URL publica do bucket R2 usada para compor URLs completas das imagens |
-| `NODE_ENV` | Nao (padrao: development) | Ambiente de execucao (development ou production) |
+| `R2_PUBLIC_URL` | Sim para URLs públicas | URL pública do bucket R2 |
+| `NODE_ENV` | Não (padrão: development) | Ambiente de execução (development ou production) |
 
-Importante:
-- Nunca commite o arquivo `.env` real no repositorio
-- Sempre use o `.env.example` como referência
-- Em ambientes compartilhados, prefira secrets do provedor de deploy
-- Todas as imagens devem ser armazenadas e servidas pelo Cloudflare R2
+## 6. Como Rodar Localmente
 
-## Como Rodar Localmente
+1. Instale as dependências:
+   ```bash
+   npm install
+   ```
 
-```bash
-npm install
-npx prisma migrate dev
-npx prisma generate
-npm run dev
+2. Configure o arquivo `.env` com suas credenciais
+
+3. Execute as migrations do Prisma:
+   ```bash
+   npx prisma migrate dev
+   ```
+
+4. Gere o cliente Prisma:
+   ```bash
+   npx prisma generate
+   ```
+
+5. Inicie o servidor em modo desenvolvimento:
+   ```bash
+   npm run dev
+   ```
+
+O servidor HTTP irá subir na porta `3333`.
+
+## 7. Como Rodar Migrations do Prisma
+
+- **Criar uma nova migration**:
+  ```bash
+  npx prisma migrate dev --name nome-da-migration
+  ```
+
+- **Aplicar migrations em desenvolvimento**:
+  ```bash
+  npx prisma migrate dev
+  ```
+
+- **Aplicar migrations em produção**:
+  ```bash
+  npx prisma migrate deploy
+  ```
+
+- **Abrir o Prisma Studio** (interface para visualizar o banco de dados):
+  ```bash
+  npx prisma studio
+  ```
+
+## 8. Como Testar Health Check
+
+O health check está disponível em:
+
+```http
+GET /health
 ```
 
-Observacoes:
+Ele retorna o status do servidor, conexão com o banco de dados e outras informações relevantes.
 
-- O servidor HTTP sobe na porta `3333`.
-- O Socket.IO compartilha o mesmo servidor HTTP.
-- O worker interno de impressao roda a cada `3` segundos.
-- O job de expiracao de PIX roda a cada `30` segundos.
+## 9. Como Funciona Upload R2
 
-## Scripts Uteis
+O upload de imagens é feito via Cloudflare R2. A rota de upload é:
 
-```bash
-npm run dev
-npx prisma studio
-npx prisma migrate dev
-npx prisma generate
-npx tsc --noEmit
+```http
+POST /uploads/images
 ```
 
-## Fluxo PIX Automatico
+Esta rota recebe um arquivo via `multipart/form-data`, faz o upload para o bucket R2 e retorna a URL pública da imagem.
 
-Fluxo completo de pagamento PIX automatico com Mercado Pago:
+## 10. Como Funciona PIX/Mercado Pago
 
-1. O totem cria o pedido em `POST /public/events/:slug/orders`.
-2. O backend cria ou reaproveita uma transacao PIX no checkout publico.
-3. O Mercado Pago gera o QR Code e os dados de copia e cola.
-4. O backend salva a `PaymentTransaction` com `expiresAt`.
-5. O totem exibe o QR Code com contador.
-6. O cliente realiza o pagamento.
-7. O Mercado Pago chama o webhook configurado.
-8. O backend consulta o pagamento real no Mercado Pago e atualiza `PaymentTransaction` e `Order`.
-9. O pedido passa para `PAID`.
-10. Um `PrintJob` e criado.
-11. A impressora TCP/IP ou o dispositivo SK210 executa a impressao.
-12. O Socket.IO atualiza as telas operacionais e publicas.
+### Fluxo Completo
+1. O totem cria o pedido em `POST /public/events/:slug/orders`
+2. O backend cria ou reaproveita uma transação PIX no checkout público
+3. O Mercado Pago gera o QR Code e os dados de cópia e cola
+4. O backend salva a `PaymentTransaction` com `expiresAt`
+5. O totem exibe o QR Code com contador
+6. O cliente realiza o pagamento
+7. O Mercado Pago chama o webhook configurado
+8. O backend valida a assinatura do webhook, verifica idempotência via `x-request-id` e consulta o pagamento real no Mercado Pago
+9. O pedido passa para `PAID`
+10. Um `PrintJob` é criado
+11. A impressora TCP/IP ou o dispositivo SK210 executa a impressão
+12. O Socket.IO atualiza as telas operacionais e públicas
 
-Estados retornados pelo checkout publico:
-
-- `paid`: pedido ja esta pago
-- `operator`: pagamento precisa de intervencao humana ou nao ha metodo automatico disponivel
-- `pix_manual`: evento possui PIX manual
-- `pix_automatic`: transacao PIX automatica criada ou reaproveitada
-
-## Expiracao De PIX
-
-A expiracao do PIX no projeto funciona assim:
-
-- O campo `Event.pixPaymentExpirationMinutes` define o tempo de validade do PIX por evento.
-- O valor padrao no banco e `5` minutos.
-- O backend aplica limites seguros de `2` a `15` minutos ao criar a transacao.
-- O campo `PaymentTransaction.expiresAt` armazena a data/hora de expiracao da cobranca.
-- A expiracao tambem e enviada ao Mercado Pago via `date_of_expiration`.
-- O job automatico `expire-pending-pix-job` verifica transacoes vencidas periodicamente.
-- Quando um PIX vence sem pagamento, a `PaymentTransaction` vira `EXPIRED`.
-- O pedido vinculado muda para `CANCELLED`.
-- O `paymentStatus` do pedido muda para `FAILED`.
-- O backend emite o evento Socket.IO `payment-expired`.
-
-Observacao importante:
-
-- No estado atual do codigo, o campo `pixPaymentExpirationMinutes` ja existe no schema Prisma e ja e usado na criacao da transacao PIX. Caso a administracao do evento precise editar esse valor via payload HTTP, vale validar se o contrato exposto pela API ja contempla esse campo no seu fluxo de gestao.
-
-## Webhook Mercado Pago
-
+### Webhook Mercado Pago
 Rota do webhook:
-
 ```http
 POST /webhooks/mercado-pago
 ```
 
-Configure no painel Mercado Pago Developers uma URL publica acessivel pela internet:
+Configure no painel Mercado Pago Developers uma URL pública acessível pela internet. Durante desenvolvimento local, use um tunel como `ngrok`.
 
-```text
-https://SEU_DOMINIO/webhooks/mercado-pago
+### Expiração de PIX
+- O campo `Event.pixPaymentExpirationMinutes` define o tempo de validade do PIX por evento (padrão: 5 minutos)
+- O job `expire-pending-pix-job` verifica transações vencidas a cada 30 segundos
+- Quando um PIX vence, a transação é marcada como `EXPIRED` e o pedido é cancelado automaticamente
+
+## 11. Como Funciona Auditoria/Audit Logs
+
+O sistema registra todas as ações importantes em `AuditLog` para auditoria completa. As logs incluem:
+- Ação realizada
+- Usuário ou dispositivo que realizou a ação
+- Data e hora
+- Dados relevantes da ação
+- ID do evento relacionado
+
+A rota para visualizar os logs de auditoria por evento é:
+```http
+GET /events/:eventId/audit-logs
 ```
 
-Durante desenvolvimento local, use um tunel como `ngrok` para expor a API:
+## 12. Como Funciona Rate Limiting
 
-```text
-https://SEU_SUBDOMINIO.ngrok-free.app/webhooks/mercado-pago
-```
+O rate limiting é configurado com `@fastify/rate-limit` e é aplicado por rota. A chave de rate limiting é:
+- Para rotas autenticadas: ID do usuário
+- Para rotas públicas: IP do cliente
 
-Recomendacoes:
+Isso protege a API contra abusos e ataques de força bruta.
 
-- Configure notificacoes de `pagamentos`.
-- Eventos de `order` ou `merchant_order` podem ser habilitados se fizerem sentido para sua operacao.
-- O backend atual localiza a transacao pelo `paymentId` recebido e consulta o pagamento diretamente na API do Mercado Pago antes de sincronizar o pedido.
+## 13. Como Funciona CORS
 
-## Rotas Importantes
+O CORS é configurado com `@fastify/cors` e permite apenas origens listadas em `ALLOWED_ORIGINS`. Requisições sem origem (como Insomnia, Postman ou webhooks) são permitidas.
 
-### Auth
+## 14. Como Funciona Impressão
 
-| Metodo | Rota | Descricao |
-| --- | --- | --- |
-| `POST` | `/sessions` | Login e emissao de JWT |
-| `POST` | `/users` | Criacao de usuario |
-| `GET` | `/users/profile` | Perfil do usuario autenticado |
+O backend suporta dois caminhos principais de impressão:
+- `TCP_IP`: Impressão automática pela rede
+- `SK210_LOCAL`: Impressão local intermediada por app/dispositivo
 
-### Events
+Conceitos importantes:
+- `EventPrintJob` representa cada item da fila de impressão
+- A impressão automática acontece após pagamento confirmado
+- O evento pode operar em `FULL_ORDER`, `BY_SECTOR` ou `BOTH`
+- O worker de impressão roda a cada 3 segundos
 
-| Metodo | Rota | Descricao |
-| --- | --- | --- |
-| `POST` | `/events` | Cria evento |
-| `GET` | `/events` | Lista eventos |
-| `GET` | `/events/:id` | Busca evento por ID |
-| `PATCH` | `/events/:id` | Atualiza configuracoes do evento |
-| `PATCH` | `/events/:eventId/archive` | Arquiva evento |
-| `PATCH` | `/events/:eventId/restore` | Restaura evento |
-| `POST` | `/events/:eventId/close` | Fecha evento |
-| `POST` | `/events/:eventId/reopen` | Reabre evento |
-| `GET` | `/events/:eventId/closing-preview` | Preview do fechamento |
-| `GET` | `/events/:eventId/closing` | Resumo do fechamento |
-| `DELETE` | `/events/:eventId` | Remove evento |
+## 15. Como Funciona Dispositivos
 
-Rotas relacionadas ao catalogo:
-
-| Metodo | Rota | Descricao |
-| --- | --- | --- |
-| `POST` | `/catalog/categories` | Cria categoria |
-| `GET` | `/catalog/categories` | Lista categorias |
-| `PATCH` | `/catalog/categories/:id` | Atualiza categoria |
-| `POST` | `/catalog/products` | Cria produto |
-| `GET` | `/catalog/products` | Lista produtos |
-| `PATCH` | `/catalog/products/:id` | Atualiza produto |
-| `POST` | `/events/:eventId/catalog-products` | Vincula produto ao evento |
-| `GET` | `/events/:eventId/catalog-products` | Lista produtos do evento |
-| `PATCH` | `/events/:eventId/catalog-products/:eventProductId` | Atualiza produto do evento |
-| `DELETE` | `/events/:eventId/catalog-products/:eventProductId` | Remove produto do evento |
-
-### Orders
-
-| Metodo | Rota | Descricao |
-| --- | --- | --- |
-| `GET` | `/events/:eventId/orders` | Lista pedidos do evento |
-| `PATCH` | `/orders/:id/status` | Atualiza status operacional |
-| `PATCH` | `/orders/:orderId/payment-status` | Atualiza status financeiro |
-| `PATCH` | `/orders/:orderId/payment` | Marca pagamento manual |
-| `GET` | `/events/:eventId/financial-summary` | Resumo financeiro |
-| `GET` | `/events/:eventId/metrics` | Metricas do evento |
-
-### Payments
-
-| Metodo | Rota | Descricao |
-| --- | --- | --- |
-| `POST` | `/orders/:orderId/payment-transactions` | Cria transacao de pagamento |
-| `GET` | `/orders/:orderId/payment-transactions` | Lista transacoes do pedido |
-| `PATCH` | `/payment-transactions/:paymentTransactionId/status` | Atualiza status da transacao |
-| `GET` | `/events/:eventId/checkout-payment-settings` | Consulta disponibilidade de checkout |
-| `POST` | `/orders/:orderId/pix-automatic-payment` | Cria PIX automatico publico |
-| `POST` | `/orders/:orderId/checkout-payment` | Prepara checkout do pedido |
-| `POST` | `/public/orders/:orderId/checkout-payment` | Alias publico do checkout |
-| `POST` | `/webhooks/mercado-pago` | Recebe notificacoes do Mercado Pago |
-| `POST` | `/expire-pending-pix-payments` | Disparo manual do servico de expiracao |
-| `GET` | `/payment-provider-settings` | Lista configuracoes de provedores |
-| `PUT` | `/payment-provider-settings/:provider` | Cria ou atualiza configuracao do provedor |
-
-### Devices
-
-| Metodo | Rota | Descricao |
-| --- | --- | --- |
-| `POST` | `/devices` | Cria dispositivo |
-| `GET` | `/devices` | Lista dispositivos |
-| `GET` | `/devices/:id` | Busca dispositivo por ID |
-| `PATCH` | `/devices/:id` | Atualiza dispositivo |
-| `POST` | `/devices/:id/regenerate-credentials` | Regera credenciais |
-| `POST` | `/devices/activate` | Ativa dispositivo com codigo e segredo |
-| `GET` | `/devices/me/config` | Retorna configuracao do dispositivo autenticado |
-| `POST` | `/devices/heartbeat` | Atualiza heartbeat do dispositivo |
-| `GET` | `/devices/print-jobs/pending` | Lista jobs pendentes do device autenticado |
-| `PATCH` | `/devices/print-jobs/:id/printed` | Marca job como impresso pelo device |
-| `PATCH` | `/devices/print-jobs/:id/error` | Marca job com erro pelo device |
-
-### Print Jobs
-
-| Metodo | Rota | Descricao |
-| --- | --- | --- |
-| `GET` | `/events/:eventId/print-jobs` | Lista jobs do evento |
-| `PATCH` | `/print-jobs/:printJobId/cancel` | Cancela job |
-| `PATCH` | `/print-jobs/:printJobId/printed` | Marca job como impresso |
-| `PATCH` | `/print-jobs/:printJobId/retry` | Recoloca job na fila |
-| `GET` | `/device/print-jobs/pending` | Fila administrativa para SK210 pelo painel |
-| `PATCH` | `/device/print-jobs/:printJobId/printed` | Marca job como impresso via rota administrativa |
-| `PATCH` | `/device/print-jobs/:printJobId/error` | Marca job com erro via rota administrativa |
-
-### Printers
-
-| Metodo | Rota | Descricao |
-| --- | --- | --- |
-| `POST` | `/events/:eventId/printers` | Cadastra impressora do evento |
-| `GET` | `/events/:eventId/printers` | Lista impressoras |
-| `PATCH` | `/printers/:printerId` | Atualiza impressora |
-| `POST` | `/printers/:printerId/test` | Testa impressora |
-
-### Public Routes
-
-| Metodo | Rota | Descricao |
-| --- | --- | --- |
-| `GET` | `/public/events/:slug/menu` | Menu publico simples |
-| `GET` | `/public/events/:slug/catalog-menu` | Menu publico baseado em catalogo |
-| `POST` | `/public/events/:slug/orders` | Cria pedido publico do totem |
-| `GET` | `/public/events/:slug/orders` | Alias da tela publica de pedidos |
-| `GET` | `/public/events/:slug/call-screen-orders` | Tela publica de chamada |
-| `GET` | `/public/orders/:orderId` | Consulta pedido publico |
-| `POST` | `/public/orders/:orderId/checkout-payment` | Prepara checkout publico |
-
-### Uploads
-
-| Metodo | Rota | Descricao |
-| --- | --- | --- |
-| `POST` | `/uploads/images` | Faz upload de imagem para o Cloudflare R2 e retorna a URL publica |
-
-## Jobs
-
-Job documentado:
-
-- `expire-pending-pix-job`
-- Responsavel por expirar PIX pendente automaticamente
-- Roda periodicamente a cada `30` segundos
-- Usa `ExpirePendingPixPaymentsService`
-
-Outros processos internos relevantes:
-
-- Worker de impressao TCP/IP roda no backend a cada `3` segundos
-- Jobs vinculados a `deviceId` nao sao impressos pelo worker; eles ficam pendentes para SK210/app local
-
-## Dispositivos E SK210
-
-O modulo de dispositivos cobre:
-
-- Device token JWT para autenticacao do equipamento
-- Ativacao de dispositivo por `code` e `secret`
-- Heartbeat periodico para atualizar `lastHeartbeatAt` e `lastSeenAt`
-- Impressao local via SK210
-- Fila de impressao por dispositivo
+O módulo de dispositivos cobre:
+- Device token JWT para autenticação do equipamento
+- Ativação de dispositivo por `code` e `secret`
+- Heartbeat periódico para atualizar `lastHeartbeatAt` e `lastSeenAt`
+- Impressão local via SK210
+- Fila de impressão por dispositivo
 - Controle de status como `ACTIVE`, `PAUSED`, `OFFLINE` e `MAINTENANCE`
 
-Tipos de dispositivo suportados no schema:
-
+Tipos de dispositivo suportados:
 - `TOTEM`
 - `PRINTER`
 - `CALL_SCREEN`
 - `SK210`
 
-Resumo do fluxo:
+## 16. Segurança Implementada
 
-1. O dispositivo e cadastrado pelo painel.
-2. O backend gera credenciais e o device faz ativacao.
-3. O dispositivo recebe `deviceToken`.
-4. O device consulta `/devices/me/config`.
-5. O device envia heartbeat em `/devices/heartbeat`.
-6. Se houver jobs vinculados, busca em `/devices/print-jobs/pending`.
+- **Autenticação JWT**: Para usuários e dispositivos
+- **CORS Restrito**: Apenas origens permitidas
+- **Rate Limiting**: Proteção contra abusos
+- **Logs Estruturados**: Censura de dados sensíveis (senhas, tokens, etc.)
+- **Validação de Assinatura do Webhook**: Garante que o webhook veio do Mercado Pago
+- **Idempotência do Webhook**: Evita processamento duplicado via `x-request-id`
+- **Proteção Contra Concorrência**: Garantia de unicidade de orderNumber e controle de estoque
 
-## Impressao
+## 17. Comandos Úteis
 
-O backend suporta dois caminhos principais de impressao:
-
-- `TCP_IP`: impressao automatica pela rede
-- `SK210_LOCAL`: impressao local intermediada por app/dispositivo
-
-Conceitos importantes:
-
-- `EventPrintJob` representa cada item da fila de impressao
-- Impressoras legadas continuam existindo no modelo `EventPrinter`
-- O backend prioriza `Device` como modelo principal de equipamento de impressao e usa `EventPrinter` como fallback legado
-- A impressao automatica acontece apos pagamento confirmado
-- O evento pode operar em `FULL_ORDER`, `BY_SECTOR` ou `BOTH`
-- Reimpressao e acao manual sao suportadas via rotas de `print-jobs`
-
-Regras operacionais:
-
-- Se `printingEnabled` estiver desligado, jobs nao sao gerados
-- Se `autoPrintEnabled` estiver desligado, o worker nao imprime automaticamente
-- Impressoras inativas geram erro de processamento
-- Jobs com `deviceId` ficam reservados para o dispositivo local
-- No modo por setor, a separacao considera o setor da categoria (`BAR` ou `KITCHEN`)
-
-## Socket.IO
-
-O backend utiliza salas por evento:
-
-```text
-event:{eventId}
+```bash
+npm run dev              # Inicia o servidor em modo desenvolvimento
+npx prisma studio        # Abre o Prisma Studio
+npx prisma migrate dev   # Cria e aplica migrations em desenvolvimento
+npx prisma migrate deploy# Aplica migrations em produção
+npx prisma generate      # Gera o cliente Prisma
+npx tsc --noEmit         # Verifica erros de TypeScript
 ```
 
-Evento de entrada:
+## 18. Estrutura de Pastas
 
-```text
-join-event-room
-```
+A estrutura de pastas segue uma arquitetura modular, onde cada módulo tem seus próprios controllers, services, routes e schemas. Isso facilita a manutenção e a escalabilidade do projeto.
 
-Eventos principais:
+## 19. Checklist para Produção/VPS
 
-| Evento | Quando ocorre |
-| --- | --- |
-| `order-created` | Quando um novo pedido e criado |
-| `order-updated` | Quando status operacional ou financeiro muda |
-| `payment-transaction-updated` | Quando uma transacao de pagamento e atualizada |
-| `payment-expired` | Quando um PIX pendente vence e o pedido e cancelado |
+- [ ] Configurar variáveis de ambiente com valores seguros
+- [ ] Aplicar migrations com `npx prisma migrate deploy`
+- [ ] Configurar CORS com origens de produção
+- [ ] Configurar webhook do Mercado Pago com URL pública
+- [ ] Configurar Cloudflare R2 com bucket de produção
+- [ ] Configurar logs estruturados e monitoramento
+- [ ] Configurar SSL/TLS (HTTPS)
+- [ ] Configurar backup do banco de dados PostgreSQL
+- [ ] Testar fluxo completo de pagamento PIX
+- [ ] Testar impressão automática
+- [ ] Testar health check
 
-## Regras De Negocio E Observacoes Operacionais
+## 20. Roadmap Técnico Futuro
 
-- Todo pedido novo nasce com `paymentStatus = PENDING`, salvo fluxos especiais
-- Pedidos com pagamento pendente nao podem avancar para `PREPARING`, `READY` ou `DELIVERED`
-- `Order.paymentStatus` guarda o estado atual do pedido
-- `PaymentTransaction` guarda o historico e a auditoria do pagamento
-- Pode existir mais de uma `PaymentTransaction` por pedido
-- O fluxo manual tambem pode gerar `PaymentTransaction`
-- Ao aprovar pagamento, o pedido e sincronizado para `PAID`
-- Valores monetarios sao armazenados em centavos
-- Cancelamento pode restaurar estoque quando `restoreStock = true`
-- Arquivos enviados geram URLs publicas completas do Cloudflare R2
+- **BullMQ/Redis**: Para gerenciamento de jobs e filas mais robusto
+- **Comandas**: Suporte a comandas físicas
+- **Cashless**: Integração com sistemas de cashless
+- **NFC**: Leitura de cartões NFC
+- **Mercado Pago Point**: Integração com terminais de cartão Mercado Pago Point
+- **Testes Automatizados**: Testes unitários e de integração
 
-## Changelog Resumido
+---
 
-### `v0.2.0-pix-expiration`
-
-- PIX com expiracao configuravel por evento
-- Campo `expiresAt` em `PaymentTransaction`
-- Expiracao enviada ao Mercado Pago
-- Job automatico de expiracao
-- Cancelamento automatico de pedidos vencidos
-- Evento `payment-expired` via Socket.IO
-- Correcoes no ciclo de vida PIX
-- Melhorias no checkout publico
-- Ajustes nos providers de pagamento
-
-## Boas Praticas
-
-- Nunca commitar `.env`
-- Sempre rodar `npx tsc --noEmit` antes de commit
-- Usar migrations versionadas
-- Testar webhook com `ngrok`
-- Validar PIX real em ambiente controlado
-- Revisar credenciais do Mercado Pago antes de testar em producao
+**Nota**: Nunca commite o arquivo `.env` real no repositório. Sempre use o `.env.example` como referência.

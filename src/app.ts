@@ -34,6 +34,7 @@ import { devicePrintJobsRoutes } from './modules/device-print-jobs/routes/device
 
 import { devicesRoutes } from './modules/devices/routes/devices-routes.js'
 import { auditLogsRoutes } from './modules/audit-logs/routes/audit-logs-routes.js'
+import { nfcCardsRoutes } from './modules/nfc-cards/routes/nfc-cards-routes.js'
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
@@ -67,7 +68,7 @@ export const app = Fastify({
 })
 
 // Carregar ALLOWED_ORIGINS
-const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000'
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000,https://app.defumarevents.com.br'
 const allowedOrigins = allowedOriginsEnv.split(',').map(origin => origin.trim())
 
 app.register(cors, {
@@ -144,6 +145,9 @@ app.register(devicesRoutes)
 
 // Audit Logs
 app.register(auditLogsRoutes)
+
+// NFC Cards
+app.register(nfcCardsRoutes)
 
 app.get('/', async () => {
   return {
