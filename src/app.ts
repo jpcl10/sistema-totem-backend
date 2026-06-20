@@ -68,23 +68,32 @@ export const app = Fastify({
 })
 
 // Carregar ALLOWED_ORIGINS
-const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000,https://app.defumarevents.com.br'
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000,https://app.defumarevents.com.br,https://app.defumarevents.com.br:8080,http://localhost:8080,https://city-obtrusive-sudden.ngrok-free.dev'
 const allowedOrigins = allowedOriginsEnv.split(',').map(origin => origin.trim())
 
 app.register(cors, {
   origin: (origin, callback) => {
     // Allow requests without origin (Insomnia/Postman/webhooks/server-to-server)
     if (!origin) {
+      app.log.debug({ origin: null, status: 'allowed' }, 'CORS: Request without origin, allowed')
+      return callback(null, true)
+    }
+
+    if (isDevelopment) {
+      app.log.debug({ origin, status: 'allowed', environment: 'development' }, 'CORS: Development mode, all origins allowed')
       return callback(null, true)
     }
 
     if (allowedOrigins.includes(origin)) {
+      app.log.debug({ origin, status: 'allowed', environment: 'production' }, 'CORS: Origin in whitelist, allowed')
       return callback(null, true)
     }
 
+    app.log.warn({ origin, status: 'blocked', environment: 'production' }, 'CORS: Origin not in whitelist, blocked')
     return callback(new Error('Not allowed by CORS'), false)
   },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  credentials: true
 })
 
 app.register(multipart)

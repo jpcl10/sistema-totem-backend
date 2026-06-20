@@ -9,10 +9,25 @@ import { updateNfcCardController } from '../controllers/update-nfc-card-controll
 import { blockNfcCardController } from '../controllers/block-nfc-card-controller.js'
 import { readNfcCardController } from '../controllers/read-nfc-card-controller.js'
 import { listNfcCardReadsController } from '../controllers/list-nfc-card-reads-controller.js'
+import { identifyNfcCardController } from '../controllers/identify-nfc-card-controller.js'
 
 export async function nfcCardsRoutes(
   app: FastifyInstance
 ) {
+  // Public route for totem NFC identification
+  app.post(
+    '/public/events/:eventSlug/nfc/identify',
+    {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    identifyNfcCardController
+  )
+
   app.post(
     '/events/:eventId/nfc-cards',
     {
