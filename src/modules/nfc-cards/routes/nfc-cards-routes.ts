@@ -8,6 +8,7 @@ import { getNfcCardByUidController } from '../controllers/get-nfc-card-by-uid-co
 import { updateNfcCardController } from '../controllers/update-nfc-card-controller.js'
 import { blockNfcCardController } from '../controllers/block-nfc-card-controller.js'
 import { readNfcCardController } from '../controllers/read-nfc-card-controller.js'
+import { listNfcCardReadsController } from '../controllers/list-nfc-card-reads-controller.js'
 
 export async function nfcCardsRoutes(
   app: FastifyInstance
@@ -94,5 +95,19 @@ export async function nfcCardsRoutes(
       }
     },
     readNfcCardController
+  )
+
+  app.get(
+    '/events/:eventId/nfc-cards/:id/reads',
+    {
+      preHandler: verifyJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    listNfcCardReadsController
   )
 }

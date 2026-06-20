@@ -1,5 +1,6 @@
 import { prisma } from '../../../lib/prisma.js'
-import { AuditAction } from '@prisma/client'
+import { logger } from '../../../lib/logger.js'
+import { AuditAction, NfcReadSource } from '@prisma/client'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface ReadNfcCardServiceRequest {
@@ -7,6 +8,7 @@ interface ReadNfcCardServiceRequest {
   userId: string
   eventId: string
   uid: string
+  deviceId?: string | null
 }
 
 export class ReadNfcCardService {
@@ -14,7 +16,8 @@ export class ReadNfcCardService {
     organizationId,
     userId,
     eventId,
-    uid
+    uid,
+    deviceId
   }: ReadNfcCardServiceRequest) {
     const event = await prisma.event.findFirst({
       where: {
@@ -60,6 +63,67 @@ export class ReadNfcCardService {
         status: nfcCard.status
       }
     })
+
+    // Validate optional fields
+    let validatedUserId: string | null = null
+    let validatedDeviceId: string | null = null
+
+    if (userId) {
+      const user = await prisma.user.findFirst({
+        where: {
+          id: userId,
+          organizationId
+        }
+      })
+
+      if (user) {
+        validatedUserId = userId
+      } else {
+        logger.warn({ userId, organizationId }, 'Invalid userId for NfcCardRead, setting to null')
+      }
+    }
+
+    if (deviceId) {
+      const device = await prisma.device.findFirst({
+        where: {
+          id: deviceId,
+          organizationId
+        }
+      })
+
+      if (device) {
+        validatedDeviceId = deviceId
+      } else {
+        logger.warn({ deviceId, organizationId }, 'Invalid deviceId for NfcCardRead, setting to null')
+      }
+    }
+
+    // Try to create NfcCardRead record, don't fail if it doesn't work
+    try {
+      await prisma.nfcCardRead.create({
+        data: {
+          organizationId,
+          eventId,
+          nfcCardId: nfcCard.id,
+          userId: validatedUserId,
+          deviceId: validatedDeviceId,
+          uid: normalizedUid,
+          source: NfcReadSource.ADMIN_PANEL
+        }
+      })
+    } catch (error) {
+      logger.warn(
+        { 
+          error, 
+          organizationId, 
+          eventId, 
+          nfcCardId: nfcCard.id, 
+          userId: validatedUserId, 
+          deviceId: validatedDeviceId 
+        }, 
+        'Failed to create NfcCardRead record'
+      )
+    }
 
     if (nfcCard.status !== 'ACTIVE') {
       return {

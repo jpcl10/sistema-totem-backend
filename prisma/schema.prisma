@@ -121,6 +121,14 @@ enum NfcCardStatus {
   BLOCKED
   LOST
 }
+
+enum NfcReadSource {
+  ADMIN_PANEL
+  TOTEM
+  SK210
+  ACCESS_CONTROL
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -138,6 +146,7 @@ model Organization {
   paymentProviderSettings PaymentProviderSettings[]
   eventClosings EventClosing[]
   nfcCards NfcCard[]
+  nfcCardReads NfcCardRead[]
 }
 
 model User {
@@ -154,6 +163,7 @@ model User {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   eventClosings EventClosing[]
+  nfcCardReads NfcCardRead[]
 }
 
 model Event {
@@ -213,6 +223,7 @@ model Event {
   printJobs     EventPrintJob[]
   printers      EventPrinter[]
   nfcCards NfcCard[]
+  nfcCardReads NfcCardRead[]
 
   closing EventClosing?
 
@@ -542,6 +553,7 @@ model Device {
 
   orders Order[]
   printJobs EventPrintJob[]
+  nfcCardReads NfcCardRead[]
 
   @@index([organizationId])
   @@index([eventId])
@@ -646,10 +658,36 @@ model NfcCard {
 
   organization Organization @relation(fields: [organizationId], references: [id])
   event        Event        @relation(fields: [eventId], references: [id])
+  nfcCardReads NfcCardRead[]
 
   @@index([organizationId])
   @@index([eventId])
   @@index([uid])
   @@index([status])
   @@index([type])
+}
+
+model NfcCardRead {
+  id             String        @id @default(cuid())
+  organizationId String
+  eventId        String
+  nfcCardId      String
+  userId         String?
+  deviceId       String?
+  uid            String
+  source         NfcReadSource @default(ADMIN_PANEL)
+  createdAt      DateTime      @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  event        Event        @relation(fields: [eventId], references: [id])
+  nfcCard      NfcCard      @relation(fields: [nfcCardId], references: [id])
+  user         User?        @relation(fields: [userId], references: [id])
+  device       Device?      @relation(fields: [deviceId], references: [id])
+
+  @@index([organizationId])
+  @@index([eventId])
+  @@index([nfcCardId])
+  @@index([userId])
+  @@index([deviceId])
+  @@index([createdAt])
 }
