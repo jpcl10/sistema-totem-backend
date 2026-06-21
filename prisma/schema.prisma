@@ -129,6 +129,15 @@ enum NfcReadSource {
   ACCESS_CONTROL
 }
 
+enum NfcCardTransactionType {
+  TOPUP
+  PURCHASE
+  REFUND
+  ADJUSTMENT
+  BONUS
+  REVERSAL
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -147,6 +156,7 @@ model Organization {
   eventClosings EventClosing[]
   nfcCards NfcCard[]
   nfcCardReads NfcCardRead[]
+  nfcCardTransactions NfcCardTransaction[]
 }
 
 model User {
@@ -164,6 +174,7 @@ model User {
   organization Organization @relation(fields: [organizationId], references: [id])
   eventClosings EventClosing[]
   nfcCardReads NfcCardRead[]
+  nfcCardTransactions NfcCardTransaction[]
 }
 
 model Event {
@@ -224,6 +235,7 @@ model Event {
   printers      EventPrinter[]
   nfcCards NfcCard[]
   nfcCardReads NfcCardRead[]
+  nfcCardTransactions NfcCardTransaction[]
 
   closing EventClosing?
 
@@ -604,6 +616,10 @@ enum AuditAction {
   NFC_CARD_UPDATED
   NFC_CARD_BLOCKED
   NFC_CARD_READ
+  NFC_BALANCE_TOPUP
+  NFC_BALANCE_DEBIT
+  NFC_BALANCE_ADJUST
+  NFC_BALANCE_REFUND
 }
 
 model AuditLog {
@@ -643,28 +659,55 @@ model AuditLog {
 }
 
 model NfcCard {
-  id             String        @id @default(cuid())
+  id             String                @id @default(cuid())
   organizationId String
   eventId        String
-  uid            String        @unique
+  uid            String                @unique
   code           String?
   holderName     String?
-  type           NfcCardType   @default(CUSTOMER)
-  status         NfcCardStatus @default(ACTIVE)
-  balanceInCents Int           @default(0)
+  type           NfcCardType           @default(CUSTOMER)
+  status         NfcCardStatus         @default(ACTIVE)
+  balanceInCents Int                   @default(0)
   metadata       Json?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @default(now()) @updatedAt
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @default(now()) @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  event        Event        @relation(fields: [eventId], references: [id])
+  organization Organization          @relation(fields: [organizationId], references: [id])
+  event        Event                 @relation(fields: [eventId], references: [id])
   nfcCardReads NfcCardRead[]
+  nfcCardTransactions NfcCardTransaction[]
 
   @@index([organizationId])
   @@index([eventId])
   @@index([uid])
   @@index([status])
   @@index([type])
+}
+
+model NfcCardTransaction {
+  id                  String                @id @default(cuid())
+  organizationId      String
+  eventId             String
+  nfcCardId           String
+  userId              String?
+  type                NfcCardTransactionType
+  amountInCents       Int
+  balanceBeforeInCents Int
+  balanceAfterInCents  Int
+  description         String?
+  metadata            Json?
+  createdAt           DateTime              @default(now())
+
+  organization Organization          @relation(fields: [organizationId], references: [id])
+  event        Event                 @relation(fields: [eventId], references: [id])
+  nfcCard      NfcCard               @relation(fields: [nfcCardId], references: [id])
+  user         User?                 @relation(fields: [userId], references: [id])
+
+  @@index([organizationId])
+  @@index([eventId])
+  @@index([nfcCardId])
+  @@index([type])
+  @@index([createdAt])
 }
 
 model NfcCardRead {

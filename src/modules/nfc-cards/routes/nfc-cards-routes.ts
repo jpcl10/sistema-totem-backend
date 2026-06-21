@@ -10,6 +10,11 @@ import { blockNfcCardController } from '../controllers/block-nfc-card-controller
 import { readNfcCardController } from '../controllers/read-nfc-card-controller.js'
 import { listNfcCardReadsController } from '../controllers/list-nfc-card-reads-controller.js'
 import { identifyNfcCardController } from '../controllers/identify-nfc-card-controller.js'
+import { topupNfcCardController } from '../controllers/topup-nfc-card-controller.js'
+import { debitNfcCardController } from '../controllers/debit-nfc-card-controller.js'
+import { adjustNfcCardController } from '../controllers/adjust-nfc-card-controller.js'
+import { refundNfcCardController } from '../controllers/refund-nfc-card-controller.js'
+import { listNfcCardTransactionsController } from '../controllers/list-nfc-card-transactions-controller.js'
 
 export async function nfcCardsRoutes(
   app: FastifyInstance
@@ -124,5 +129,76 @@ export async function nfcCardsRoutes(
       }
     },
     listNfcCardReadsController
+  )
+
+  // Balance operations
+  app.post(
+    '/events/:eventId/nfc-cards/:id/topup',
+    {
+      preHandler: verifyJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    topupNfcCardController
+  )
+
+  app.post(
+    '/events/:eventId/nfc-cards/:id/debit',
+    {
+      preHandler: verifyJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    debitNfcCardController
+  )
+
+  app.post(
+    '/events/:eventId/nfc-cards/:id/adjust',
+    {
+      preHandler: verifyJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    adjustNfcCardController
+  )
+
+  app.post(
+    '/events/:eventId/nfc-cards/:id/refund',
+    {
+      preHandler: verifyJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    refundNfcCardController
+  )
+
+  app.get(
+    '/events/:eventId/nfc-cards/:id/transactions',
+    {
+      preHandler: verifyJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    listNfcCardTransactionsController
   )
 }
