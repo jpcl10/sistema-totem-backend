@@ -158,7 +158,10 @@ export class MarkOrderPaymentService {
         if (existingApprovedTransaction === 0) {
           await tx.paymentTransaction.create({
             data: {
+              organizationId,
               orderId: order.id,
+              contextType: 'EVENT',
+              eventId: order.eventId,
               provider: PaymentProvider.MANUAL,
               status: PaymentTransactionStatus.APPROVED,
               method: paymentMethod ?? PaymentMethod.OTHER,

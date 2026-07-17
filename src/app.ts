@@ -33,6 +33,7 @@ import { ordersRoutes } from './modules/orders/routes/orders-routes.js'
 
 import { paymentsRoutes } from './modules/payments/routes/payments-routes.js'
 import { paymentProviderSettingsRoutes } from './modules/payment-provider-settings/routes/payment-provider-settings-routes.js'
+import { paymentSettingsRoutes } from './modules/payment-settings/payment-settings-routes.js'
 
 import { metricsRoutes } from './modules/metrics/routes/metrics-routes.js'
 
@@ -184,6 +185,7 @@ app.register(ordersRoutes)
 // Payments
 app.register(paymentsRoutes)
 app.register(paymentProviderSettingsRoutes)
+app.register(paymentSettingsRoutes)
 
 // Metrics
 app.register(metricsRoutes)

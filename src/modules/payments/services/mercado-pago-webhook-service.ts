@@ -1,9 +1,9 @@
 import {
-  OrderStatus,
+  AuditAction,
   PaymentProvider,
   PaymentStatus,
   PaymentTransactionStatus,
-  AuditAction
+  Prisma
 } from '@prisma/client'
 import crypto from 'node:crypto'
 import {
@@ -14,9 +14,11 @@ import {
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
 import { logger } from '../../../lib/logger.js'
+import { mercadoPagoConfig } from '../../../shared/config/mercado-pago.js'
 import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 import { mapEventOrderToUnifiedOrder } from '../../orders/presenters/unified-order-presenter.js'
+import { decryptPaymentCredentials } from '../../payment-settings/payment-credentials-crypto.js'
 
 interface MercadoPagoWebhookServiceRequest {
   body: unknown
@@ -29,12 +31,20 @@ interface ValidationResult {
   reason?: string
 }
 
+interface MercadoPagoCredentials {
+  accessToken?: string
+  webhookSecret?: string
+}
+
+function toJsonValue(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value ?? null)) as Prisma.InputJsonValue
+}
+
 function validateMercadoPagoSignature(
   headers: Record<string, unknown>,
-  paymentId: string
+  paymentId: string,
+  webhookSecret: string | null
 ): ValidationResult & { xRequestId?: string } {
-  const webhookSecret = process.env.MERCADO_PAGO_WEBHOOK_SECRET
-
   if (!webhookSecret) {
     logger.error('Missing MERCADO_PAGO_WEBHOOK_SECRET')
     return { valid: false, reason: 'webhook_secret_not_configured' }
@@ -52,7 +62,6 @@ function validateMercadoPagoSignature(
     logger.warn('Missing x-request-id header - proceeding without idempotency check')
   }
 
-  // Extrair ts e v1 do x-signature
   const parts = xSignature.split(',')
   let ts: string | null = null
   let v1: string | null = null
@@ -73,15 +82,11 @@ function validateMercadoPagoSignature(
     return { valid: false, reason: 'missing_v1' }
   }
 
-  // Montar manifest
   const manifest = `id:${paymentId};request-id:${xRequestId};ts:${ts};`
-
-  // Gerar HMAC SHA256
   const hmac = crypto.createHmac('sha256', webhookSecret)
   hmac.update(manifest)
   const expectedSignature = hmac.digest('hex')
 
-  // Comparar usando timingSafeEqual para evitar ataques de timing
   const expectedBuffer = Buffer.from(expectedSignature, 'hex')
   const receivedBuffer = Buffer.from(v1, 'hex')
 
@@ -98,6 +103,46 @@ function validateMercadoPagoSignature(
   }
 
   return { valid: true, xRequestId }
+}
+
+async function createWebhookEvent(data: {
+  organizationId?: string | null
+  paymentId: string
+  idempotencyKey?: string | null
+  body: unknown
+  headers: Record<string, unknown>
+  processed?: boolean
+  ignored?: boolean
+  reason?: string | null
+}) {
+  try {
+    return await prisma.paymentWebhookEvent.create({
+      data: {
+        organizationId: data.organizationId ?? null,
+        provider: PaymentProvider.MERCADO_PAGO,
+        externalPaymentId: data.paymentId,
+        idempotencyKey: data.idempotencyKey ?? null,
+        payload: toJsonValue(data.body),
+        headers: toJsonValue(data.headers),
+        processed: data.processed ?? false,
+        ignored: data.ignored ?? false,
+        reason: data.reason ?? null,
+        processedAt:
+          data.processed || data.ignored
+            ? new Date()
+            : null
+      }
+    })
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      return null
+    }
+
+    throw error
+  }
 }
 
 function getNestedValue(
@@ -123,15 +168,9 @@ function getPaymentIdFromWebhook(
 ): string | null {
   const bodyDataId = getNestedValue(body, ['data', 'id'])
   const bodyId = getNestedValue(body, ['id'])
-
   const queryDataId = getNestedValue(query, ['data.id'])
   const queryId = getNestedValue(query, ['id'])
-
-  const possibleId =
-    bodyDataId ??
-    bodyId ??
-    queryDataId ??
-    queryId
+  const possibleId = bodyDataId ?? bodyId ?? queryDataId ?? queryId
 
   if (
     possibleId === null ||
@@ -185,18 +224,6 @@ export class MercadoPagoWebhookService {
       }
     }
 
-    // Validar assinatura antes de qualquer outra coisa
-    const validation = validateMercadoPagoSignature(headers, paymentId)
-    if (!validation.valid) {
-      return {
-        received: true,
-        ignored: true,
-        reason: validation.reason || 'invalid_signature'
-      }
-    }
-
-    const xRequestId = validation.xRequestId
-
     const paymentTransaction =
       await prisma.paymentTransaction.findFirst({
         where: {
@@ -220,13 +247,143 @@ export class MercadoPagoWebhookService {
         }
       })
 
-    // Verificar idempotência usando x-request-id
-    if (xRequestId && paymentTransaction?.metadata) {
-      const metadata = paymentTransaction.metadata as Record<string, unknown>
-      const processedWebhookRequestIds = metadata.processedWebhookRequestIds as string[] | undefined
-      
-      if (processedWebhookRequestIds && processedWebhookRequestIds.includes(xRequestId)) {
-        logger.info({ xRequestId, paymentId }, 'Webhook already processed - skipping')
+    if (!paymentTransaction) {
+      await createWebhookEvent({
+        paymentId,
+        body,
+        headers,
+        ignored: true,
+        reason: 'payment_transaction_not_found'
+      })
+
+      return {
+        received: true,
+        ignored: true,
+        reason: 'payment_transaction_not_found',
+        paymentId
+      }
+    }
+
+    if (!paymentTransaction.order || !paymentTransaction.orderId) {
+      await createWebhookEvent({
+        organizationId: paymentTransaction.organizationId,
+        paymentId,
+        body,
+        headers,
+        ignored: true,
+        reason: 'payment_transaction_without_event_order'
+      })
+
+      return {
+        received: true,
+        ignored: true,
+        reason: 'payment_transaction_without_event_order',
+        paymentId
+      }
+    }
+
+    const eventOrder = paymentTransaction.order
+    const orderId = paymentTransaction.orderId
+    const eventId = eventOrder.eventId
+    const organizationId = paymentTransaction.organizationId
+
+    if (organizationId !== eventOrder.event.organizationId) {
+      await createWebhookEvent({
+        organizationId,
+        paymentId,
+        body,
+        headers,
+        ignored: true,
+        reason: 'organization_mismatch'
+      })
+
+      return {
+        received: true,
+        ignored: true,
+        reason: 'organization_mismatch',
+        paymentId
+      }
+    }
+
+    const mercadoPagoSettings =
+      await prisma.paymentProviderSettings.findUnique({
+        where: {
+          organizationId_provider: {
+            organizationId,
+            provider: PaymentProvider.MERCADO_PAGO
+          }
+        }
+      })
+
+    const organizationPaymentSettings =
+      await prisma.organizationPaymentSettings.findUnique({
+        where: {
+          organizationId
+        },
+        select: {
+          environment: true
+        }
+      })
+
+    const credential =
+      await prisma.paymentProviderCredential.findFirst({
+        where: {
+          organizationId,
+          provider: PaymentProvider.MERCADO_PAGO,
+          environment:
+            organizationPaymentSettings?.environment ?? 'PRODUCTION',
+          active: true
+        }
+      })
+
+    const decryptedCredentials =
+      credential?.encryptedCredentials
+        ? decryptPaymentCredentials<MercadoPagoCredentials>(
+            credential.encryptedCredentials
+          )
+        : null
+
+    const webhookSecret =
+      decryptedCredentials?.webhookSecret?.trim() ||
+      mercadoPagoSettings?.webhookSecret?.trim() ||
+      process.env.MERCADO_PAGO_WEBHOOK_SECRET?.trim() ||
+      null
+
+    const validation =
+      validateMercadoPagoSignature(headers, paymentId, webhookSecret)
+
+    if (!validation.valid) {
+      await createWebhookEvent({
+        organizationId,
+        paymentId,
+        body,
+        headers,
+        ignored: true,
+        reason: validation.reason || 'invalid_signature'
+      })
+
+      return {
+        received: true,
+        ignored: true,
+        reason: validation.reason || 'invalid_signature',
+        paymentId
+      }
+    }
+
+    const xRequestId = validation.xRequestId
+    const webhookIdempotencyKey =
+      xRequestId ? `mercado-pago:${xRequestId}` : null
+
+    if (webhookIdempotencyKey) {
+      const existingWebhookEvent =
+        await prisma.paymentWebhookEvent.findUnique({
+          where: {
+            idempotencyKey: webhookIdempotencyKey
+          }
+        })
+
+      if (existingWebhookEvent) {
+        logger.info({ xRequestId, paymentId }, 'Webhook event already recorded - skipping')
         return {
           received: true,
           ignored: true,
@@ -236,30 +393,53 @@ export class MercadoPagoWebhookService {
       }
     }
 
-    if (!paymentTransaction) {
-      return {
-      received: true,
-      ignored: true,
-      reason: 'payment_transaction_not_found',
-      paymentId
-    }
+    if (xRequestId && paymentTransaction.metadata) {
+      const metadata =
+        paymentTransaction.metadata as Record<string, unknown>
+      const processedWebhookRequestIds =
+        metadata.processedWebhookRequestIds as string[] | undefined
+
+      if (
+        processedWebhookRequestIds &&
+        processedWebhookRequestIds.includes(xRequestId)
+      ) {
+        logger.info({ xRequestId, paymentId }, 'Webhook already processed - skipping')
+
+        await createWebhookEvent({
+          organizationId,
+          paymentId,
+          idempotencyKey: webhookIdempotencyKey,
+          body,
+          headers,
+          ignored: true,
+          reason: 'webhook_already_processed'
+        })
+
+        return {
+          received: true,
+          ignored: true,
+          reason: 'webhook_already_processed',
+          paymentId
+        }
+      }
     }
 
-    const mercadoPagoSettings =
-      await prisma.paymentProviderSettings.findUnique({
-        where: {
-          organizationId_provider: {
-            organizationId:
-              paymentTransaction.order.event.organizationId,
-            provider: PaymentProvider.MERCADO_PAGO
-          }
-        }
+    const accessToken =
+      decryptedCredentials?.accessToken?.trim() ||
+      mercadoPagoSettings?.accessToken?.trim() ||
+      mercadoPagoConfig.accessToken.trim()
+
+    if (!accessToken) {
+      await createWebhookEvent({
+        organizationId,
+        paymentId,
+        idempotencyKey: webhookIdempotencyKey,
+        body,
+        headers,
+        ignored: true,
+        reason: 'mercado_pago_not_configured'
       })
 
-    if (
-      !mercadoPagoSettings?.enabled ||
-      !mercadoPagoSettings.accessToken
-    ) {
       return {
         received: true,
         ignored: true,
@@ -269,7 +449,7 @@ export class MercadoPagoWebhookService {
     }
 
     const client = new MercadoPagoConfig({
-      accessToken: mercadoPagoSettings.accessToken
+      accessToken
     })
 
     const paymentClient = new Payment(client)
@@ -291,14 +471,16 @@ export class MercadoPagoWebhookService {
 
     const updatedOrder =
       await prisma.$transaction(async tx => {
-        // Preservar metadata anterior e adicionar processedWebhookRequestIds
-        const existingMetadata = paymentTransaction.metadata as Record<string, unknown> || {}
-        const existingProcessedIds = Array.isArray(existingMetadata.processedWebhookRequestIds) 
-          ? existingMetadata.processedWebhookRequestIds 
-          : []
-        const updatedProcessedIds = xRequestId 
-          ? [...new Set([...existingProcessedIds, xRequestId])] 
-          : existingProcessedIds
+        const existingMetadata =
+          paymentTransaction.metadata as Record<string, unknown> || {}
+        const existingProcessedIds =
+          Array.isArray(existingMetadata.processedWebhookRequestIds)
+            ? existingMetadata.processedWebhookRequestIds
+            : []
+        const updatedProcessedIds =
+          xRequestId
+            ? [...new Set([...existingProcessedIds, xRequestId])]
+            : existingProcessedIds
 
         const updatedPaymentTransaction =
           await tx.paymentTransaction.update({
@@ -345,12 +527,12 @@ export class MercadoPagoWebhookService {
           updatedPaymentTransaction.status !==
           PaymentTransactionStatus.APPROVED
         ) {
-          return paymentTransaction.order
+          return eventOrder
         }
 
         const updated = await tx.order.update({
           where: {
-            id: paymentTransaction.orderId
+            id: orderId
           },
           data: {
             paymentStatus: PaymentStatus.PAID,
@@ -377,13 +559,21 @@ export class MercadoPagoWebhookService {
         return updated
       })
 
+    await createWebhookEvent({
+      organizationId,
+      paymentId,
+      idempotencyKey: webhookIdempotencyKey,
+      body,
+      headers,
+      processed: true
+    })
+
     const createAuditLogService = new CreateAuditLogService()
 
     if (updatedOrder.paymentStatus === PaymentStatus.PAID) {
-      // Audit: PAYMENT_APPROVED
       await createAuditLogService.execute({
-        organizationId: paymentTransaction.order.event.organizationId,
-        eventId: paymentTransaction.order.eventId,
+        organizationId,
+        eventId,
         entity: 'PaymentTransaction',
         entityId: paymentTransaction.id,
         action: AuditAction.PAYMENT_APPROVED,
@@ -404,17 +594,16 @@ export class MercadoPagoWebhookService {
         orderId: updatedOrder.id
       })
     } else if (transactionStatus === PaymentTransactionStatus.REJECTED) {
-      // Audit: PAYMENT_REJECTED
       await createAuditLogService.execute({
-        organizationId: paymentTransaction.order.event.organizationId,
-        eventId: paymentTransaction.order.eventId,
+        organizationId,
+        eventId,
         entity: 'PaymentTransaction',
         entityId: paymentTransaction.id,
         action: AuditAction.PAYMENT_REJECTED,
         description: 'Pagamento rejeitado',
         metadata: {
           paymentId: paymentTransaction.id,
-          orderId: paymentTransaction.orderId,
+          orderId,
           amountInCents: paymentTransaction.amountInCents,
           provider: PaymentProvider.MERCADO_PAGO,
           gatewayStatus: mercadoPagoStatus,
@@ -422,17 +611,16 @@ export class MercadoPagoWebhookService {
         }
       })
     } else if (transactionStatus === PaymentTransactionStatus.REFUNDED) {
-      // Audit: PAYMENT_REFUNDED
       await createAuditLogService.execute({
-        organizationId: paymentTransaction.order.event.organizationId,
-        eventId: paymentTransaction.order.eventId,
+        organizationId,
+        eventId,
         entity: 'PaymentTransaction',
         entityId: paymentTransaction.id,
         action: AuditAction.PAYMENT_REFUNDED,
         description: 'Pagamento reembolsado',
         metadata: {
           paymentId: paymentTransaction.id,
-          orderId: paymentTransaction.orderId,
+          orderId,
           amountInCents: paymentTransaction.amountInCents,
           provider: PaymentProvider.MERCADO_PAGO,
           gatewayStatus: mercadoPagoStatus,
@@ -501,7 +689,7 @@ export class MercadoPagoWebhookService {
         unifiedPayload
       )
 
-      io.to(`organization:${updatedOrder.event.organizationId}`).emit(
+      io.to(`organization:${organizationId}`).emit(
         'unified-order-updated',
         unifiedPayload
       )

@@ -51,6 +51,17 @@ enum PaymentProvider {
   OTHER
 }
 
+enum PaymentEnvironment {
+  SANDBOX
+  PRODUCTION
+}
+
+enum PaymentContextType {
+  EVENT
+  ONLINE_STORE
+  POS
+}
+
 enum PaymentTransactionStatus {
   CREATED
   WAITING_PAYMENT
@@ -60,6 +71,20 @@ enum PaymentTransactionStatus {
   REFUNDED
   EXPIRED
   ERROR
+}
+
+enum PaymentTerminalStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum PaymentRefundStatus {
+  REQUESTED
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 enum CategorySector {
@@ -186,30 +211,38 @@ model Organization {
 
   auditLogs AuditLog[]
 
-  users                      User[]
-  events                     Event[]
-  devices                    Device[]
-  catalogCategories          CatalogCategory[]
-  catalogProducts            CatalogProduct[]
-  catalogProductOptionGroups CatalogProductOptionGroup[]
-  catalogProductOptions      CatalogProductOption[]
-  paymentProviderSettings    PaymentProviderSettings[]
-  onlineStoreSettings        OnlineStoreSettings[]
-  deliveryFeeRules           DeliveryFeeRule[]
-  eventClosings              EventClosing[]
-  nfcCards                   NfcCard[]
-  nfcCardReads               NfcCardRead[]
-  nfcCardTransactions        NfcCardTransaction[]
-  organizationModules        OrganizationModule[]
-  onlineStores               OnlineStore[]
-  customers                  Customer[]
-  customerAddresses          CustomerAddress[]
-  interests                  Interest[]
-  settings                   OrganizationSettings?
-  branding                   OrganizationBranding?
-  printingSettings           OrganizationPrintingSettings?
-  businessHours              BusinessHour[]
-  businessHourExceptions     BusinessHourException[]
+  users                             User[]
+  events                            Event[]
+  devices                           Device[]
+  catalogCategories                 CatalogCategory[]
+  catalogProducts                   CatalogProduct[]
+  catalogProductOptionGroups        CatalogProductOptionGroup[]
+  catalogProductOptions             CatalogProductOption[]
+  paymentProviderSettings           PaymentProviderSettings[]
+  paymentSettings                   OrganizationPaymentSettings?
+  paymentProviderCredentials        PaymentProviderCredential[]
+  contextPaymentSettings            ContextPaymentSettings[]
+  paymentTerminals                  PaymentTerminal[]
+  paymentTransactions               PaymentTransaction[]
+  paymentRefunds                    PaymentRefund[]
+  paymentWebhookEvents              PaymentWebhookEvent[]
+  paymentSettingsMigrationConflicts PaymentSettingsMigrationConflict[]
+  onlineStoreSettings               OnlineStoreSettings[]
+  deliveryFeeRules                  DeliveryFeeRule[]
+  eventClosings                     EventClosing[]
+  nfcCards                          NfcCard[]
+  nfcCardReads                      NfcCardRead[]
+  nfcCardTransactions               NfcCardTransaction[]
+  organizationModules               OrganizationModule[]
+  onlineStores                      OnlineStore[]
+  customers                         Customer[]
+  customerAddresses                 CustomerAddress[]
+  interests                         Interest[]
+  settings                          OrganizationSettings?
+  branding                          OrganizationBranding?
+  printingSettings                  OrganizationPrintingSettings?
+  businessHours                     BusinessHour[]
+  businessHourExceptions            BusinessHourException[]
 }
 
 model OrganizationSettings {
@@ -364,14 +397,16 @@ model Event {
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
-  orders              Order[]
-  devices             Device[]
-  eventProducts       EventProduct[]
-  printJobs           EventPrintJob[]
-  printers            EventPrinter[]
-  nfcCards            NfcCard[]
-  nfcCardReads        NfcCardRead[]
-  nfcCardTransactions NfcCardTransaction[]
+  orders                 Order[]
+  devices                Device[]
+  eventProducts          EventProduct[]
+  printJobs              EventPrintJob[]
+  printers               EventPrinter[]
+  contextPaymentSettings ContextPaymentSettings[]
+  paymentTerminals       PaymentTerminal[]
+  nfcCards               NfcCard[]
+  nfcCardReads           NfcCardRead[]
+  nfcCardTransactions    NfcCardTransaction[]
 
   closing EventClosing?
 
@@ -438,18 +473,32 @@ model OrderItem {
 }
 
 model PaymentTransaction {
-  id      String @id @default(cuid())
-  orderId String
+  id             String  @id @default(cuid())
+  organizationId String
+  orderId        String?
+  onlineOrderId  String?
+  terminalId     String?
+  deviceId       String?
+
+  contextType PaymentContextType @default(EVENT)
+  eventId     String?
+  storeId     String?
 
   provider PaymentProvider
   status   PaymentTransactionStatus @default(CREATED)
 
   method PaymentMethod?
 
-  amountInCents Int
+  amountInCents  Int
+  idempotencyKey String? @unique
 
-  externalId        String?
-  externalReference String?
+  externalId            String?
+  externalReference     String?
+  providerTransactionId String?
+  authorizationCode     String?
+  nsu                   String?
+  brand                 String?
+  installments          Int?
 
   qrCode       String?
   qrCodeBase64 String?
@@ -472,10 +521,22 @@ model PaymentTransaction {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
-  order Order @relation(fields: [orderId], references: [id])
+  organization Organization     @relation(fields: [organizationId], references: [id])
+  order        Order?           @relation(fields: [orderId], references: [id])
+  onlineOrder  OnlineOrder?     @relation(fields: [onlineOrderId], references: [id])
+  terminal     PaymentTerminal? @relation(fields: [terminalId], references: [id])
+  device       Device?          @relation(fields: [deviceId], references: [id])
+  refunds      PaymentRefund[]
 
   @@unique([provider, externalId])
+  @@index([organizationId])
   @@index([orderId])
+  @@index([onlineOrderId])
+  @@index([terminalId])
+  @@index([deviceId])
+  @@index([contextType])
+  @@index([eventId])
+  @@index([storeId])
   @@index([provider])
   @@index([status])
   @@index([expiresAt])
@@ -639,6 +700,189 @@ model PaymentProviderSettings {
   @@index([provider])
 }
 
+model OrganizationPaymentSettings {
+  id             String @id @default(cuid())
+  organizationId String @unique
+
+  pixEnabled        Boolean @default(false)
+  creditEnabled     Boolean @default(false)
+  debitEnabled      Boolean @default(false)
+  cashEnabled       Boolean @default(true)
+  nfcBalanceEnabled Boolean @default(false)
+
+  defaultProvider      PaymentProvider    @default(MANUAL)
+  pixExpirationMinutes Int                @default(5)
+  maxInstallments      Int                @default(1)
+  environment          PaymentEnvironment @default(PRODUCTION)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model PaymentProviderCredential {
+  id             String @id @default(cuid())
+  organizationId String
+
+  provider    PaymentProvider
+  environment PaymentEnvironment @default(PRODUCTION)
+
+  encryptedCredentials String?
+  publicMetadata       Json?
+  keyVersion           String?
+  active               Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider, environment])
+  @@index([organizationId])
+  @@index([provider])
+  @@index([environment])
+  @@index([active])
+}
+
+model ContextPaymentSettings {
+  id             String @id @default(cuid())
+  organizationId String
+
+  contextType   PaymentContextType
+  eventId       String?
+  onlineStoreId String?
+
+  inheritOrganizationSettings Boolean @default(true)
+
+  pixEnabledOverride        Boolean?
+  creditEnabledOverride     Boolean?
+  debitEnabledOverride      Boolean?
+  cashEnabledOverride       Boolean?
+  nfcBalanceEnabledOverride Boolean?
+  maxInstallmentsOverride   Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event?       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  onlineStore  OnlineStore? @relation(fields: [onlineStoreId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, contextType, eventId, onlineStoreId])
+  @@index([organizationId])
+  @@index([eventId])
+  @@index([onlineStoreId])
+  @@index([contextType])
+}
+
+model PaymentTerminal {
+  id             String  @id @default(cuid())
+  organizationId String
+  deviceId       String?
+  eventId        String?
+  onlineStoreId  String?
+
+  provider           PaymentProvider
+  externalTerminalId String
+  status             PaymentTerminalStatus @default(ACTIVE)
+  active             Boolean               @default(true)
+  lastSeenAt         DateTime?
+  metadata           Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  device       Device?              @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  event        Event?               @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  onlineStore  OnlineStore?         @relation(fields: [onlineStoreId], references: [id], onDelete: SetNull)
+  transactions PaymentTransaction[]
+
+  @@unique([organizationId, provider, externalTerminalId])
+  @@index([organizationId])
+  @@index([deviceId])
+  @@index([eventId])
+  @@index([onlineStoreId])
+  @@index([provider])
+  @@index([active])
+}
+
+model PaymentRefund {
+  id                   String @id @default(cuid())
+  organizationId       String
+  paymentTransactionId String
+
+  provider         PaymentProvider
+  status           PaymentRefundStatus @default(REQUESTED)
+  amountInCents    Int
+  reason           String?
+  externalRefundId String?
+  idempotencyKey   String?             @unique
+  gatewayStatus    String?
+  gatewayMessage   String?
+  metadata         Json?
+  requestedAt      DateTime            @default(now())
+  completedAt      DateTime?
+  failedAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization       Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  paymentTransaction PaymentTransaction @relation(fields: [paymentTransactionId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId])
+  @@index([paymentTransactionId])
+  @@index([provider])
+  @@index([status])
+}
+
+model PaymentWebhookEvent {
+  id             String  @id @default(cuid())
+  organizationId String?
+
+  provider          PaymentProvider
+  externalEventId   String?
+  externalPaymentId String?
+  idempotencyKey    String?         @unique
+  eventType         String?
+  processed         Boolean         @default(false)
+  ignored           Boolean         @default(false)
+  reason            String?
+  payload           Json?
+  headers           Json?
+  processedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([provider])
+  @@index([externalPaymentId])
+  @@index([processed])
+  @@index([createdAt])
+}
+
+model PaymentSettingsMigrationConflict {
+  id             String @id @default(cuid())
+  organizationId String
+
+  conflictType String
+  details      Json
+  resolved     Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([conflictType])
+  @@index([resolved])
+}
+
 model EventClosing {
   id String @id @default(cuid())
 
@@ -725,9 +969,11 @@ model Device {
   event        Event?       @relation(fields: [eventId], references: [id])
   store        OnlineStore? @relation(fields: [storeId], references: [id])
 
-  orders       Order[]
-  printJobs    EventPrintJob[]
-  nfcCardReads NfcCardRead[]
+  orders              Order[]
+  printJobs           EventPrintJob[]
+  paymentTerminals    PaymentTerminal[]
+  paymentTransactions PaymentTransaction[]
+  nfcCardReads        NfcCardRead[]
 
   @@index([organizationId])
   @@index([eventId])
@@ -750,6 +996,14 @@ enum AuditAction {
   PAYMENT_REFUNDED
   PAYMENT_MANUAL_MARKED
   PAYMENT_PROVIDER_SETTINGS_UPDATED
+  PAYMENT_SETTINGS_UPDATED
+  PAYMENT_METHOD_ENABLED
+  PAYMENT_METHOD_DISABLED
+  PAYMENT_TERMINAL_LINKED
+  PAYMENT_DECLINED
+  PAYMENT_CANCELLED
+  PAYMENT_REFUND_REQUESTED
+  PAYMENT_REFUND_COMPLETED
   PRINTING_SETTINGS_UPDATED
 
   EVENT_CREATED
@@ -1080,7 +1334,7 @@ model OnlineStore {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
-  organization           Organization            @relation(fields: [organizationId], references: [id])
+  organization           Organization             @relation(fields: [organizationId], references: [id])
   orders                 OnlineOrder[]
   devices                Device[]
   printJobs              EventPrintJob[]
@@ -1090,6 +1344,8 @@ model OnlineStore {
   businessHourExceptions BusinessHourException[]
   settings               OnlineStoreSettings?
   deliveryFeeRules       DeliveryFeeRule[]
+  contextPaymentSettings ContextPaymentSettings[]
+  paymentTerminals       PaymentTerminal[]
 
   @@index([organizationId])
   @@index([slug])
@@ -1234,12 +1490,13 @@ model OnlineOrder {
   createdAt            DateTime                   @default(now())
   updatedAt            DateTime                   @default(now()) @updatedAt
 
-  store           OnlineStore       @relation(fields: [storeId], references: [id])
-  deliveryRule    DeliveryFeeRule?  @relation(fields: [deliveryRuleId], references: [id])
-  customer        Customer?         @relation(fields: [customerId], references: [id])
-  customerAddress CustomerAddress?  @relation(fields: [customerAddressId], references: [id])
-  items           OnlineOrderItem[]
-  printJobs       EventPrintJob[]
+  store               OnlineStore          @relation(fields: [storeId], references: [id])
+  deliveryRule        DeliveryFeeRule?     @relation(fields: [deliveryRuleId], references: [id])
+  customer            Customer?            @relation(fields: [customerId], references: [id])
+  customerAddress     CustomerAddress?     @relation(fields: [customerAddressId], references: [id])
+  items               OnlineOrderItem[]
+  printJobs           EventPrintJob[]
+  paymentTransactions PaymentTransaction[]
 
   @@unique([storeId, orderNumber])
   @@index([storeId])

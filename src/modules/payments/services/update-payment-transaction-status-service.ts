@@ -47,10 +47,15 @@ export class UpdatePaymentTransactionStatusService {
       throw new Error('Payment transaction not found')
     }
 
+    if (!transaction.order || !transaction.orderId) {
+      throw new Error('Payment transaction is not linked to an event order')
+    }
+
     if (transaction.order.event.organizationId !== organizationId) {
       throw new Error('Unauthorized')
     }
 
+    const orderId = transaction.orderId
     const now = new Date()
 
     const transactionDateFields = {
@@ -94,7 +99,7 @@ export class UpdatePaymentTransactionStatusService {
       if (status === PaymentTransactionStatus.APPROVED) {
         await tx.order.update({
           where: {
-            id: transaction.orderId
+            id: orderId
           },
           data: {
             paymentStatus: PaymentStatus.PAID,
@@ -117,7 +122,7 @@ export class UpdatePaymentTransactionStatusService {
       ) {
         await tx.order.update({
           where: {
-            id: transaction.orderId
+            id: orderId
           },
           data: {
             paymentStatus: PaymentStatus.FAILED,
@@ -132,7 +137,7 @@ export class UpdatePaymentTransactionStatusService {
       if (status === PaymentTransactionStatus.CANCELLED) {
         await tx.order.update({
           where: {
-            id: transaction.orderId
+            id: orderId
           },
           data: {
             paymentStatus: PaymentStatus.CANCELLED,
@@ -146,7 +151,7 @@ export class UpdatePaymentTransactionStatusService {
       if (status === PaymentTransactionStatus.REFUNDED) {
         await tx.order.update({
           where: {
-            id: transaction.orderId
+            id: orderId
           },
           data: {
             paymentStatus: PaymentStatus.REFUNDED,
@@ -162,7 +167,7 @@ export class UpdatePaymentTransactionStatusService {
 
     const updatedOrder = await prisma.order.findUnique({
       where: {
-        id: transaction.orderId
+        id: orderId
       },
       include: {
         items: true,

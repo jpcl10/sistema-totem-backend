@@ -8,6 +8,7 @@ import {
 import { prisma } from '../../../lib/prisma.js'
 import { makePaymentProvider } from '../providers/payment-provider-factory.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
+import { PaymentSettingsResolver } from '../../payment-settings/payment-settings-resolver.js'
 
 interface CreatePaymentTransactionServiceRequest {
   organizationId: string
@@ -69,8 +70,24 @@ export class CreatePaymentTransactionService {
     const finalMethod =
       method ?? PaymentMethod.OTHER
 
+    const paymentSettings =
+      await new PaymentSettingsResolver().resolve({
+        organizationId,
+        contextType: 'EVENT',
+        eventId: order.eventId
+      })
+
+    if (
+      finalMethod === PaymentMethod.PIX_AUTOMATIC &&
+      !paymentSettings.methods.pix
+    ) {
+      throw new Error('PIX is disabled for this context')
+    }
+
     const expirationMinutes =
-      order.event.pixPaymentExpirationMinutes ?? 5
+      paymentSettings.pixExpirationMinutes ??
+      order.event.pixPaymentExpirationMinutes ??
+      5
 
     const safeExpirationMinutes =
       Math.min(
@@ -105,7 +122,10 @@ export class CreatePaymentTransactionService {
     const paymentTransaction =
       await prisma.paymentTransaction.create({
         data: {
+          organizationId,
           orderId: order.id,
+          contextType: 'EVENT',
+          eventId: order.eventId,
           provider: providerResponse.provider,
           status: providerResponse.status,
           method: providerResponse.method,

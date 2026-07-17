@@ -154,7 +154,10 @@ export class PayOrderWithNfcBalanceService {
       if (existingApprovedTransaction === 0) {
         paymentTransaction = await tx.paymentTransaction.create({
           data: {
+            organizationId: event.organizationId,
             orderId: order.id,
+            contextType: 'EVENT',
+            eventId: event.id,
             provider: PaymentProvider.MANUAL,
             status: PaymentTransactionStatus.APPROVED,
             method: PaymentMethod.NFC_BALANCE,

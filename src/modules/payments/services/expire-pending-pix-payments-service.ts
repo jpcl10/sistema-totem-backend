@@ -30,12 +30,17 @@ export class ExpirePendingPixPaymentsService {
               PaymentTransactionStatus.CANCELLED
             ]
           },
+          orderId: {
+            not: null
+          },
           order: {
-            status: {
-              not: OrderStatus.CANCELLED
-            },
-            paymentStatus: {
-              not: PaymentStatus.PAID
+            is: {
+              status: {
+                not: OrderStatus.CANCELLED
+              },
+              paymentStatus: {
+                not: PaymentStatus.PAID
+              }
             }
           }
         },
@@ -49,50 +54,59 @@ export class ExpirePendingPixPaymentsService {
       })
 
     for (const transaction of transactions) {
+      if (!transaction.order || !transaction.orderId) {
+        continue
+      }
+
+      const orderId = transaction.orderId
+
+      await prisma.$transaction(async tx => {
+        await tx.paymentTransaction.update({
+          where: {
+            id: transaction.id
+          },
+          data: {
+            status: PaymentTransactionStatus.EXPIRED,
+            expiredAt:
+              transaction.expiredAt ?? now,
+            gatewayStatus: 'expired',
+            gatewayMessage:
+              'PIX expirado por tempo limite'
+          }
+        })
+
+        await tx.order.update({
+          where: {
+            id: orderId
+          },
+          data: {
+            status: OrderStatus.CANCELLED,
+            paymentStatus: PaymentStatus.FAILED,
+            cancelReason:
+              'PIX expirado por falta de pagamento',
+            cancelledAt: now,
+            paymentNotes:
+              'Pagamento PIX expirado automaticamente'
+          }
+        })
+      })
+
       const updatedOrder =
-        await prisma.$transaction(async tx => {
-          await tx.paymentTransaction.update({
-            where: {
-              id: transaction.id
-            },
-            data: {
-              status: PaymentTransactionStatus.EXPIRED,
-              expiredAt:
-                transaction.expiredAt ?? now,
-              gatewayStatus: 'expired',
-              gatewayMessage:
-                'PIX expirado por tempo limite'
-            }
-          })
-
-          const order =
-            await tx.order.update({
-              where: {
-                id: transaction.orderId
-              },
-              data: {
-                status: OrderStatus.CANCELLED,
-                paymentStatus: PaymentStatus.FAILED,
-                cancelReason:
-                  'PIX expirado por falta de pagamento',
-                cancelledAt: now,
-                paymentNotes:
-                  'Pagamento PIX expirado automaticamente'
-              },
-              include: {
-                items: true,
-                event: {
-                  select: {
-                    id: true,
-                    name: true,
-                    slug: true,
-                    organizationId: true
-                  }
-                }
+        await prisma.order.findUniqueOrThrow({
+          where: {
+            id: orderId
+          },
+          include: {
+            items: true,
+            event: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                organizationId: true
               }
-            })
-
-          return order
+            }
+          }
         })
 
       // Audit: PAYMENT_EXPIRED

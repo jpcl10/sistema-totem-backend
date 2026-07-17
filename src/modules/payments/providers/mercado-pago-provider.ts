@@ -16,6 +16,7 @@ import {
   CreatePaymentProviderResponse,
   PaymentProviderAdapter
 } from './payment-provider.js'
+import { decryptPaymentCredentials } from '../../payment-settings/payment-credentials-crypto.js'
 
 interface MercadoPagoErrorDetails {
   message: string
@@ -23,6 +24,10 @@ interface MercadoPagoErrorDetails {
   error: string | null
   cause: string | null
   raw: string | null
+}
+
+interface MercadoPagoCredentials {
+  accessToken?: string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -135,7 +140,36 @@ export class MercadoPagoProvider implements PaymentProviderAdapter {
         }
       })
 
+    const organizationPaymentSettings =
+      await prisma.organizationPaymentSettings.findUnique({
+        where: {
+          organizationId: data.organizationId
+        },
+        select: {
+          environment: true
+        }
+      })
+
+    const credential =
+      await prisma.paymentProviderCredential.findFirst({
+        where: {
+          organizationId: data.organizationId,
+          provider: PaymentProvider.MERCADO_PAGO,
+          environment:
+            organizationPaymentSettings?.environment ?? 'PRODUCTION',
+          active: true
+        }
+      })
+
+    const credentialAccessToken =
+      credential?.encryptedCredentials
+        ? decryptPaymentCredentials<MercadoPagoCredentials>(
+            credential.encryptedCredentials
+          ).accessToken?.trim()
+        : ''
+
     const accessToken =
+      credentialAccessToken ||
       settings?.accessToken?.trim() ||
       mercadoPagoConfig.accessToken.trim()
 

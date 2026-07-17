@@ -9,6 +9,11 @@ import { listOrderPaymentTransactionsController } from '../controllers/list-orde
 import { updatePaymentTransactionStatusController } from '../controllers/update-payment-transaction-status-controller.js'
 import { createPublicPixAutomaticPaymentController } from '../controllers/create-public-pix-automatic-payment-controller.js'
 import { getCheckoutPaymentSettingsController } from '../controllers/get-checkout-payment-settings-controller.js'
+import {
+  confirmCardPaymentIntentController,
+  createCardPaymentIntentController
+} from '../controllers/card-payment-intent-controller.js'
+import { verifyDeviceJWT } from '../../devices/middlewares/verify-device-jwt.js'
 
 export async function paymentsRoutes(
   app: FastifyInstance
@@ -53,6 +58,34 @@ export async function paymentsRoutes(
       }
     },
     updatePaymentTransactionStatusController
+  )
+
+  app.post(
+    '/payment-intents/card',
+    {
+      preHandler: [verifyJWT, requireTenantContext],
+      config: {
+        rateLimit: {
+          max: 120,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    createCardPaymentIntentController
+  )
+
+  app.post(
+    '/devices/payment-intents/:paymentTransactionId/confirm',
+    {
+      preHandler: [verifyDeviceJWT],
+      config: {
+        rateLimit: {
+          max: 120,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    confirmCardPaymentIntentController
   )
 
   app.get(
