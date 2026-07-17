@@ -4,8 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
     "ngrok": "ngrok http 3333",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:deploy": "prisma migrate deploy",
     "test": "node --import tsx --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "db:seed": "tsx prisma/seed.ts"
@@ -14,6 +18,9 @@
   "author": "",
   "license": "ISC",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1070.0",
     "@aws-sdk/lib-storage": "^3.1070.0",
