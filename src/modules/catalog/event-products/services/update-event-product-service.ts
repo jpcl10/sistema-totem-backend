@@ -1,6 +1,10 @@
 import { prisma } from '../../../../lib/prisma.js'
 import { AuditAction } from '@prisma/client'
 import { CreateAuditLogService } from '../../../audit-logs/services/create-audit-log-service.js'
+import {
+  catalogProductInclude,
+  formatEventProduct
+} from './event-product-presenter.js'
 
 interface UpdateEventProductServiceRequest {
   organizationId: string
@@ -10,7 +14,7 @@ interface UpdateEventProductServiceRequest {
 
   eventProductId: string
 
-  priceInCents?: number
+  priceInCents?: number | null
 
   trackStock?: boolean
   stockQuantity?: number | null
@@ -31,6 +35,9 @@ export class UpdateEventProductService {
     soldOut,
     active
   }: UpdateEventProductServiceRequest) {
+    if (trackStock && stockQuantity === undefined) {
+      throw new Error('Stock quantity is required when stock tracking is enabled')
+    }
 
     const event = await prisma.event.findFirst({
       where: {
@@ -47,7 +54,15 @@ export class UpdateEventProductService {
       await prisma.eventProduct.findFirst({
         where: {
           id: eventProductId,
-          eventId
+          eventId,
+          event: {
+            organizationId
+          }
+        },
+        include: {
+          catalogProduct: {
+            include: catalogProductInclude()
+          }
         }
       })
 
@@ -69,9 +84,15 @@ export class UpdateEventProductService {
             trackStock
           }),
 
-          ...(stockQuantity !== undefined && {
-            stockQuantity
-          }),
+          ...(trackStock === false
+            ? {
+                stockQuantity: null
+              }
+            : stockQuantity !== undefined
+              ? {
+                  stockQuantity
+                }
+              : {}),
 
           ...(soldOut !== undefined && {
             soldOut
@@ -80,6 +101,11 @@ export class UpdateEventProductService {
           ...(active !== undefined && {
             active
           })
+        },
+        include: {
+          catalogProduct: {
+            include: catalogProductInclude()
+          }
         }
       })
 
@@ -104,7 +130,7 @@ export class UpdateEventProductService {
     })
 
     return {
-      eventProduct: updatedEventProduct
+      eventProduct: formatEventProduct(updatedEventProduct)
     }
   }
 }

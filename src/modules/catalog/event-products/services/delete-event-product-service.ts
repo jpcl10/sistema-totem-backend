@@ -18,7 +18,6 @@ export class DeleteEventProductService {
     eventId,
     eventProductId
   }: DeleteEventProductServiceRequest) {
-
     const event = await prisma.event.findFirst({
       where: {
         id: eventId,
@@ -34,7 +33,10 @@ export class DeleteEventProductService {
       await prisma.eventProduct.findFirst({
         where: {
           id: eventProductId,
-          eventId
+          eventId,
+          event: {
+            organizationId
+          }
         }
       })
 

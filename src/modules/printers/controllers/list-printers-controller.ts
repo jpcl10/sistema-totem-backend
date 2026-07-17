@@ -2,8 +2,8 @@ import {
   FastifyReply,
   FastifyRequest
 } from 'fastify'
-
 import { ListPrintersService } from '../services/list-printers-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function listPrintersController(
   request: FastifyRequest,
@@ -12,9 +12,7 @@ export async function listPrintersController(
   const { eventId } = request.params as {
     eventId: string
   }
-
-  const organizationId =
-    request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const service =
     new ListPrintersService()
@@ -22,6 +20,7 @@ export async function listPrintersController(
   const { printers } =
     await service.execute({
       organizationId,
+      userRole: request.user.role,
       eventId
     })
 

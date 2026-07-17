@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const updateEventProductSchema = z.object({
-  priceInCents: z.number().int().positive().optional(),
+  priceInCents: z.number().int().min(0).nullable().optional(),
 
   trackStock: z.boolean().optional(),
 

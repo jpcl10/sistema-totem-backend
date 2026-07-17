@@ -1,6 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
-
 import { GetNfcCardByUidService } from '../services/get-nfc-card-by-uid-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function getNfcCardByUidController(
   request: FastifyRequest,
@@ -9,9 +9,10 @@ export async function getNfcCardByUidController(
   const paramsSchema = request.params as { eventId: string; uid: string }
 
   const service = new GetNfcCardByUidService()
+  const organizationId = getTenantOrganizationId(request)
 
   const result = await service.execute({
-    organizationId: request.user.organizationId,
+    organizationId,
     userId: request.user.sub,
     eventId: paramsSchema.eventId,
     uid: paramsSchema.uid

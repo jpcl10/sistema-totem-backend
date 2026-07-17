@@ -1,7 +1,10 @@
 import { prisma } from '../../../../lib/prisma.js'
+import { UserRole } from '@prisma/client'
 
 interface UpdateCatalogCategoryServiceRequest {
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
 
   categoryId: string
 
@@ -11,6 +14,7 @@ interface UpdateCatalogCategoryServiceRequest {
   sector?: 'BAR' | 'KITCHEN'
 
   active?: boolean
+  sortOrder?: number
 }
 
 export class UpdateCatalogCategoryService {
@@ -20,9 +24,9 @@ export class UpdateCatalogCategoryService {
     name,
     slug,
     sector,
-    active
+    active,
+    sortOrder
   }: UpdateCatalogCategoryServiceRequest) {
-
     const category =
       await prisma.catalogCategory.findFirst({
         where: {
@@ -55,6 +59,10 @@ export class UpdateCatalogCategoryService {
 
           ...(active !== undefined && {
             active
+          }),
+          
+          ...(sortOrder !== undefined && {
+            sortOrder
           })
         }
       })

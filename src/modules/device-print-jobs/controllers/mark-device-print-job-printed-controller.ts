@@ -5,6 +5,8 @@ import {
 
 import { MarkDevicePrintJobPrintedService }
   from '../services/mark-device-print-job-printed-service.js'
+import { getTenantOrganizationId }
+  from '../../auth/middlewares/request-context.js'
 
 export async function markDevicePrintJobPrintedController(
   request: FastifyRequest,
@@ -16,7 +18,7 @@ export async function markDevicePrintJobPrintedController(
     }
 
   const organizationId =
-    request.user.organizationId
+    getTenantOrganizationId(request)
 
   const service =
     new MarkDevicePrintJobPrintedService()

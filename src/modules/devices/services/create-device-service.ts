@@ -1,7 +1,8 @@
 import {
   DeviceStatus,
   DeviceType,
-  AuditAction
+  AuditAction,
+  UserRole
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
@@ -9,6 +10,8 @@ import { CreateAuditLogService } from '../../audit-logs/services/create-audit-lo
 
 interface CreateDeviceServiceRequest {
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
   userId: string
   eventId?: string | null
   name: string

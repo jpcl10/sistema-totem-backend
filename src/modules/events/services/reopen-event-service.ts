@@ -7,6 +7,7 @@ interface ReopenEventServiceRequest {
   organizationId: string
   userId: string
   userRole: UserRole
+  selectedOrganizationId?: string
 }
 
 export class ReopenEventService {

@@ -2,6 +2,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 
 import { listNfcCardTransactionsSchema } from '../schemas/list-nfc-card-transactions-schema.js'
 import { ListNfcCardTransactionsService } from '../services/list-nfc-card-transactions-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function listNfcCardTransactionsController(
   request: FastifyRequest,
@@ -12,10 +13,11 @@ export async function listNfcCardTransactionsController(
   const { page, limit } = listNfcCardTransactionsSchema.parse(request.query)
 
   const service = new ListNfcCardTransactionsService()
+  const organizationId = getTenantOrganizationId(request)
 
   try {
     const result = await service.execute({
-      organizationId: request.user.organizationId,
+      organizationId,
       eventId: paramsSchema.eventId,
       nfcCardId: paramsSchema.id,
       page,

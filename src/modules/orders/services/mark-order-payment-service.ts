@@ -3,16 +3,19 @@ import {
   PaymentProvider,
   PaymentStatus,
   PaymentTransactionStatus,
-  AuditAction
+  AuditAction,
+  UserRole
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
 import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
+import { mapEventOrderToUnifiedOrder } from '../presenters/unified-order-presenter.js'
 
 interface MarkOrderPaymentServiceRequest {
   organizationId: string
+  userRole: UserRole
   userId: string
   orderId: string
   paymentStatus: PaymentStatus
@@ -80,6 +83,27 @@ export class MarkOrderPaymentService {
 
     const shouldMarkAsPaid =
       paymentStatus === PaymentStatus.PAID
+
+    if (
+      shouldMarkAsPaid &&
+      paymentMethod === PaymentMethod.CASH &&
+      amountPaidInCents !== undefined &&
+      amountPaidInCents !== null
+    ) {
+      if (amountPaidInCents < order.totalInCents) {
+        throw new Error('Amount received cannot be less than order total')
+      }
+
+      const expectedChangeInCents = amountPaidInCents - order.totalInCents
+
+      if (
+        changeForInCents !== undefined &&
+        changeForInCents !== null &&
+        changeForInCents !== expectedChangeInCents
+      ) {
+        throw new Error('Change value does not match amount received')
+      }
+    }
 
     const paidAmount =
       shouldMarkAsPaid
@@ -182,9 +206,75 @@ export class MarkOrderPaymentService {
       }
     })
 
-    io.to(`event:${updatedOrder.eventId}`).emit('order-updated', {
-      order: updatedOrder
+    if (io) {
+      io.to(`event:${updatedOrder.eventId}`).emit('order-updated', {
+        order: updatedOrder
+      })
+    }
+
+    const unifiedOrder = await prisma.order.findUnique({
+      where: {
+        id: updatedOrder.id
+      },
+      include: {
+        event: {
+          select: {
+            id: true,
+            name: true,
+            organizationId: true,
+            printingEnabled: true
+          }
+        },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true
+          }
+        },
+        device: {
+          select: {
+            id: true,
+            type: true,
+            name: true
+          }
+        },
+        items: {
+          include: {
+            options: true
+          }
+        },
+        printJobs: {
+          select: {
+            id: true,
+            status: true
+          }
+        },
+        paymentTransactions: {
+          select: {
+            id: true
+          }
+        }
+      }
     })
+
+    if (unifiedOrder) {
+      const unifiedPayload = {
+        order: mapEventOrderToUnifiedOrder(unifiedOrder)
+      }
+
+      if (io) {
+        io.to(`event:${updatedOrder.eventId}`).emit(
+          'unified-order-updated',
+          unifiedPayload
+        )
+
+        io.to(`organization:${organizationId}`).emit(
+          'unified-order-updated',
+          unifiedPayload
+        )
+      }
+    }
 
     return {
       order: updatedOrder

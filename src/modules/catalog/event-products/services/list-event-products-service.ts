@@ -1,4 +1,8 @@
 import { prisma } from '../../../../lib/prisma.js'
+import {
+  catalogProductInclude,
+  formatEventProduct
+} from './event-product-presenter.js'
 
 interface ListEventProductsServiceRequest {
   organizationId: string
@@ -23,13 +27,14 @@ export class ListEventProductsService {
 
     const eventProducts = await prisma.eventProduct.findMany({
       where: {
-        eventId
+        eventId,
+        event: {
+          organizationId
+        }
       },
       include: {
         catalogProduct: {
-          include: {
-            catalogCategory: true
-          }
+          include: catalogProductInclude()
         }
       },
       orderBy: {
@@ -38,7 +43,7 @@ export class ListEventProductsService {
     })
 
     return {
-      eventProducts
+      eventProducts: eventProducts.map(formatEventProduct)
     }
   }
 }

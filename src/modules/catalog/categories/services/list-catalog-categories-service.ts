@@ -1,7 +1,10 @@
 import { prisma } from '../../../../lib/prisma.js'
+import { UserRole } from '@prisma/client'
 
 interface ListCatalogCategoriesServiceRequest {
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
 }
 
 export class ListCatalogCategoriesService {

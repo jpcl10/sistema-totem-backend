@@ -2,10 +2,9 @@ import {
   FastifyReply,
   FastifyRequest
 } from 'fastify'
-
 import { updateEventProductSchema } from '../schemas/update-event-product-schema.js'
-
 import { UpdateEventProductService } from '../services/update-event-product-service.js'
+import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
 
 export async function updateEventProductController(
   request: FastifyRequest,
@@ -21,40 +20,60 @@ export async function updateEventProductController(
       request.body
     )
 
-  const organizationId =
-    request.user.organizationId
   const userId = request.user.sub
+  const organizationId = getTenantOrganizationId(request)
 
   const service =
     new UpdateEventProductService()
 
-  const { eventProduct } =
-    await service.execute({
-      organizationId,
-      userId,
+  try {
+    const { eventProduct } =
+      await service.execute({
+        organizationId,
+        userId,
 
-      eventId: params.eventId,
+        eventId: params.eventId,
 
-      eventProductId:
-        params.eventProductId,
+        eventProductId:
+          params.eventProductId,
 
-      priceInCents:
-        body.priceInCents,
+        priceInCents:
+          body.priceInCents,
 
-      trackStock:
-        body.trackStock,
+        trackStock:
+          body.trackStock,
 
-      stockQuantity:
-        body.stockQuantity,
+        stockQuantity:
+          body.stockQuantity,
 
-      soldOut:
-        body.soldOut,
+        soldOut:
+          body.soldOut,
 
-      active:
-        body.active
+        active:
+          body.active
+      })
+
+    return reply.send({
+      eventProduct
     })
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (
+        error.message === 'Event not found' ||
+        error.message === 'Event product not found'
+      )
+    ) {
+      return reply.status(404).send({ message: error.message })
+    }
 
-  return reply.send({
-    eventProduct
-  })
+    if (
+      error instanceof Error &&
+      error.message === 'Stock quantity is required when stock tracking is enabled'
+    ) {
+      return reply.status(400).send({ message: error.message })
+    }
+
+    throw error
+  }
 }

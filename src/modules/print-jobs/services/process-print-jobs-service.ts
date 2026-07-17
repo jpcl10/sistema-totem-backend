@@ -3,22 +3,85 @@ import { AuditAction } from '@prisma/client'
 import { logger } from '../../../lib/logger.js'
 import { PrinterFactory } from '../../../lib/printers/printer-factory.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
+import {
+  EffectivePrintingSettings,
+  PrintingSourceKey
+} from '../../settings/services/printing-settings-service.js'
+import { SettingsResolverService } from '../../settings/services/settings-resolver-service.js'
 
 type PrintPayload = {
+  domain?: string
   type?: string
   title?: string
   eventName?: string
+  storeName?: string
   orderNumber?: number
+  source?: string
+  manualSale?: boolean
   customerName?: string | null
+  customerPhone?: string | null
   createdAt?: string | Date
   totalInCents?: number
+  subtotalInCents?: number
+  deliveryFeeInCents?: number
   paperSize?: string
   sector?: string
+  fulfillment?: string
+  deliveryAddress?: {
+    address?: string | null
+    number?: string | null
+    neighborhood?: string | null
+    complement?: string | null
+    reference?: string | null
+  } | null
+  paymentStatus?: string
+  paymentMethod?: string | null
+  notes?: string | null
   items?: {
     name: string
     quantity: number
     sector?: string
+    notes?: string | null
+    options?: {
+      groupName: string
+      optionName: string
+    }[]
   }[]
+}
+
+function getPrintingSource(payload: PrintPayload): PrintingSourceKey {
+  if (payload.domain === 'ONLINE_ORDER') {
+    return payload.source === 'ADMIN'
+      ? 'MANUAL_STORE'
+      : 'ONLINE_STORE'
+  }
+
+  if (payload.source === 'TOTEM') {
+    return 'TOTEM'
+  }
+
+  if (payload.source === 'MANUAL_EVENT' || payload.manualSale) {
+    return 'MANUAL_EVENT'
+  }
+
+  return 'EVENT'
+}
+
+function canAutoPrint({
+  settings,
+  source
+}: {
+  settings: EffectivePrintingSettings
+  source: PrintingSourceKey
+}) {
+  const sourceSettings = settings.sources[source]
+
+  return Boolean(
+    settings.printingEnabled &&
+    settings.autoPrintEnabled &&
+    sourceSettings?.enabled &&
+    sourceSettings?.autoPrint
+  )
 }
 
 export class ProcessPrintJobsService {
@@ -37,6 +100,7 @@ export class ProcessPrintJobsService {
       include: {
         printer: true,
         event: true,
+        store: true,
         order: true
       },
       orderBy: {
@@ -49,11 +113,27 @@ export class ProcessPrintJobsService {
 
     for (const job of jobs) {
       try {
-        if (!job.event.printingEnabled) {
+        const payload =
+          job.payload as PrintPayload
+
+        const organizationId =
+          job.event?.organizationId ?? job.store?.organizationId
+
+        if (!organizationId) {
           continue
         }
 
-        if (!job.event.autoPrintEnabled) {
+        const effective =
+          await new SettingsResolverService().execute({
+            organizationId,
+            eventId: job.eventId ?? undefined,
+            storeId: job.storeId ?? undefined
+          })
+
+        if (!canAutoPrint({
+          settings: effective.printing as EffectivePrintingSettings,
+          source: getPrintingSource(payload)
+        })) {
           continue
         }
 
@@ -72,7 +152,7 @@ export class ProcessPrintJobsService {
 
           // Audit: PRINT_JOB_ERROR
           await createAuditLogService.execute({
-            organizationId: job.event.organizationId,
+            organizationId: job.event?.organizationId ?? job.store!.organizationId,
             eventId: job.eventId,
             entity: 'PrintJob',
             entityId: job.id,
@@ -102,7 +182,7 @@ export class ProcessPrintJobsService {
 
           // Audit: PRINT_JOB_ERROR
           await createAuditLogService.execute({
-            organizationId: job.event.organizationId,
+            organizationId: job.event?.organizationId ?? job.store!.organizationId,
             eventId: job.eventId,
             entity: 'PrintJob',
             entityId: job.id,
@@ -140,7 +220,7 @@ export class ProcessPrintJobsService {
 
           // Audit: PRINT_JOB_ERROR
           await createAuditLogService.execute({
-            organizationId: job.event.organizationId,
+            organizationId: job.event?.organizationId ?? job.store!.organizationId,
             eventId: job.eventId,
             entity: 'PrintJob',
             entityId: job.id,
@@ -155,17 +235,27 @@ export class ProcessPrintJobsService {
           continue
         }
 
-        const payload =
-          job.payload as PrintPayload
-
         let content = ''
 
         content += '==============================\n'
         content += `${payload.title ?? 'PEDIDO'}\n`
         content += '==============================\n\n'
 
-        if (payload.eventName) {
-          content += `${payload.eventName}\n`
+        if (payload.eventName || payload.storeName) {
+          content += `${payload.eventName ?? payload.storeName}\n`
+        }
+
+        if (payload.manualSale) {
+          content += 'VENDA MANUAL\n'
+        }
+
+        if (payload.source) {
+          content += `Origem: ${payload.source}\n`
+        }
+
+        if (payload.createdAt) {
+          const createdAt = new Date(payload.createdAt)
+          content += `Data: ${createdAt.toLocaleString('pt-BR')}\n`
         }
 
         if (payload.orderNumber) {
@@ -174,6 +264,36 @@ export class ProcessPrintJobsService {
 
         if (payload.customerName) {
           content += `Cliente: ${payload.customerName}\n`
+        }
+
+        if (payload.customerPhone) {
+          content += `Telefone: ${payload.customerPhone}\n`
+        }
+
+        if (payload.fulfillment) {
+          content += `Atendimento: ${payload.fulfillment}\n`
+        }
+
+        if (payload.deliveryAddress) {
+          const address = payload.deliveryAddress
+          content += `Endereco: ${address.address ?? ''}, ${address.number ?? ''}\n`
+          if (address.neighborhood) {
+            content += `Bairro: ${address.neighborhood}\n`
+          }
+          if (address.complement) {
+            content += `Compl.: ${address.complement}\n`
+          }
+          if (address.reference) {
+            content += `Ref.: ${address.reference}\n`
+          }
+        }
+
+        if (payload.paymentStatus || payload.paymentMethod) {
+          content += `Pagamento: ${payload.paymentStatus ?? '-'}`
+          if (payload.paymentMethod) {
+            content += ` / ${payload.paymentMethod}`
+          }
+          content += '\n'
         }
 
         if (payload.sector) {
@@ -185,9 +305,21 @@ export class ProcessPrintJobsService {
 
         for (const item of payload.items ?? []) {
           content += `${item.quantity}x ${item.name}\n`
+          if (item.options && item.options.length > 0) {
+            for (const opt of item.options) {
+              content += `  + ${opt.optionName}\n`
+            }
+          }
+          if (item.notes) {
+            content += `  Obs: ${item.notes}\n`
+          }
         }
 
         content += '------------------------------\n\n'
+
+        if (payload.notes) {
+          content += `Obs geral: ${payload.notes}\n`
+        }
 
         if (payload.totalInCents !== undefined) {
           const total =
@@ -219,7 +351,7 @@ export class ProcessPrintJobsService {
 
         // Audit: PRINT_JOB_PRINTED
         await createAuditLogService.execute({
-          organizationId: job.event.organizationId,
+          organizationId: job.event?.organizationId ?? job.store!.organizationId,
           eventId: job.eventId,
           entity: 'PrintJob',
           entityId: job.id,
@@ -251,7 +383,7 @@ export class ProcessPrintJobsService {
 
         // Audit: PRINT_JOB_ERROR
         await createAuditLogService.execute({
-          organizationId: job.event.organizationId,
+          organizationId: job.event?.organizationId ?? job.store!.organizationId,
           eventId: job.eventId,
           entity: 'PrintJob',
           entityId: job.id,

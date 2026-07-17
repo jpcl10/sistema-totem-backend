@@ -23,7 +23,19 @@ export class ListDevicePendingPrintJobsService {
               items: true
             }
           },
+          onlineOrder: {
+            include: {
+              items: true
+            }
+          },
           event: {
+            select: {
+              id: true,
+              name: true,
+              slug: true
+            }
+          },
+          store: {
             select: {
               id: true,
               name: true,

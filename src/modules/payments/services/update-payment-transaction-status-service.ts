@@ -8,6 +8,7 @@ import {
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
 import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
+import { mapEventOrderToUnifiedOrder } from '../../orders/presenters/unified-order-presenter.js'
 
 interface UpdatePaymentTransactionStatusServiceRequest {
   organizationId: string
@@ -189,6 +190,60 @@ export class UpdatePaymentTransactionStatusService {
   }
 
     if (updatedOrder) {
+      const unifiedOrder = await prisma.order.findUnique({
+        where: {
+          id: updatedOrder.id
+        },
+        include: {
+          event: {
+            select: {
+              id: true,
+              name: true,
+              organizationId: true,
+              printingEnabled: true
+            }
+          },
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true
+            }
+          },
+          device: {
+            select: {
+              id: true,
+              type: true,
+              name: true
+            }
+          },
+          items: {
+            include: {
+              options: true
+            }
+          },
+          printJobs: {
+            select: {
+              id: true,
+              status: true
+            }
+          },
+          paymentTransactions: {
+            select: {
+              id: true
+            }
+          }
+        }
+      })
+
+      io.to(`organization:${organizationId}`).emit('order-updated', {
+        order: updatedOrder
+      })
+
+      io.to(`organization:${organizationId}`).emit('payment-transaction-updated', {
+        paymentTransaction: updatedTransaction
+      })
+
       io.to(`event:${updatedOrder.eventId}`).emit('order-updated', {
         order: updatedOrder
       })
@@ -196,6 +251,22 @@ export class UpdatePaymentTransactionStatusService {
       io.to(`event:${updatedOrder.eventId}`).emit('payment-transaction-updated', {
         paymentTransaction: updatedTransaction
       })
+
+      if (unifiedOrder) {
+        const unifiedPayload = {
+          order: mapEventOrderToUnifiedOrder(unifiedOrder)
+        }
+
+        io.to(`organization:${organizationId}`).emit(
+          'unified-order-updated',
+          unifiedPayload
+        )
+
+        io.to(`event:${updatedOrder.eventId}`).emit(
+          'unified-order-updated',
+          unifiedPayload
+        )
+      }
     }
 
     return {

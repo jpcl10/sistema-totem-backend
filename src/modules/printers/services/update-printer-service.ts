@@ -1,7 +1,10 @@
 import { prisma } from '../../../lib/prisma.js'
+import { UserRole } from '@prisma/client'
 
 interface UpdatePrinterServiceRequest {
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
   printerId: string
 
   name?: string

@@ -1,8 +1,11 @@
 import { prisma } from '../../../lib/prisma.js'
+import { UserRole } from '@prisma/client'
 
 interface GetEventClosingServiceRequest {
   eventId: string
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
 }
 
 export class GetEventClosingService {
@@ -21,7 +24,8 @@ export class GetEventClosingService {
         slug: true,
         active: true,
         closed: true,
-        closedAt: true
+        closedAt: true,
+        organizationId: true
       }
     })
 
@@ -32,7 +36,7 @@ export class GetEventClosingService {
     const closing = await prisma.eventClosing.findFirst({
       where: {
         eventId,
-        organizationId
+        organizationId: event.organizationId
       },
       include: {
         closedByUser: {

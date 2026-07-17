@@ -6,6 +6,7 @@ interface RestoreEventServiceRequest {
   eventId: string
   organizationId: string
   userRole: UserRole
+  selectedOrganizationId?: string
 }
 
 export class RestoreEventService {

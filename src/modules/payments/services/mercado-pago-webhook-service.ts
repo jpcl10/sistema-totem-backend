@@ -16,6 +16,7 @@ import { io } from '../../../lib/socket.js'
 import { logger } from '../../../lib/logger.js'
 import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
+import { mapEventOrderToUnifiedOrder } from '../../orders/presenters/unified-order-presenter.js'
 
 interface MercadoPagoWebhookServiceRequest {
   body: unknown
@@ -443,6 +444,68 @@ export class MercadoPagoWebhookService {
     io.to(`event:${updatedOrder.eventId}`).emit('order-updated', {
       order: updatedOrder
     })
+
+    const unifiedOrder = await prisma.order.findUnique({
+      where: {
+        id: updatedOrder.id
+      },
+      include: {
+        event: {
+          select: {
+            id: true,
+            name: true,
+            organizationId: true,
+            printingEnabled: true
+          }
+        },
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true
+          }
+        },
+        device: {
+          select: {
+            id: true,
+            type: true,
+            name: true
+          }
+        },
+        items: {
+          include: {
+            options: true
+          }
+        },
+        printJobs: {
+          select: {
+            id: true,
+            status: true
+          }
+        },
+        paymentTransactions: {
+          select: {
+            id: true
+          }
+        }
+      }
+    })
+
+    if (unifiedOrder) {
+      const unifiedPayload = {
+        order: mapEventOrderToUnifiedOrder(unifiedOrder)
+      }
+
+      io.to(`event:${updatedOrder.eventId}`).emit(
+        'unified-order-updated',
+        unifiedPayload
+      )
+
+      io.to(`organization:${updatedOrder.event.organizationId}`).emit(
+        'unified-order-updated',
+        unifiedPayload
+      )
+    }
 
     return {
       received: true,

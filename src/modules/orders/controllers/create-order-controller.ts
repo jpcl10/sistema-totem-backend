@@ -1,4 +1,5 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
+import { ZodError } from 'zod'
 
 import { createOrderSchema } from '../schemas/create-order-schema.js'
 import { CreateOrderService } from '../services/create-order-service.js'
@@ -7,27 +8,52 @@ export async function createOrderController(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  const { slug } = request.params as {
-    slug: string
+  try {
+    const { slug } = request.params as {
+      slug: string
+    }
+
+    const {
+      customerName,
+      customerId,
+      paymentStatus,
+      items
+    } = createOrderSchema.parse(request.body)
+
+    const createOrderService = new CreateOrderService()
+
+    const { order } = await createOrderService.execute({
+      eventSlug: slug,
+      deviceId: request.device?.deviceId ?? null,
+      customerName,
+      customerId,
+      paymentStatus,
+      items
+    })
+
+    return reply.status(201).send({
+      order
+    })
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return reply.status(400).send({
+        message: 'Invalid order payload',
+        issues: error.issues
+      })
+    }
+
+    if (error instanceof Error) {
+      if (error.message === 'Event not found') {
+        return reply.status(404).send({
+          message: error.message
+        })
+      }
+
+      return reply.status(400).send({
+        message: error.message
+      })
+    }
+
+    throw error
   }
-
-  const {
-    customerName,
-    paymentStatus,
-    items
-  } = createOrderSchema.parse(request.body)
-
-  const createOrderService = new CreateOrderService()
-
-  const { order } = await createOrderService.execute({
-    eventSlug: slug,
-    deviceId: request.device?.deviceId ?? null,
-    customerName,
-    paymentStatus,
-    items
-  })
-
-  return reply.status(201).send({
-    order
-  })
 }

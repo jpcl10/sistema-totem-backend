@@ -1,13 +1,14 @@
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
-import { AuditAction } from '@prisma/client'
+import { AuditAction, UserRole } from '@prisma/client'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
+import { mapEventOrderToUnifiedOrder } from '../presenters/unified-order-presenter.js'
+import { OrderNotificationService } from '../../notifications/services/order-notification-service.js'
 
 interface UpdateOrderStatusServiceRequest {
   organizationId: string
-
+  userRole: UserRole
   orderId: string
-
   status:
     | 'CONFIRMED'
     | 'PREPARING'
@@ -29,7 +30,10 @@ export class UpdateOrderStatusService {
   }: UpdateOrderStatusServiceRequest) {
     const order = await prisma.order.findFirst({
       where: {
-        id: orderId
+        id: orderId,
+        event: {
+          organizationId
+        }
       },
       include: {
         event: true,
@@ -39,10 +43,6 @@ export class UpdateOrderStatusService {
 
     if (!order) {
       throw new Error('Order not found')
-    }
-
-    if (order.event.organizationId !== organizationId) {
-      throw new Error('Unauthorized')
     }
 
     if (order.status === 'DELIVERED' && status === 'CANCELLED') {
@@ -115,9 +115,11 @@ export class UpdateOrderStatusService {
                 include: {
                   catalogCategory: true
                 }
-              }
+              },
+              options: true
             }
-          }
+          },
+          printJobs: true
         }
       })
     })
@@ -125,6 +127,52 @@ export class UpdateOrderStatusService {
     io.to(`event:${order.eventId}`).emit('order-updated', {
       order: updatedOrder
     })
+
+    io.to(`event:${order.eventId}`).emit('unified-order-updated', {
+      order: mapEventOrderToUnifiedOrder({
+        ...updatedOrder,
+        event: order.event
+      })
+    })
+
+    io.to(`organization:${organizationId}`).emit('unified-order-updated', {
+      order: mapEventOrderToUnifiedOrder({
+        ...updatedOrder,
+        event: order.event
+      })
+    })
+
+    io.to(`call-screen:event:${order.eventId}`).emit('call-screen-refresh', {
+      context: {
+        type: 'EVENT',
+        id: order.eventId
+      },
+      serverTime: new Date().toISOString()
+    })
+
+    const notificationPayload = {
+      organizationId,
+      orderId: updatedOrder.id,
+      orderType: 'EVENT_ORDER' as const,
+      customerId: updatedOrder.customerId,
+      customerPhone: null,
+      customerName: updatedOrder.customerName,
+      orderNumber: updatedOrder.orderNumber
+    }
+
+    const notificationService = new OrderNotificationService()
+
+    if (status === 'CONFIRMED') {
+      await notificationService.sendOrderConfirmed(notificationPayload)
+    } else if (status === 'PREPARING') {
+      await notificationService.sendPreparing(notificationPayload)
+    } else if (status === 'READY') {
+      await notificationService.sendReady(notificationPayload)
+    } else if (status === 'DELIVERED') {
+      await notificationService.sendDelivered(notificationPayload)
+    } else if (status === 'CANCELLED') {
+      await notificationService.sendCanceled(notificationPayload)
+    }
 
     const createAuditLogService = new CreateAuditLogService()
     

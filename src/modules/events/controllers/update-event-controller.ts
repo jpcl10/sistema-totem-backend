@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
-
 import { updateEventSchema } from '../schemas/update-event-schema.js'
 import { UpdateEventService } from '../services/update-event-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function updateEventController(
   request: FastifyRequest,
@@ -11,8 +11,8 @@ export async function updateEventController(
     id: string
   }
 
-  const organizationId = request.user.organizationId
   const userId = request.user.sub
+  const organizationId = getTenantOrganizationId(request)
 
   const data = updateEventSchema.parse(request.body)
 
@@ -21,6 +21,7 @@ export async function updateEventController(
   const { event } = await updateEventService.execute({
     eventId: id,
     organizationId,
+    userRole: request.user.role,
     userId,
     ...data
   })

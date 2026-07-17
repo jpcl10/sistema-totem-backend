@@ -6,6 +6,7 @@ interface ArchiveEventServiceRequest {
   eventId: string
   organizationId: string
   userRole: UserRole
+  selectedOrganizationId?: string
 }
 
 export class ArchiveEventService {

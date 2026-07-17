@@ -1,16 +1,17 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
-
 import { ListDevicesService } from '../services/list-devices-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function listDevicesController(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
+  const organizationId = getTenantOrganizationId(request)
   const service = new ListDevicesService()
 
   const result = await service.execute({
-    organizationId:
-      request.user.organizationId
+    organizationId,
+    userRole: request.user.role
   })
 
   return reply.send(result)

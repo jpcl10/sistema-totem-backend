@@ -2,6 +2,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 
 import { GetEventClosingPreviewService } from '../services/get-event-closing-preview-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 const getEventClosingPreviewParamsSchema = z.object({
   eventId: z.string()
@@ -13,8 +14,7 @@ export async function getEventClosingPreviewController(
 ) {
   const { eventId } =
     getEventClosingPreviewParamsSchema.parse(request.params)
-
-  const organizationId = request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const getEventClosingPreviewService =
     new GetEventClosingPreviewService()
@@ -22,7 +22,8 @@ export async function getEventClosingPreviewController(
   const result =
     await getEventClosingPreviewService.execute({
       eventId,
-      organizationId
+      organizationId,
+      userRole: request.user.role
     })
 
   return reply.status(200).send(result)

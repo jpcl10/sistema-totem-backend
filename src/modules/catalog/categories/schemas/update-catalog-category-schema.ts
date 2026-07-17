@@ -10,5 +10,7 @@ export const updateCatalogCategorySchema = z.object({
     'KITCHEN'
   ]).optional(),
 
-  active: z.boolean().optional()
+  active: z.boolean().optional(),
+  
+  sortOrder: z.number().int().min(0).optional()
 })

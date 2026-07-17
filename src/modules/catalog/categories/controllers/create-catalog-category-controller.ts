@@ -2,10 +2,9 @@ import {
   FastifyReply,
   FastifyRequest
 } from 'fastify'
-
 import { CreateCatalogCategoryService } from '../services/create-catalog-category-service.js'
-
 import { createCatalogCategorySchema } from '../schemas/create-catalog-category-schema.js'
+import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
 
 export async function createCatalogCategoryController(
   request: FastifyRequest,
@@ -15,9 +14,7 @@ export async function createCatalogCategoryController(
     createCatalogCategorySchema.parse(
       request.body
     )
-
-  const organizationId =
-    request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const service =
     new CreateCatalogCategoryService()
@@ -25,11 +22,13 @@ export async function createCatalogCategoryController(
   const { category } =
     await service.execute({
       organizationId,
+      userRole: request.user.role,
 
       name: body.name,
       slug: body.slug,
 
-      sector: body.sector
+      sector: body.sector,
+      sortOrder: body.sortOrder
     })
 
   return reply.status(201).send({

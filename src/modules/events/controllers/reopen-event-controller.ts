@@ -1,4 +1,3 @@
-import { UserRole } from '@prisma/client'
 import {
   FastifyReply,
   FastifyRequest
@@ -6,12 +5,11 @@ import {
 import { z } from 'zod'
 
 import { ReopenEventService } from '../services/reopen-event-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 const reopenEventParamsSchema = z.object({
   eventId: z.string().min(1)
 })
-
-const userRoleSchema = z.nativeEnum(UserRole)
 
 export async function reopenEventController(
   request: FastifyRequest,
@@ -19,18 +17,16 @@ export async function reopenEventController(
 ) {
   const { eventId } =
     reopenEventParamsSchema.parse(request.params)
-
-  const userRole =
-    userRoleSchema.parse(request.user.role)
+  const organizationId = getTenantOrganizationId(request)
 
   const reopenEventService =
     new ReopenEventService()
 
   const result = await reopenEventService.execute({
     eventId,
-    organizationId: request.user.organizationId,
+    organizationId,
     userId: request.user.sub,
-    userRole
+    userRole: request.user.role
   })
 
   return reply.status(200).send(result)

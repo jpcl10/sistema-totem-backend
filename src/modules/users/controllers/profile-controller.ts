@@ -11,16 +11,33 @@ export async function profileController(
     where: {
       id: userId
     },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      organizationId: true
+    include: {
+      organization: {
+        include: {
+          organizationModules: true
+        }
+      }
     }
   })
 
   return reply.send({
-    user
+    user: {
+      id: user?.id,
+      name: user?.name,
+      email: user?.email,
+      role: user?.role,
+      organizationId: user?.organizationId,
+      organization: user?.organization ? {
+        id: user.organization.id,
+        name: user.organization.name,
+        slug: user.organization.slug,
+        active: true,
+        city: null,
+        modules: user.organization.organizationModules.map(mod => ({
+          moduleKey: mod.moduleKey,
+          enabled: mod.enabled
+        }))
+      } : null
+    }
   })
 }

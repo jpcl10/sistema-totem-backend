@@ -1,4 +1,8 @@
+import { SettingsChannel } from '@prisma/client'
+
 import { prisma } from '../../../lib/prisma.js'
+import { formatOptionGroups } from '../../catalog/event-products/services/event-product-presenter.js'
+import { SettingsResolverService } from '../../settings/services/settings-resolver-service.js'
 
 interface GetPublicEventMenuServiceRequest {
   slug: string
@@ -17,12 +21,52 @@ export class GetPublicEventMenuService {
         eventProducts: {
           where: {
             active: true,
-            soldOut: false
+            soldOut: false,
+            OR: [
+              {
+                trackStock: false
+              },
+              {
+                stockQuantity: null
+              },
+              {
+                stockQuantity: {
+                  gt: 0
+                }
+              }
+            ],
+            catalogProduct: {
+              active: true,
+              catalogCategory: {
+                active: true
+              }
+            }
           },
           include: {
             catalogProduct: {
               include: {
-                catalogCategory: true
+                catalogCategory: true,
+                optionGroups: {
+                  where: {
+                    active: true
+                  },
+                  include: {
+                    options: {
+                      where: {
+                        active: true
+                      },
+                      include: {
+                        linkedProduct: true
+                      },
+                      orderBy: {
+                        sortOrder: 'asc'
+                      }
+                    }
+                  },
+                  orderBy: {
+                    sortOrder: 'asc'
+                  }
+                }
               }
             }
           },
@@ -36,6 +80,13 @@ export class GetPublicEventMenuService {
     if (!event) {
       throw new Error('Event not found')
     }
+
+    const effective =
+      await new SettingsResolverService().execute({
+        organizationId: event.organizationId,
+        eventId: event.id,
+        channel: SettingsChannel.TOTEM
+      })
 
     const categoriesMap = new Map<string, {
       id: string
@@ -54,6 +105,7 @@ export class GetPublicEventMenuService {
         stockQuantity: number | null
         soldOut: boolean
         active: boolean
+        optionGroups: any[]
       }[]
     }>()
 
@@ -75,6 +127,7 @@ export class GetPublicEventMenuService {
         })
       }
 
+      const effectivePriceInCents = eventProduct.priceInCents ?? product.priceInCents
       categoriesMap.get(category.id)?.products.push({
         id: eventProduct.id,
         catalogProductId: product.id,
@@ -82,16 +135,21 @@ export class GetPublicEventMenuService {
         slug: product.slug,
         description: product.description,
         imageUrl: product.imageUrl,
-        priceInCents: eventProduct.priceInCents,
+        priceInCents: effectivePriceInCents,
         trackStock: eventProduct.trackStock,
         stockQuantity: eventProduct.stockQuantity,
         soldOut: eventProduct.soldOut,
-        active: eventProduct.active
+        active: eventProduct.active,
+        optionGroups: formatOptionGroups(product)
       })
     }
 
     const categories = Array.from(categoriesMap.values())
       .filter(category => category.products.length > 0)
+    const logoUrl =
+      effective.branding.logoUrl.value ?? event.logoUrl
+    const bannerUrl =
+      effective.branding.bannerUrl.value ?? event.bannerUrl
 
     return {
       event: {
@@ -99,10 +157,21 @@ export class GetPublicEventMenuService {
         name: event.name,
         slug: event.slug,
 
-        primaryColor: event.primaryColor,
-        secondaryColor: event.secondaryColor,
-        logoUrl: event.logoUrl,
-        bannerUrl: event.bannerUrl,
+        primaryColor: effective.branding.primaryColor.value ?? event.primaryColor,
+        secondaryColor: effective.branding.secondaryColor.value ?? event.secondaryColor,
+        logoUrl,
+        bannerUrl,
+
+        branding: {
+          logoUrl,
+          bannerUrl,
+          bannerMobileUrl: effective.branding.bannerMobileUrl.value,
+          faviconUrl: effective.branding.faviconUrl.value,
+          primaryColor: effective.branding.primaryColor.value ?? event.primaryColor,
+          secondaryColor: effective.branding.secondaryColor.value ?? event.secondaryColor,
+          backgroundColor: effective.branding.backgroundColor.value,
+          theme: effective.branding.theme.value
+        },
 
         totemWelcomeMessage: event.totemWelcomeMessage,
         totemBackgroundColor: event.totemBackgroundColor,
@@ -121,10 +190,11 @@ export class GetPublicEventMenuService {
         pixCity: event.pixCity,
         pixInstructions: event.pixInstructions,
 
-        printingEnabled: event.printingEnabled,
-        autoPrintEnabled: event.autoPrintEnabled,
-        printMode: event.printMode,
-        printerPaperSize: event.printerPaperSize,
+        printingEnabled: effective.printing.printingEnabled,
+        autoPrintEnabled: effective.printing.autoPrintEnabled,
+        printMode: effective.printing.sources.TOTEM.printMode,
+        printerPaperSize: effective.printing.paperSize,
+        printing: effective.printing,
 
         categories
       }

@@ -2,6 +2,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 
 import { ListOrderPaymentTransactionsService } from '../services/list-order-payment-transactions-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 const listOrderPaymentTransactionsParamsSchema = z.object({
   orderId: z.string()
@@ -15,7 +16,7 @@ export async function listOrderPaymentTransactionsController(
     listOrderPaymentTransactionsParamsSchema.parse(request.params)
 
   const organizationId =
-    request.user.organizationId
+    getTenantOrganizationId(request)
 
   const listOrderPaymentTransactionsService =
     new ListOrderPaymentTransactionsService()

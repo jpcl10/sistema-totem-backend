@@ -1,9 +1,11 @@
 import { prisma } from '../../../../lib/prisma.js'
-import { AuditAction } from '@prisma/client'
+import { AuditAction, UserRole } from '@prisma/client'
 import { CreateAuditLogService } from '../../../audit-logs/services/create-audit-log-service.js'
 
 interface CreateCatalogProductServiceRequest {
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
   userId: string
 
   categoryId: string
@@ -13,6 +15,9 @@ interface CreateCatalogProductServiceRequest {
 
   description?: string
   imageUrl?: string
+
+  priceInCents: number
+  sortOrder?: number
 }
 
 export class CreateCatalogProductService {
@@ -23,9 +28,10 @@ export class CreateCatalogProductService {
     name,
     slug,
     description,
-    imageUrl
+    imageUrl,
+    priceInCents,
+    sortOrder
   }: CreateCatalogProductServiceRequest) {
-
     const category =
       await prisma.catalogCategory.findFirst({
         where: {
@@ -58,14 +64,16 @@ export class CreateCatalogProductService {
                 name,
                 slug,
                 description,
-                imageUrl
+                imageUrl,
+                priceInCents,
+                sortOrder
             }
       })
 
     // Create audit log
     const createAuditLogService = new CreateAuditLogService()
     await createAuditLogService.execute({
-      organizationId: organizationId,
+      organizationId,
       userId,
       entity: 'CatalogProduct',
       entityId: product.id,
@@ -75,7 +83,8 @@ export class CreateCatalogProductService {
         name: product.name,
         slug: product.slug,
         categoryId: product.catalogCategoryId,
-        imageUrl: product.imageUrl
+        imageUrl: product.imageUrl,
+        priceInCents: product.priceInCents
       }
     })
 

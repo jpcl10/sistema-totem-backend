@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 
 import { verifyJWT } from '../../auth/middlewares/verify-jwt.js'
+import { requireTenantContext } from '../../auth/middlewares/request-context.js'
 import { uploadImageController } from '../controllers/upload-image-controller.js'
 
 export async function uploadsRoutes(
@@ -9,7 +10,7 @@ export async function uploadsRoutes(
   app.post(
     '/uploads/images',
     {
-      preHandler: [verifyJWT],
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 30,

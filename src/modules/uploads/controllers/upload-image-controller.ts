@@ -1,18 +1,75 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
-import { PutObjectCommand } from '@aws-sdk/client-s3'
-import { randomUUID } from 'node:crypto'
-import path from 'node:path'
-import { AuditAction } from '@prisma/client'
 
-import { r2 } from '../../../lib/r2.js'
 import { logger } from '../../../lib/logger.js'
-import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
+import {
+  formatUploadLimitMessage,
+  isFileTooLargeError,
+  normalizeUploadAssetType,
+  uploadAssetProfiles,
+  uploadMaxFileSizeInBytes,
+  uploadMaxFileSizeInMB
+} from '../upload-config.js'
+import { ProcessImageService } from '../services/process-image-service.js'
+import { UploadImageService } from '../services/upload-image-service.js'
+import { UploadError } from '../services/upload-errors.js'
 
-const allowedMimeTypes = [
-  'image/jpeg',
-  'image/png',
-  'image/webp'
-]
+function getMultipartFieldValue(
+  fields: Record<string, unknown>,
+  fieldName: string
+) {
+  const field = fields[fieldName]
+  const firstField =
+    Array.isArray(field)
+      ? field[0]
+      : field
+
+  if (
+    typeof firstField === 'object' &&
+    firstField !== null &&
+    'value' in firstField
+  ) {
+    return (firstField as { value: unknown }).value
+  }
+
+  return undefined
+}
+
+function sendUploadError(
+  reply: FastifyReply,
+  error: UploadError
+) {
+  const payload: {
+    code: string
+    message: string
+    limit?: {
+      bytes: number
+      megabytes: number
+    }
+  } = {
+    code: error.code,
+    message: error.message
+  }
+
+  if (error.limit) {
+    payload.limit = error.limit
+  }
+
+  return reply.status(error.statusCode).send(payload)
+}
+
+function sendGlobalFileTooLargeResponse(
+  reply: FastifyReply
+) {
+  return reply.status(413).send({
+    code: 'FILE_TOO_LARGE',
+    message: formatUploadLimitMessage(),
+    limit: {
+      bytes: uploadMaxFileSizeInBytes,
+      megabytes: uploadMaxFileSizeInMB
+    }
+  })
+}
 
 export async function uploadImageController(
   request: FastifyRequest,
@@ -22,87 +79,112 @@ export async function uploadImageController(
     process.env.R2_PUBLIC_URL?.replace(/\/+$/, '')
 
   if (!publicBaseUrl) {
-    const error = new Error('R2_PUBLIC_URL não configurada')
-    logger.error(error)
+    logger.error(
+      new Error('R2_PUBLIC_URL nao configurada')
+    )
+
     return reply.status(500).send({
-      message: 'R2_PUBLIC_URL não configurada'
+      code: 'UPLOAD_FAILED',
+      message: 'Configuracao de upload indisponivel.'
     })
   }
 
-  const organizationId = request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
-  const file = await request.file()
+  let file
+
+  try {
+    file = await request.file()
+  } catch (error) {
+    if (isFileTooLargeError(error)) {
+      return sendGlobalFileTooLargeResponse(reply)
+    }
+
+    throw error
+  }
 
   if (!file) {
     return reply.status(400).send({
-      message: 'Imagem não enviada'
+      code: 'INVALID_IMAGE',
+      message: 'Imagem nao enviada.'
     })
   }
 
-  if (!allowedMimeTypes.includes(file.mimetype)) {
-    return reply.status(400).send({
-      message: 'Formato inválido. Use JPG, PNG ou WEBP.'
-    })
-  }
-
-  const buffer = await file.toBuffer()
-
-  const maxSizeInBytes = 5 * 1024 * 1024
-
-  if (buffer.length > maxSizeInBytes) {
-    return reply.status(400).send({
-      message: 'Imagem muito grande. Máximo 5MB.'
-    })
-  }
-
-  const extension =
-    path.extname(file.filename) || '.jpg'
-
-  const key =
-    `organizations/${organizationId}/images/${randomUUID()}${extension}`
+  let assetType
 
   try {
-    await r2.send(
-      new PutObjectCommand({
-        Bucket: process.env.R2_BUCKET_NAME!,
-        Key: key,
-        Body: buffer,
-        ContentType: file.mimetype
-      })
+    assetType = normalizeUploadAssetType(
+      getMultipartFieldValue(
+        file.fields as Record<string, unknown>,
+        'assetType'
+      )
     )
-
-    const imageUrl =
-      `${publicBaseUrl}/${key}`
-
-    const createAuditLogService =
-      new CreateAuditLogService()
-
-    await createAuditLogService.execute({
-      organizationId,
-      userId: request.user.sub,
-      entity: 'Image',
-      entityId: key,
-      action: AuditAction.IMAGE_UPLOADED,
-      description: 'Imagem enviada para o Cloudflare R2',
-      metadata: {
-        key,
-        imageUrl,
-        originalFilename: file.filename,
-        mimetype: file.mimetype,
-        sizeInBytes: buffer.length
-      }
+  } catch {
+    return reply.status(400).send({
+      code: 'INVALID_ASSET_TYPE',
+      message: 'assetType invalido.'
     })
+  }
 
-    logger.info({ organizationId, key, imageUrl }, 'Imagem enviada para o R2')
+  const assetProfile =
+    uploadAssetProfiles[assetType]
+
+  let originalBuffer
+
+  try {
+    originalBuffer = await file.toBuffer()
+  } catch (error) {
+    if (isFileTooLargeError(error)) {
+      return sendGlobalFileTooLargeResponse(reply)
+    }
+
+    throw error
+  }
+
+  try {
+    const processed =
+      await new ProcessImageService().execute({
+        buffer: originalBuffer,
+        originalContentType: file.mimetype,
+        assetType,
+        profile: assetProfile
+      })
+
+    const uploaded =
+      await new UploadImageService().execute({
+        organizationId,
+        userId: request.user.sub,
+        assetType,
+        profile: assetProfile,
+        buffer: processed.buffer,
+        contentType: processed.contentType,
+        metadata: processed.metadata,
+        originalFilename: file.filename,
+        publicBaseUrl
+      })
+
+    logger.info({
+      organizationId,
+      key: uploaded.key,
+      imageUrl: uploaded.imageUrl,
+      assetType
+    }, 'Imagem processada e enviada para o R2')
 
     return reply.status(201).send({
-      imageUrl,
-      key
+      imageUrl: uploaded.imageUrl,
+      key: uploaded.key,
+      metadata: uploaded.metadata
     })
   } catch (error) {
-    logger.error(error, 'Erro ao enviar imagem para o R2')
+    if (error instanceof UploadError) {
+      return sendUploadError(reply, error)
+    }
+
+    logger.error(error, 'Erro inesperado no upload de imagem')
+
     return reply.status(500).send({
-      message: 'Erro interno ao enviar imagem'
+      code: 'UPLOAD_FAILED',
+      message: 'Erro interno ao enviar imagem.'
     })
   }
 }

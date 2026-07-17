@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
-
 import { createNfcCardSchema } from '../schemas/create-nfc-card-schema.js'
 import { CreateNfcCardService } from '../services/create-nfc-card-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function createNfcCardController(
   request: FastifyRequest,
@@ -18,10 +18,11 @@ export async function createNfcCardController(
   } = createNfcCardSchema.parse(request.body)
 
   const service = new CreateNfcCardService()
+  const organizationId = getTenantOrganizationId(request)
 
   try {
     const result = await service.execute({
-      organizationId: request.user.organizationId,
+      organizationId,
       userId: request.user.sub,
       eventId: paramsSchema.eventId,
       uid,

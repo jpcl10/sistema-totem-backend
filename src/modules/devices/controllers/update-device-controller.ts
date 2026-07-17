@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-
 import { UpdateDeviceService } from '../services/update-device-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function updateDeviceController(
   request: FastifyRequest,
@@ -46,17 +46,16 @@ export async function updateDeviceController(
 
   const body =
     bodySchema.parse(request.body)
+  const organizationId = getTenantOrganizationId(request)
 
   const service =
     new UpdateDeviceService()
 
   const result =
     await service.execute({
-      organizationId:
-        request.user.organizationId,
-
+      organizationId,
+      userRole: request.user.role,
       deviceId: id,
-
       ...body
     })
 

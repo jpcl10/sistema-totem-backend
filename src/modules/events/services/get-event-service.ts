@@ -1,8 +1,11 @@
 import { prisma } from '../../../lib/prisma.js'
+import { UserRole } from '@prisma/client'
 
 interface GetEventServiceRequest {
   eventId: string
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
 }
 
 export class GetEventService {

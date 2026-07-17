@@ -16,9 +16,18 @@ export class MarkDevicePrintJobErrorService {
       await prisma.eventPrintJob.findFirst({
         where: {
           id: printJobId,
-          event: {
-            organizationId
-          }
+          OR: [
+            {
+              event: {
+                organizationId
+              }
+            },
+            {
+              store: {
+                organizationId
+              }
+            }
+          ]
         }
       })
 

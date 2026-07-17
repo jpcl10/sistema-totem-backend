@@ -1,8 +1,11 @@
 export type DashboardPeriod =
   | 'EVENT'
   | 'TODAY'
+  | 'YESTERDAY'
   | '24H'
   | '7D'
+  | 'LAST_7_DAYS'
+  | 'LAST_30_DAYS'
   | 'CUSTOM'
 
 interface GetPeriodDateFilterRequest {

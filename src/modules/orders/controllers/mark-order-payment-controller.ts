@@ -3,9 +3,9 @@ import {
   PaymentStatus
 } from '@prisma/client'
 import { FastifyReply, FastifyRequest } from 'fastify'
-import { z } from 'zod'
-
+import { z, ZodError } from 'zod'
 import { MarkOrderPaymentService } from '../services/mark-order-payment-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 const markOrderPaymentParamsSchema = z.object({
   orderId: z.string()
@@ -39,37 +39,77 @@ export async function markOrderPaymentController(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  const { orderId } =
-    markOrderPaymentParamsSchema.parse(request.params)
+  try {
+    const { orderId } =
+      markOrderPaymentParamsSchema.parse(request.params)
 
-  const {
-    paymentStatus,
-    paymentMethod,
-    amountPaidInCents,
-    changeForInCents,
-    paymentNotes
-  } = markOrderPaymentBodySchema.parse(request.body)
-
-  const organizationId =
-    request.user.organizationId
-  const userId = request.user.sub
-
-  const markOrderPaymentService =
-    new MarkOrderPaymentService()
-
-  const { order } =
-    await markOrderPaymentService.execute({
-      organizationId,
-      userId,
-      orderId,
+    const {
       paymentStatus,
       paymentMethod,
       amountPaidInCents,
       changeForInCents,
       paymentNotes
-    })
+    } = markOrderPaymentBodySchema.parse(request.body)
 
-  return reply.status(200).send({
-    order
-  })
+    const userId = request.user.sub
+    const organizationId = getTenantOrganizationId(request)
+
+    const markOrderPaymentService =
+      new MarkOrderPaymentService()
+
+    const { order } =
+      await markOrderPaymentService.execute({
+        organizationId,
+        userRole: request.user.role,
+        userId,
+        orderId,
+        paymentStatus,
+        paymentMethod,
+        amountPaidInCents,
+        changeForInCents,
+        paymentNotes
+      })
+
+    return reply.status(200).send({
+      order
+    })
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return reply.status(400).send({
+        code: 'INVALID_REQUEST',
+        message: 'Invalid request',
+        issues: error.issues
+      })
+    }
+
+    if (error instanceof Error) {
+      if (error.message === 'Order not found') {
+        return reply.status(404).send({
+          code: 'ORDER_NOT_FOUND',
+          message: 'Order not found'
+        })
+      }
+
+      if (
+        error.message === 'Payment method is required when payment is paid'
+      ) {
+        return reply.status(409).send({
+          code: 'INVALID_PAYMENT_TRANSITION',
+          message: error.message
+        })
+      }
+
+      if (
+        error.message === 'Amount paid cannot be negative' ||
+        error.message === 'Change value cannot be negative'
+      ) {
+        return reply.status(400).send({
+          code: 'INVALID_PAYMENT_AMOUNT',
+          message: error.message
+        })
+      }
+    }
+
+    throw error
+  }
 }

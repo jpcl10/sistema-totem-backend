@@ -2,11 +2,11 @@ import {
   FastifyReply,
   FastifyRequest
 } from 'fastify'
-
 import { z } from 'zod'
 
 import { UpdatePrinterService }
   from '../services/update-printer-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 const updatePrinterBodySchema =
   z.object({
@@ -43,9 +43,7 @@ export async function updatePrinterController(
     updatePrinterBodySchema.parse(
       request.body
     )
-
-  const organizationId =
-    request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const service =
     new UpdatePrinterService()
@@ -53,6 +51,7 @@ export async function updatePrinterController(
   const { printer } =
     await service.execute({
       organizationId,
+      userRole: request.user.role,
       printerId,
       ...body
     })

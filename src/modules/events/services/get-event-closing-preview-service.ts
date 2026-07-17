@@ -2,7 +2,8 @@ import {
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
-  PrintJobStatus
+  PrintJobStatus,
+  UserRole
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
@@ -10,6 +11,8 @@ import { prisma } from '../../../lib/prisma.js'
 interface GetEventClosingPreviewServiceRequest {
   eventId: string
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
 }
 
 export class GetEventClosingPreviewService {

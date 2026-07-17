@@ -1,4 +1,3 @@
-import { UserRole } from '@prisma/client'
 import {
   FastifyReply,
   FastifyRequest
@@ -6,12 +5,11 @@ import {
 import { z } from 'zod'
 
 import { DeleteEventService } from '../services/delete-event-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 const deleteEventParamsSchema = z.object({
   eventId: z.string().min(1)
 })
-
-const userRoleSchema = z.nativeEnum(UserRole)
 
 export async function deleteEventController(
   request: FastifyRequest,
@@ -19,17 +17,15 @@ export async function deleteEventController(
 ) {
   const { eventId } =
     deleteEventParamsSchema.parse(request.params)
-
-  const userRole =
-    userRoleSchema.parse(request.user.role)
+  const organizationId = getTenantOrganizationId(request)
 
   const deleteEventService =
     new DeleteEventService()
 
   const result = await deleteEventService.execute({
     eventId,
-    organizationId: request.user.organizationId,
-    userRole
+    organizationId,
+    userRole: request.user.role
   })
 
   return reply.status(200).send(result)

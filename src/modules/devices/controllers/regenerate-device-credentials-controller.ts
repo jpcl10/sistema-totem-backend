@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-
 import { RegenerateDeviceCredentialsService } from '../services/regenerate-device-credentials-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function regenerateDeviceCredentialsController(
   request: FastifyRequest,
@@ -13,15 +13,15 @@ export async function regenerateDeviceCredentialsController(
 
   const { id } =
     paramsSchema.parse(request.params)
+  const organizationId = getTenantOrganizationId(request)
 
   const service =
     new RegenerateDeviceCredentialsService()
 
   const result =
     await service.execute({
-      organizationId:
-        request.user.organizationId,
-
+      organizationId,
+      userRole: request.user.role,
       deviceId: id
     })
 

@@ -2,10 +2,9 @@ import {
   FastifyReply,
   FastifyRequest
 } from 'fastify'
-
 import { updateOrderPaymentStatusSchema } from '../schemas/update-order-payment-status-schema.js'
-
 import { UpdateOrderPaymentStatusService } from '../services/update-order-payment-status-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function updateOrderPaymentStatusController(
   request: FastifyRequest,
@@ -20,9 +19,8 @@ export async function updateOrderPaymentStatusController(
       request.body
     )
 
-  const organizationId =
-    request.user.organizationId
   const userId = request.user.sub
+  const organizationId = getTenantOrganizationId(request)
 
   const service =
     new UpdateOrderPaymentStatusService()
@@ -30,6 +28,7 @@ export async function updateOrderPaymentStatusController(
   const { order } =
     await service.execute({
       organizationId,
+      userRole: request.user.role,
       userId,
       orderId: params.orderId,
       paymentStatus:

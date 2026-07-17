@@ -1,4 +1,3 @@
-import { UserRole } from '@prisma/client'
 import {
   FastifyReply,
   FastifyRequest
@@ -6,12 +5,11 @@ import {
 import { z } from 'zod'
 
 import { ArchiveEventService } from '../services/archive-event-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 const archiveEventParamsSchema = z.object({
   eventId: z.string().min(1)
 })
-
-const userRoleSchema = z.nativeEnum(UserRole)
 
 export async function archiveEventController(
   request: FastifyRequest,
@@ -19,17 +17,15 @@ export async function archiveEventController(
 ) {
   const { eventId } =
     archiveEventParamsSchema.parse(request.params)
-
-  const userRole =
-    userRoleSchema.parse(request.user.role)
+  const organizationId = getTenantOrganizationId(request)
 
   const archiveEventService =
     new ArchiveEventService()
 
   const result = await archiveEventService.execute({
     eventId,
-    organizationId: request.user.organizationId,
-    userRole
+    organizationId,
+    userRole: request.user.role
   })
 
   return reply.status(200).send(result)

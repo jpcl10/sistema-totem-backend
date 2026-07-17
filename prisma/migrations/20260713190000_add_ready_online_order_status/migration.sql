@@ -1,0 +1,1 @@
+ALTER TYPE "OnlineOrderStatus" ADD VALUE IF NOT EXISTS 'READY';

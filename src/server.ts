@@ -1,11 +1,11 @@
 import 'dotenv/config'
-import { app, allowedOrigins } from './app.js'
+import { app } from './app.js'
 import { setupSocket } from './lib/socket.js'
 import { startExpirePendingPixJob } from './jobs/expire-pending-pix-job.js'
 
 const start = async () => {
   try {
-    setupSocket(app.server, allowedOrigins)
+    setupSocket(app.server)
     startExpirePendingPixJob()
 
     await app.listen({

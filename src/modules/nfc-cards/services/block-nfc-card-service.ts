@@ -54,7 +54,7 @@ export class BlockNfcCardService {
 
     const createAuditLogService = new CreateAuditLogService()
     await createAuditLogService.execute({
-      organizationId,
+      organizationId: nfcCard.organizationId,
       eventId,
       userId,
       entity: 'NfcCard',

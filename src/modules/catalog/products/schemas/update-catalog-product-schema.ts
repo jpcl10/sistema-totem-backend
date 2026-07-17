@@ -8,5 +8,7 @@ export const updateCatalogProductSchema = z.object({
   slug: z.string().min(2).optional(),
   description: z.string().optional(),
   imageUrl: r2UrlSchema.optional().nullable(),
-  active: z.boolean().optional()
+  active: z.boolean().optional(),
+  priceInCents: z.number().int().min(0).optional(),
+  sortOrder: z.number().int().min(0).optional()
 })

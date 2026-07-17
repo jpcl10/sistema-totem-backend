@@ -3,6 +3,7 @@ import { preparePublicCheckoutPaymentController } from '../controllers/prepare-p
 import { mercadoPagoWebhookController } from '../controllers/mercado-pago-webhook-controller.js'
 import { expirePendingPixPaymentsController } from '../controllers/expire-pending-pix-payments-controller.js'
 import { verifyJWT } from '../../auth/middlewares/verify-jwt.js'
+import { requireTenantContext } from '../../auth/middlewares/request-context.js'
 import { createPaymentTransactionController } from '../controllers/create-payment-transaction-controller.js'
 import { listOrderPaymentTransactionsController } from '../controllers/list-order-payment-transactions-controller.js'
 import { updatePaymentTransactionStatusController } from '../controllers/update-payment-transaction-status-controller.js'
@@ -15,7 +16,7 @@ export async function paymentsRoutes(
   app.post(
     '/orders/:orderId/payment-transactions',
     {
-      preHandler: [verifyJWT],
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -29,7 +30,7 @@ export async function paymentsRoutes(
   app.get(
     '/orders/:orderId/payment-transactions',
     {
-      preHandler: [verifyJWT],
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -43,7 +44,7 @@ export async function paymentsRoutes(
   app.patch(
     '/payment-transactions/:paymentTransactionId/status',
     {
-      preHandler: [verifyJWT],
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,

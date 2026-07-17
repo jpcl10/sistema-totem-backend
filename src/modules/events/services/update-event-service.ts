@@ -1,10 +1,12 @@
 import { prisma } from '../../../lib/prisma.js'
-import { AuditAction } from '@prisma/client'
+import { AuditAction, UserRole } from '@prisma/client'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface UpdateEventServiceRequest {
   eventId: string
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
   userId: string
 
   name?: string
@@ -50,52 +52,11 @@ interface UpdateEventServiceRequest {
 }
 
 export class UpdateEventService {
-  async execute({
-    eventId,
-    organizationId,
-    userId,
-
-    name,
-    slug,
-
-    primaryColor,
-    secondaryColor,
-
-    logoUrl,
-    bannerUrl,
-
-    totemWelcomeMessage,
-    totemBackgroundColor,
-    totemTextColor,
-
-    totemShowPrices,
-    totemShowLowStock,
-    totemRequireCustomerName,
-    totemAutoResetSeconds,
-    totemShowLogo,
-    totemFullscreenRecommended,
-
-    pixEnabled,
-    pixKey,
-    pixReceiverName,
-    pixCity,
-    pixInstructions,
-    pixPaymentExpirationMinutes,
-
-    printingEnabled,
-    autoPrintEnabled,
-    printMode,
-    printerPaperSize,
-
-    active,
-
-    startsAt,
-    endsAt
-  }: UpdateEventServiceRequest) {
+  async execute(request: UpdateEventServiceRequest) {
     const event = await prisma.event.findFirst({
       where: {
-        id: eventId,
-        organizationId
+        id: request.eventId,
+        organizationId: request.organizationId
       }
     })
 
@@ -103,14 +64,14 @@ export class UpdateEventService {
       throw new Error('Event not found')
     }
 
-    if (slug) {
+    if (request.slug) {
       const eventWithSameSlug =
         await prisma.event.findFirst({
           where: {
-            organizationId,
-            slug,
+            organizationId: event.organizationId,
+            slug: request.slug,
             NOT: {
-              id: eventId
+              id: request.eventId
             }
           }
         })
@@ -125,58 +86,58 @@ export class UpdateEventService {
     const auditMetadata: Record<string, any> = {}
 
     // Check name
-    if (name !== undefined && name !== event.name) {
+    if (request.name !== undefined && request.name !== event.name) {
       changedFields.push('name')
-      auditMetadata.name = name
+      auditMetadata.name = request.name
     } else {
       auditMetadata.name = event.name
     }
 
     // Check slug
-    if (slug !== undefined && slug !== event.slug) {
+    if (request.slug !== undefined && request.slug !== event.slug) {
       changedFields.push('slug')
-      auditMetadata.slug = slug
+      auditMetadata.slug = request.slug
     } else {
       auditMetadata.slug = event.slug
     }
 
     // Check pixEnabled
-    if (pixEnabled !== undefined && pixEnabled !== event.pixEnabled) {
+    if (request.pixEnabled !== undefined && request.pixEnabled !== event.pixEnabled) {
       changedFields.push('pixEnabled')
-      auditMetadata.pixEnabled = pixEnabled
+      auditMetadata.pixEnabled = request.pixEnabled
     } else {
       auditMetadata.pixEnabled = event.pixEnabled
     }
 
     // Check pixPaymentExpirationMinutes
     if (
-      pixPaymentExpirationMinutes !== undefined &&
-      pixPaymentExpirationMinutes !== event.pixPaymentExpirationMinutes
+      request.pixPaymentExpirationMinutes !== undefined &&
+      request.pixPaymentExpirationMinutes !== event.pixPaymentExpirationMinutes
     ) {
       changedFields.push('pixPaymentExpirationMinutes')
-      auditMetadata.pixPaymentExpirationMinutes = pixPaymentExpirationMinutes
+      auditMetadata.pixPaymentExpirationMinutes = request.pixPaymentExpirationMinutes
     } else {
       auditMetadata.pixPaymentExpirationMinutes = event.pixPaymentExpirationMinutes
     }
 
     // Check printingEnabled
     if (
-      printingEnabled !== undefined &&
-      printingEnabled !== event.printingEnabled
+      request.printingEnabled !== undefined &&
+      request.printingEnabled !== event.printingEnabled
     ) {
       changedFields.push('printingEnabled')
-      auditMetadata.printingEnabled = printingEnabled
+      auditMetadata.printingEnabled = request.printingEnabled
     } else {
       auditMetadata.printingEnabled = event.printingEnabled
     }
 
     // Check autoPrintEnabled
     if (
-      autoPrintEnabled !== undefined &&
-      autoPrintEnabled !== event.autoPrintEnabled
+      request.autoPrintEnabled !== undefined &&
+      request.autoPrintEnabled !== event.autoPrintEnabled
     ) {
       changedFields.push('autoPrintEnabled')
-      auditMetadata.autoPrintEnabled = autoPrintEnabled
+      auditMetadata.autoPrintEnabled = request.autoPrintEnabled
     } else {
       auditMetadata.autoPrintEnabled = event.autoPrintEnabled
     }
@@ -188,107 +149,107 @@ export class UpdateEventService {
 
     const updatedEvent = await prisma.event.update({
       where: {
-        id: eventId
+        id: request.eventId
       },
       data: {
-        ...(name !== undefined && { name }),
-        ...(slug !== undefined && { slug }),
+        ...(request.name !== undefined && { name: request.name }),
+        ...(request.slug !== undefined && { slug: request.slug }),
 
-        ...(primaryColor !== undefined && { primaryColor }),
-        ...(secondaryColor !== undefined && { secondaryColor }),
+        ...(request.primaryColor !== undefined && { primaryColor: request.primaryColor }),
+        ...(request.secondaryColor !== undefined && { secondaryColor: request.secondaryColor }),
 
-        ...(logoUrl !== undefined && { logoUrl }),
-        ...(bannerUrl !== undefined && { bannerUrl }),
+        ...(request.logoUrl !== undefined && { logoUrl: request.logoUrl }),
+        ...(request.bannerUrl !== undefined && { bannerUrl: request.bannerUrl }),
 
-        ...(totemWelcomeMessage !== undefined && {
-          totemWelcomeMessage
+        ...(request.totemWelcomeMessage !== undefined && {
+          totemWelcomeMessage: request.totemWelcomeMessage
         }),
 
-        ...(totemBackgroundColor !== undefined && {
-          totemBackgroundColor
+        ...(request.totemBackgroundColor !== undefined && {
+          totemBackgroundColor: request.totemBackgroundColor
         }),
 
-        ...(totemTextColor !== undefined && {
-          totemTextColor
+        ...(request.totemTextColor !== undefined && {
+          totemTextColor: request.totemTextColor
         }),
 
-        ...(totemShowPrices !== undefined && {
-          totemShowPrices
+        ...(request.totemShowPrices !== undefined && {
+          totemShowPrices: request.totemShowPrices
         }),
 
-        ...(totemShowLowStock !== undefined && {
-          totemShowLowStock
+        ...(request.totemShowLowStock !== undefined && {
+          totemShowLowStock: request.totemShowLowStock
         }),
 
-        ...(totemRequireCustomerName !== undefined && {
-          totemRequireCustomerName
+        ...(request.totemRequireCustomerName !== undefined && {
+          totemRequireCustomerName: request.totemRequireCustomerName
         }),
 
-        ...(totemAutoResetSeconds !== undefined && {
-          totemAutoResetSeconds
+        ...(request.totemAutoResetSeconds !== undefined && {
+          totemAutoResetSeconds: request.totemAutoResetSeconds
         }),
 
-        ...(totemShowLogo !== undefined && {
-          totemShowLogo
+        ...(request.totemShowLogo !== undefined && {
+          totemShowLogo: request.totemShowLogo
         }),
 
-        ...(totemFullscreenRecommended !== undefined && {
-          totemFullscreenRecommended
+        ...(request.totemFullscreenRecommended !== undefined && {
+          totemFullscreenRecommended: request.totemFullscreenRecommended
         }),
 
-        ...(pixEnabled !== undefined && {
-          pixEnabled
+        ...(request.pixEnabled !== undefined && {
+          pixEnabled: request.pixEnabled
         }),
 
-        ...(pixKey !== undefined && {
-          pixKey
+        ...(request.pixKey !== undefined && {
+          pixKey: request.pixKey
         }),
 
-        ...(pixReceiverName !== undefined && {
-          pixReceiverName
+        ...(request.pixReceiverName !== undefined && {
+          pixReceiverName: request.pixReceiverName
         }),
 
-        ...(pixCity !== undefined && {
-          pixCity
+        ...(request.pixCity !== undefined && {
+          pixCity: request.pixCity
         }),
 
-        ...(pixInstructions !== undefined && {
-          pixInstructions
+        ...(request.pixInstructions !== undefined && {
+          pixInstructions: request.pixInstructions
         }),
 
-        ...(pixPaymentExpirationMinutes !== undefined && {
-          pixPaymentExpirationMinutes
+        ...(request.pixPaymentExpirationMinutes !== undefined && {
+          pixPaymentExpirationMinutes: request.pixPaymentExpirationMinutes
         }),
 
-        ...(printingEnabled !== undefined && {
-          printingEnabled
+        ...(request.printingEnabled !== undefined && {
+          printingEnabled: request.printingEnabled
         }),
 
-        ...(autoPrintEnabled !== undefined && {
-          autoPrintEnabled
+        ...(request.autoPrintEnabled !== undefined && {
+          autoPrintEnabled: request.autoPrintEnabled
         }),
 
-        ...(printMode !== undefined && {
-          printMode
+        ...(request.printMode !== undefined && {
+          printMode: request.printMode
         }),
 
-        ...(printerPaperSize !== undefined && {
-          printerPaperSize
+        ...(request.printerPaperSize !== undefined && {
+          printerPaperSize: request.printerPaperSize
         }),
 
-        ...(active !== undefined && { active }),
+        ...(request.active !== undefined && { active: request.active }),
 
-        ...(startsAt !== undefined && { startsAt }),
-        ...(endsAt !== undefined && { endsAt })
+        ...(request.startsAt !== undefined && { startsAt: request.startsAt }),
+        ...(request.endsAt !== undefined && { endsAt: request.endsAt })
       }
     })
 
     // Create audit log
     const createAuditLogService = new CreateAuditLogService()
     await createAuditLogService.execute({
-      organizationId: organizationId,
-      eventId: eventId,
-      userId,
+      organizationId: event.organizationId,
+      eventId: request.eventId,
+      userId: request.userId,
       entity: 'Event',
       entityId: updatedEvent.id,
       action: AuditAction.EVENT_UPDATED,

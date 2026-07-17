@@ -2,6 +2,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 
 import { adjustNfcCardSchema } from '../schemas/adjust-nfc-card-schema.js'
 import { AdjustNfcCardService } from '../services/adjust-nfc-card-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function adjustNfcCardController(
   request: FastifyRequest,
@@ -12,10 +13,11 @@ export async function adjustNfcCardController(
   const { newBalanceInCents, description } = adjustNfcCardSchema.parse(request.body)
 
   const service = new AdjustNfcCardService()
+  const organizationId = getTenantOrganizationId(request)
 
   try {
     const result = await service.execute({
-      organizationId: request.user.organizationId,
+      organizationId,
       userId: request.user.sub,
       eventId: paramsSchema.eventId,
       nfcCardId: paramsSchema.id,

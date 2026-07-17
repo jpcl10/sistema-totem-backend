@@ -6,6 +6,7 @@ interface DeleteEventServiceRequest {
   eventId: string
   organizationId: string
   userRole: UserRole
+  selectedOrganizationId?: string
 }
 
 export class DeleteEventService {

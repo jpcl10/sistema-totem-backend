@@ -1,7 +1,10 @@
 import { prisma } from '../../../lib/prisma.js'
+import { UserRole } from '@prisma/client'
 
 interface CancelPrintJobServiceRequest {
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
   printJobId: string
 }
 
@@ -14,9 +17,18 @@ export class CancelPrintJobService {
       await prisma.eventPrintJob.findFirst({
         where: {
           id: printJobId,
-          event: {
-            organizationId
-          }
+          OR: [
+            {
+              event: {
+                organizationId
+              }
+            },
+            {
+              store: {
+                organizationId
+              }
+            }
+          ]
         }
       })
 

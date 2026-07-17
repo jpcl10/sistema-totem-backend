@@ -1,6 +1,6 @@
 import {FastifyReply,FastifyRequest} from 'fastify'
-
 import { ListEventProductsService } from '../services/list-event-products-service.js'
+import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
 
 export async function listEventProductsController(
   request: FastifyRequest,
@@ -9,20 +9,26 @@ export async function listEventProductsController(
   const params = request.params as {
     eventId: string
   }
-
-  const organizationId =
-    request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const service =
     new ListEventProductsService()
 
-  const { eventProducts } =
-    await service.execute({
-      organizationId,
-      eventId: params.eventId
-    })
+  try {
+    const { eventProducts } =
+      await service.execute({
+        organizationId,
+        eventId: params.eventId
+      })
 
-  return reply.send({
-    eventProducts
-  })
+    return reply.send({
+      eventProducts
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Event not found') {
+      return reply.status(404).send({ message: 'Event not found' })
+    }
+
+    throw error
+  }
 }

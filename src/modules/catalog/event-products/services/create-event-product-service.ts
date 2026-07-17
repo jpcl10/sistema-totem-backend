@@ -1,6 +1,10 @@
 import { prisma } from '../../../../lib/prisma.js'
 import { AuditAction } from '@prisma/client'
 import { CreateAuditLogService } from '../../../audit-logs/services/create-audit-log-service.js'
+import {
+  catalogProductInclude,
+  formatEventProduct
+} from './event-product-presenter.js'
 
 interface CreateEventProductServiceRequest {
   organizationId: string
@@ -10,7 +14,10 @@ interface CreateEventProductServiceRequest {
 
   catalogProductId: string
 
-  priceInCents: number
+  priceInCents?: number | null
+  active?: boolean
+  trackStock?: boolean
+  stockQuantity?: number | null
 }
 
 export class CreateEventProductService {
@@ -19,8 +26,14 @@ export class CreateEventProductService {
     userId,
     eventId,
     catalogProductId,
-    priceInCents
+    priceInCents,
+    active,
+    trackStock,
+    stockQuantity
   }: CreateEventProductServiceRequest) {
+    if (trackStock && stockQuantity === undefined) {
+      throw new Error('Stock quantity is required when stock tracking is enabled')
+    }
 
     const event =
       await prisma.event.findFirst({
@@ -46,12 +59,46 @@ export class CreateEventProductService {
       throw new Error('Catalog product not found')
     }
 
+    const existingEventProduct = await prisma.eventProduct.findFirst({
+      where: {
+        eventId,
+        catalogProductId,
+        event: {
+          organizationId
+        }
+      },
+      include: {
+        catalogProduct: {
+          include: catalogProductInclude()
+        }
+      }
+    })
+
+    if (existingEventProduct) {
+      return {
+        eventProduct: {
+          ...formatEventProduct(existingEventProduct),
+          alreadyExists: true
+        }
+      }
+    }
+
     const eventProduct =
       await prisma.eventProduct.create({
         data: {
           eventId,
           catalogProductId,
-          priceInCents
+          priceInCents: priceInCents ?? null,
+          active: active ?? true,
+          trackStock: trackStock ?? false,
+          stockQuantity: trackStock
+            ? stockQuantity
+            : null
+        },
+        include: {
+          catalogProduct: {
+            include: catalogProductInclude()
+          }
         }
       })
 
@@ -73,7 +120,10 @@ export class CreateEventProductService {
     })
 
     return {
-      eventProduct
+      eventProduct: {
+        ...formatEventProduct(eventProduct),
+        alreadyExists: false
+      }
     }
   }
 }

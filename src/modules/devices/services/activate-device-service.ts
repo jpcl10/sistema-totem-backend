@@ -8,6 +8,7 @@ import {
 
 import { prisma } from '../../../lib/prisma.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
+import { SettingsResolverService } from '../../settings/services/settings-resolver-service.js'
 
 interface ActivateDeviceServiceRequest {
   code: string
@@ -125,6 +126,13 @@ export class ActivateDeviceService {
                 name: true,
                 slug: true
               }
+            },
+            store: {
+              select: {
+                id: true,
+                name: true,
+                slug: true
+              }
             }
           }
         })
@@ -146,6 +154,14 @@ export class ActivateDeviceService {
       }
     })
 
+    const effective =
+      await new SettingsResolverService().execute({
+        organizationId: updatedDevice.organizationId,
+        eventId: updatedDevice.eventId ?? undefined,
+        storeId: updatedDevice.storeId ?? undefined,
+        deviceId: updatedDevice.id
+      })
+
     return {
       deviceToken,
       device: updatedDevice,
@@ -154,11 +170,15 @@ export class ActivateDeviceService {
         eventId: updatedDevice.eventId,
         eventSlug: updatedDevice.event?.slug ?? null,
         eventName: updatedDevice.event?.name ?? null,
+        storeId: updatedDevice.storeId,
+        storeSlug: updatedDevice.store?.slug ?? null,
+        storeName: updatedDevice.store?.name ?? null,
         deviceCode: updatedDevice.code,
         deviceType: updatedDevice.type,
-        autoPrintEnabled:
-          updatedDevice.type === 'SK210' ||
-          updatedDevice.type === 'PRINTER'
+        autoPrintEnabled: effective.printing.autoPrintEnabled,
+        printingEnabled: effective.printing.printingEnabled,
+        printerPaperSize: effective.printing.paperSize,
+        printing: effective.printing
       }
     }
   }

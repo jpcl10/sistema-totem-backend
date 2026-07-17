@@ -2,6 +2,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 
 import { topupNfcCardSchema } from '../schemas/topup-nfc-card-schema.js'
 import { TopupNfcCardService } from '../services/topup-nfc-card-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function topupNfcCardController(
   request: FastifyRequest,
@@ -12,10 +13,11 @@ export async function topupNfcCardController(
   const { amountInCents, description } = topupNfcCardSchema.parse(request.body)
 
   const service = new TopupNfcCardService()
+  const organizationId = getTenantOrganizationId(request)
 
   try {
     const result = await service.execute({
-      organizationId: request.user.organizationId,
+      organizationId,
       userId: request.user.sub,
       eventId: paramsSchema.eventId,
       nfcCardId: paramsSchema.id,

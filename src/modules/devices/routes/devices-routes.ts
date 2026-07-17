@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 
 import { verifyJWT } from '../../auth/middlewares/verify-jwt.js'
+import { requireTenantContext } from '../../auth/middlewares/request-context.js'
 import { verifyDeviceJWT } from '../middlewares/verify-device-jwt.js'
 
 import { deviceHeartbeatController } from '../controllers/device-heartbeat-controller.js'
@@ -105,7 +106,7 @@ export async function devicesRoutes(
   app.post(
     '/devices',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -119,7 +120,7 @@ export async function devicesRoutes(
   app.get(
     '/devices',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -133,7 +134,7 @@ export async function devicesRoutes(
   app.get(
     '/devices/:id',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -147,7 +148,7 @@ export async function devicesRoutes(
   app.patch(
     '/devices/:id',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -161,7 +162,7 @@ export async function devicesRoutes(
   app.post(
     '/devices/:id/regenerate-credentials',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,

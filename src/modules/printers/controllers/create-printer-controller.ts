@@ -2,9 +2,9 @@ import {
   FastifyReply,
   FastifyRequest
 } from 'fastify'
-
 import { createPrinterSchema } from '../schemas/create-printer-schema.js'
 import { CreatePrinterService } from '../services/create-printer-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function createPrinterController(
   request: FastifyRequest,
@@ -16,9 +16,7 @@ export async function createPrinterController(
 
   const body =
     createPrinterSchema.parse(request.body)
-
-  const organizationId =
-    request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const service =
     new CreatePrinterService()
@@ -26,6 +24,7 @@ export async function createPrinterController(
   const { printer } =
     await service.execute({
       organizationId,
+      userRole: request.user.role,
       eventId,
       name: body.name,
       sector: body.sector,

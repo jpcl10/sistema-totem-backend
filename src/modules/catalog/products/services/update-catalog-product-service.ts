@@ -1,9 +1,11 @@
 import { prisma } from '../../../../lib/prisma.js'
-import { AuditAction } from '@prisma/client'
+import { AuditAction, UserRole } from '@prisma/client'
 import { CreateAuditLogService } from '../../../audit-logs/services/create-audit-log-service.js'
 
 interface UpdateCatalogProductServiceRequest {
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
   userId: string
 
   productId: string
@@ -16,6 +18,9 @@ interface UpdateCatalogProductServiceRequest {
   imageUrl?: string | null
 
   active?: boolean
+
+  priceInCents?: number
+  sortOrder?: number
 }
 
 export class UpdateCatalogProductService {
@@ -28,9 +33,10 @@ export class UpdateCatalogProductService {
     slug,
     description,
     imageUrl,
-    active
+    active,
+    priceInCents,
+    sortOrder
   }: UpdateCatalogProductServiceRequest) {
-
     const product =
       await prisma.catalogProduct.findFirst({
         where: {
@@ -93,6 +99,14 @@ export class UpdateCatalogProductService {
       auditMetadata.imageUrl = product.imageUrl
     }
 
+    // Check priceInCents
+    if (priceInCents !== undefined && priceInCents !== product.priceInCents) {
+      changedFields.push('priceInCents')
+      auditMetadata.priceInCents = priceInCents
+    } else {
+      auditMetadata.priceInCents = product.priceInCents
+    }
+
     // Add changed fields to metadata
     if (changedFields.length > 0) {
       auditMetadata.changedFields = changedFields
@@ -126,6 +140,14 @@ export class UpdateCatalogProductService {
 
           ...(active !== undefined && {
             active
+          }),
+
+          ...(priceInCents !== undefined && {
+            priceInCents
+          }),
+          
+          ...(sortOrder !== undefined && {
+            sortOrder
           })
         }
       })
@@ -133,7 +155,7 @@ export class UpdateCatalogProductService {
     // Create audit log
     const createAuditLogService = new CreateAuditLogService()
     await createAuditLogService.execute({
-      organizationId: organizationId,
+      organizationId,
       userId,
       entity: 'CatalogProduct',
       entityId: updatedProduct.id,

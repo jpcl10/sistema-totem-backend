@@ -1,12 +1,14 @@
 import { randomBytes, createHash } from 'node:crypto'
 
-import { DeviceAuthStatus, AuditAction } from '@prisma/client'
+import { DeviceAuthStatus, AuditAction, UserRole } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface RegenerateDeviceCredentialsServiceRequest {
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
   deviceId: string
 }
 

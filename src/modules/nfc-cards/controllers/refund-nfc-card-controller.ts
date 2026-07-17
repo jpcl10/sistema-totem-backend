@@ -2,6 +2,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 
 import { refundNfcCardSchema } from '../schemas/refund-nfc-card-schema.js'
 import { RefundNfcCardService } from '../services/refund-nfc-card-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function refundNfcCardController(
   request: FastifyRequest,
@@ -12,10 +13,11 @@ export async function refundNfcCardController(
   const { amountInCents, description } = refundNfcCardSchema.parse(request.body)
 
   const service = new RefundNfcCardService()
+  const organizationId = getTenantOrganizationId(request)
 
   try {
     const result = await service.execute({
-      organizationId: request.user.organizationId,
+      organizationId,
       userId: request.user.sub,
       eventId: paramsSchema.eventId,
       nfcCardId: paramsSchema.id,

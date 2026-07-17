@@ -1,11 +1,15 @@
 import 'fastify'
-import { DeviceType } from '@prisma/client'
+import { DeviceType, UserRole } from '@prisma/client'
+import {
+  PlatformContext,
+  TenantContext
+} from '../modules/auth/middlewares/request-context.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
     user: {
       sub: string
-      role: string
+      role: UserRole
       organizationId: string
     }
 
@@ -16,5 +20,8 @@ declare module 'fastify' {
       eventId: string | null
       deviceType: DeviceType
     }
+
+    platformContext?: PlatformContext
+    tenantContext?: TenantContext
   }
 }

@@ -5,6 +5,7 @@ import {
 import { z } from 'zod'
 
 import { GetEventClosingService } from '../services/get-event-closing-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 const getEventClosingParamsSchema = z.object({
   eventId: z.string().min(1)
@@ -16,9 +17,7 @@ export async function getEventClosingController(
 ) {
   const { eventId } =
     getEventClosingParamsSchema.parse(request.params)
-
-  const organizationId =
-    request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const getEventClosingService =
     new GetEventClosingService()
@@ -26,7 +25,8 @@ export async function getEventClosingController(
   const result =
     await getEventClosingService.execute({
       eventId,
-      organizationId
+      organizationId,
+      userRole: request.user.role
     })
 
   return reply.status(200).send(result)

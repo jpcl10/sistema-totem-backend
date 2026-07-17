@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 import { retryPrintJobController } from '../controllers/retry-print-job-controller.js'
 import { cancelPrintJobController } from '../controllers/cancel-print-job-controller.js'
 import { verifyJWT } from '../../auth/middlewares/verify-jwt.js'
+import { requireTenantContext } from '../../auth/middlewares/request-context.js'
 
 import { listPrintJobsController } from '../controllers/list-print-jobs-controller.js'
 import { markPrintJobPrintedController } from '../controllers/mark-print-job-printed-controller.js'
@@ -13,7 +14,7 @@ export async function printJobsRoutes(
   app.get(
     '/events/:eventId/print-jobs',
     {
-      preHandler: [verifyJWT],
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -26,7 +27,7 @@ export async function printJobsRoutes(
   app.patch(
   '/print-jobs/:printJobId/cancel',
   {
-    preHandler: [verifyJWT],
+    preHandler: [verifyJWT, requireTenantContext],
     config: {
       rateLimit: {
         max: 300,
@@ -40,7 +41,7 @@ export async function printJobsRoutes(
 app.patch(
   '/print-jobs/:printJobId/printed',
   {
-    preHandler: [verifyJWT],
+    preHandler: [verifyJWT, requireTenantContext],
     config: {
       rateLimit: {
         max: 300,
@@ -54,7 +55,7 @@ app.patch(
 app.patch(
   '/print-jobs/:printJobId/retry',
   {
-    preHandler: [verifyJWT],
+    preHandler: [verifyJWT, requireTenantContext],
     config: {
       rateLimit: {
         max: 300,

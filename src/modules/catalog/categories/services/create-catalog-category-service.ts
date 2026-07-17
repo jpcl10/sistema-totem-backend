@@ -1,12 +1,16 @@
 import { prisma } from '../../../../lib/prisma.js'
+import { UserRole } from '@prisma/client'
 
 interface CreateCatalogCategoryServiceRequest {
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
 
   name: string
   slug: string
 
   sector?: 'BAR' | 'KITCHEN'
+  sortOrder?: number
 }
 
 export class CreateCatalogCategoryService {
@@ -14,9 +18,9 @@ export class CreateCatalogCategoryService {
     organizationId,
     name,
     slug,
-    sector
+    sector,
+    sortOrder
   }: CreateCatalogCategoryServiceRequest) {
-
     const categoryWithSameSlug =
       await prisma.catalogCategory.findFirst({
         where: {
@@ -35,7 +39,8 @@ export class CreateCatalogCategoryService {
           organizationId,
           name,
           slug,
-          sector
+          sector,
+          sortOrder
         }
       })
 

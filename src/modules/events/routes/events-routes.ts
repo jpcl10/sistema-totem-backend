@@ -6,6 +6,7 @@ import { reopenEventController } from '../controllers/reopen-event-controller.js
 import { getEventClosingController } from '../controllers/get-event-closing-controller.js'
 import { getPublicEventCatalogMenuController } from '../controllers/get-public-event-catalog-menu-controller.js'
 import { verifyJWT } from '../../auth/middlewares/verify-jwt.js'
+import { requireTenantContext } from '../../auth/middlewares/request-context.js'
 import { getEventClosingPreviewController } from '../controllers/get-event-closing-preview-controller.js'
 import { createEventController } from '../controllers/create-event-controller.js'
 import { listEventsController } from '../controllers/list-events-controller.js'
@@ -21,7 +22,7 @@ export async function eventsRoutes(app: FastifyInstance)
   app.post(
     '/events',
     {
-      preHandler: [verifyJWT],
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -35,7 +36,7 @@ export async function eventsRoutes(app: FastifyInstance)
   app.get(
     '/events',
     {
-      preHandler: [verifyJWT],
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -49,7 +50,7 @@ export async function eventsRoutes(app: FastifyInstance)
   app.get(
     '/events/:id',
     {
-      preHandler: [verifyJWT],
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -63,7 +64,7 @@ export async function eventsRoutes(app: FastifyInstance)
   app.patch(
     '/events/:id',
     {
-      preHandler: [verifyJWT],
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -102,7 +103,7 @@ export async function eventsRoutes(app: FastifyInstance)
   app.get(
   '/events/:eventId/closing-preview',
   {
-    preHandler: [verifyJWT],
+    preHandler: [verifyJWT, requireTenantContext],
     config: {
       rateLimit: {
         max: 300,
@@ -116,7 +117,7 @@ export async function eventsRoutes(app: FastifyInstance)
   app.post(
   '/events/:eventId/close',
   {
-    preHandler: [verifyJWT],
+    preHandler: [verifyJWT, requireTenantContext],
     config: {
       rateLimit: {
         max: 300,
@@ -129,7 +130,7 @@ export async function eventsRoutes(app: FastifyInstance)
   app.get(
   '/events/:eventId/closing',
   {
-    preHandler: [verifyJWT],
+    preHandler: [verifyJWT, requireTenantContext],
     config: {
       rateLimit: {
         max: 300,
@@ -142,7 +143,7 @@ export async function eventsRoutes(app: FastifyInstance)
   app.post(
   '/events/:eventId/reopen',
   {
-    preHandler: [verifyJWT],
+    preHandler: [verifyJWT, requireTenantContext],
     config: {
       rateLimit: {
         max: 300,
@@ -155,7 +156,7 @@ export async function eventsRoutes(app: FastifyInstance)
   app.patch(
   '/events/:eventId/archive',
   {
-    preHandler: [verifyJWT],
+    preHandler: [verifyJWT, requireTenantContext],
     config: {
       rateLimit: {
         max: 300,
@@ -169,7 +170,7 @@ export async function eventsRoutes(app: FastifyInstance)
   app.patch(
   '/events/:eventId/restore',
   {
-    preHandler: [verifyJWT],
+    preHandler: [verifyJWT, requireTenantContext],
     config: {
       rateLimit: {
         max: 300,
@@ -182,7 +183,7 @@ export async function eventsRoutes(app: FastifyInstance)
   app.delete(
   '/events/:eventId',
   {
-    preHandler: [verifyJWT],
+    preHandler: [verifyJWT, requireTenantContext],
     config: {
       rateLimit: {
         max: 300,

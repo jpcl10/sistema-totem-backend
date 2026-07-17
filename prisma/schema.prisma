@@ -37,6 +37,7 @@ enum PaymentMethod {
   CREDIT_CARD
   DEBIT_CARD
   COURTESY
+  NFC_BALANCE
   OTHER
 }
 
@@ -85,6 +86,23 @@ enum PrinterSector {
   KITCHEN
 }
 
+enum PrintingSource {
+  ONLINE_STORE
+  MANUAL_STORE
+  EVENT
+  MANUAL_EVENT
+  TOTEM
+  POS
+  API
+  WAITER
+}
+
+enum PrintingSector {
+  COOK
+  BAR
+  GENERAL
+}
+
 enum PrinterConnectionType {
   TCP_IP
   SK210_LOCAL
@@ -103,6 +121,7 @@ enum DeviceStatus {
   OFFLINE
   MAINTENANCE
 }
+
 enum DeviceAuthStatus {
   PENDING
   ACTIVE
@@ -138,6 +157,26 @@ enum NfcCardTransactionType {
   REVERSAL
 }
 
+enum SettingsContextType {
+  ORGANIZATION
+  ONLINE_STORE
+}
+
+enum SettingsChannel {
+  ALL
+  DELIVERY
+  PICKUP
+  DIGITAL_MENU
+  TOTEM
+  COUNTER
+}
+
+enum BrandingTheme {
+  LIGHT
+  DARK
+  SYSTEM
+}
+
 model Organization {
   id        String   @id @default(cuid())
   name      String
@@ -147,16 +186,113 @@ model Organization {
 
   auditLogs AuditLog[]
 
-  users                   User[]
-  events                  Event[]
-  devices Device[]
-  catalogCategories       CatalogCategory[]
-  catalogProducts         CatalogProduct[]
-  paymentProviderSettings PaymentProviderSettings[]
-  eventClosings EventClosing[]
-  nfcCards NfcCard[]
-  nfcCardReads NfcCardRead[]
-  nfcCardTransactions NfcCardTransaction[]
+  users                      User[]
+  events                     Event[]
+  devices                    Device[]
+  catalogCategories          CatalogCategory[]
+  catalogProducts            CatalogProduct[]
+  catalogProductOptionGroups CatalogProductOptionGroup[]
+  catalogProductOptions      CatalogProductOption[]
+  paymentProviderSettings    PaymentProviderSettings[]
+  onlineStoreSettings        OnlineStoreSettings[]
+  deliveryFeeRules           DeliveryFeeRule[]
+  eventClosings              EventClosing[]
+  nfcCards                   NfcCard[]
+  nfcCardReads               NfcCardRead[]
+  nfcCardTransactions        NfcCardTransaction[]
+  organizationModules        OrganizationModule[]
+  onlineStores               OnlineStore[]
+  customers                  Customer[]
+  customerAddresses          CustomerAddress[]
+  interests                  Interest[]
+  settings                   OrganizationSettings?
+  branding                   OrganizationBranding?
+  printingSettings           OrganizationPrintingSettings?
+  businessHours              BusinessHour[]
+  businessHourExceptions     BusinessHourException[]
+}
+
+model OrganizationSettings {
+  id             String @id @default(cuid())
+  organizationId String @unique
+
+  legalName    String?
+  document     String?
+  contactEmail String?
+  contactPhone String?
+  whatsapp     String?
+  address      String?
+  city         String?
+  state        String?
+  postalCode   String?
+
+  timezone String @default("America/Sao_Paulo")
+  locale   String @default("pt-BR")
+  currency String @default("BRL")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model OrganizationBranding {
+  id             String @id @default(cuid())
+  organizationId String @unique
+
+  logoUrl                String?
+  lightLogoUrl           String?
+  darkLogoUrl            String?
+  faviconUrl             String?
+  bannerDesktopUrl       String?
+  bannerMobileUrl        String?
+  socialImageUrl         String?
+  primaryColor           String?
+  secondaryColor         String?
+  backgroundColor        String?
+  theme                  BrandingTheme @default(SYSTEM)
+  defaultProductImageUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model OrganizationPrintingSettings {
+  id             String @id @default(cuid())
+  organizationId String @unique
+
+  printingEnabled  Boolean @default(false)
+  autoPrintEnabled Boolean @default(false)
+  allowReprint     Boolean @default(true)
+  splitBySector    Boolean @default(false)
+  mergeCopies      Boolean @default(true)
+
+  defaultPrinterDeviceId    String?
+  kitchenPrinterDeviceId    String?
+  barPrinterDeviceId        String?
+  expeditionPrinterDeviceId String?
+
+  paperSize       String  @default("80mm")
+  showLogo        Boolean @default(false)
+  showPrices      Boolean @default(true)
+  showQrCode      Boolean @default(false)
+  showPayment     Boolean @default(true)
+  showOrderSource Boolean @default(true)
+  showOrderNotes  Boolean @default(true)
+  showItemNotes   Boolean @default(true)
+  showOptions     Boolean @default(true)
+
+  sources Json?
+  sectors Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 model User {
@@ -171,9 +307,9 @@ model User {
 
   auditLogs AuditLog[]
 
-  organization Organization @relation(fields: [organizationId], references: [id])
-  eventClosings EventClosing[]
-  nfcCardReads NfcCardRead[]
+  organization        Organization         @relation(fields: [organizationId], references: [id])
+  eventClosings       EventClosing[]
+  nfcCardReads        NfcCardRead[]
   nfcCardTransactions NfcCardTransaction[]
 }
 
@@ -208,7 +344,7 @@ model Event {
   pixCity         String?
   pixInstructions String?
 
-   pixPaymentExpirationMinutes Int @default(5)
+  pixPaymentExpirationMinutes Int @default(5)
 
   printingEnabled  Boolean   @default(false)
   autoPrintEnabled Boolean   @default(false)
@@ -228,13 +364,13 @@ model Event {
 
   organization Organization @relation(fields: [organizationId], references: [id])
 
-  orders        Order[]
-  devices Device[]
-  eventProducts EventProduct[]
-  printJobs     EventPrintJob[]
-  printers      EventPrinter[]
-  nfcCards NfcCard[]
-  nfcCardReads NfcCardRead[]
+  orders              Order[]
+  devices             Device[]
+  eventProducts       EventProduct[]
+  printJobs           EventPrintJob[]
+  printers            EventPrinter[]
+  nfcCards            NfcCard[]
+  nfcCardReads        NfcCardRead[]
   nfcCardTransactions NfcCardTransaction[]
 
   closing EventClosing?
@@ -246,7 +382,8 @@ model Order {
   id      String @id @default(cuid())
   eventId String
 
-  deviceId String?
+  deviceId   String?
+  customerId String?
 
   customerName String?
   orderNumber  Int
@@ -269,13 +406,16 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
-  event    Event      @relation(fields: [eventId], references: [id])
-  device   Device?              @relation(fields: [deviceId], references: [id])
-  items    OrderItem[]
-  printJobs EventPrintJob[]
+  event               Event                @relation(fields: [eventId], references: [id])
+  device              Device?              @relation(fields: [deviceId], references: [id])
+  customer            Customer?            @relation(fields: [customerId], references: [id])
+  items               OrderItem[]
+  printJobs           EventPrintJob[]
   paymentTransactions PaymentTransaction[]
-  @@index([deviceId])
+
   @@unique([eventId, orderNumber])
+  @@index([deviceId])
+  @@index([customerId])
 }
 
 model OrderItem {
@@ -290,9 +430,11 @@ model OrderItem {
   totalInCents     Int
 
   productName String
+  notes       String?
 
-  order          Order           @relation(fields: [orderId], references: [id])
-  catalogProduct CatalogProduct? @relation(fields: [catalogProductId], references: [id])
+  order          Order             @relation(fields: [orderId], references: [id])
+  catalogProduct CatalogProduct?   @relation(fields: [catalogProductId], references: [id])
+  options        OrderItemOption[]
 }
 
 model PaymentTransaction {
@@ -332,11 +474,11 @@ model PaymentTransaction {
 
   order Order @relation(fields: [orderId], references: [id])
 
+  @@unique([provider, externalId])
   @@index([orderId])
   @@index([provider])
   @@index([status])
   @@index([expiresAt])
-  @@unique([provider, externalId])
 }
 
 model CatalogCategory {
@@ -348,7 +490,8 @@ model CatalogCategory {
 
   sector CategorySector @default(KITCHEN)
 
-  active Boolean @default(true)
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -364,12 +507,14 @@ model CatalogProduct {
   organizationId    String
   catalogCategoryId String
 
-  name        String
-  slug        String
-  description String?
-  imageUrl    String?
+  name         String
+  slug         String
+  description  String?
+  imageUrl     String?
+  priceInCents Int
 
-  active Boolean @default(true)
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
@@ -377,8 +522,11 @@ model CatalogProduct {
   organization    Organization    @relation(fields: [organizationId], references: [id])
   catalogCategory CatalogCategory @relation(fields: [catalogCategoryId], references: [id])
 
-  eventProducts EventProduct[]
-  orderItems    OrderItem[]
+  eventProducts        EventProduct[]
+  orderItems           OrderItem[]
+  onlineOrderItems     OnlineOrderItem[]
+  optionGroups         CatalogProductOptionGroup[]
+  linkedProductOptions CatalogProductOption[]      @relation("CatalogProductOptionLinkedProduct")
 
   @@unique([organizationId, slug])
 }
@@ -388,7 +536,7 @@ model EventProduct {
   eventId          String
   catalogProductId String
 
-  priceInCents Int
+  priceInCents Int?
 
   trackStock    Boolean @default(false)
   stockQuantity Int?
@@ -406,12 +554,16 @@ model EventProduct {
 }
 
 model EventPrintJob {
-  id      String @id @default(cuid())
-  eventId String
-  orderId String
+  id            String  @id @default(cuid())
+  eventId       String?
+  orderId       String?
+  storeId       String?
+  onlineOrderId String?
+
+  idempotencyKey String? @unique
 
   printerId String?
-  deviceId String?
+  deviceId  String?
 
   sector CategorySector
   status PrintJobStatus @default(PENDING)
@@ -424,11 +576,18 @@ model EventPrintJob {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
-  event   Event         @relation(fields: [eventId], references: [id])
-  order   Order         @relation(fields: [orderId], references: [id])
-  printer EventPrinter? @relation(fields: [printerId], references: [id])
-  device  Device?       @relation(fields: [deviceId], references: [id])
+  event       Event?        @relation(fields: [eventId], references: [id])
+  order       Order?        @relation(fields: [orderId], references: [id])
+  store       OnlineStore?  @relation(fields: [storeId], references: [id])
+  onlineOrder OnlineOrder?  @relation(fields: [onlineOrderId], references: [id])
+  printer     EventPrinter? @relation(fields: [printerId], references: [id])
+  device      Device?       @relation(fields: [deviceId], references: [id])
+
   @@index([deviceId])
+  @@index([eventId])
+  @@index([orderId])
+  @@index([storeId])
+  @@index([onlineOrderId])
 }
 
 model EventPrinter {
@@ -525,11 +684,13 @@ model EventClosing {
   @@index([closedByUserId])
   @@index([closedAt])
 }
+
 model Device {
   id String @id @default(cuid())
 
   organizationId String
-  eventId String?
+  eventId        String?
+  storeId        String?
 
   name String
   code String @unique
@@ -538,17 +699,17 @@ model Device {
 
   locationName String?
 
-  type DeviceType
+  type   DeviceType
   status DeviceStatus @default(ACTIVE)
 
   authStatus DeviceAuthStatus @default(PENDING)
 
-  tokenHash String?
+  tokenHash        String?
   deviceSecretHash String?
 
   appVersion String?
 
-  lastSeenAt DateTime?
+  lastSeenAt      DateTime?
   lastHeartbeatAt DateTime?
   lastActivatedAt DateTime?
 
@@ -561,19 +722,21 @@ model Device {
   updatedAt DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id])
-  event Event? @relation(fields: [eventId], references: [id])
+  event        Event?       @relation(fields: [eventId], references: [id])
+  store        OnlineStore? @relation(fields: [storeId], references: [id])
 
-  orders Order[]
-  printJobs EventPrintJob[]
+  orders       Order[]
+  printJobs    EventPrintJob[]
   nfcCardReads NfcCardRead[]
 
   @@index([organizationId])
   @@index([eventId])
+  @@index([storeId])
   @@index([status])
   @@index([authStatus])
   @@index([type])
-  
 }
+
 enum AuditAction {
   ORDER_CREATED
   ORDER_UPDATED
@@ -587,6 +750,7 @@ enum AuditAction {
   PAYMENT_REFUNDED
   PAYMENT_MANUAL_MARKED
   PAYMENT_PROVIDER_SETTINGS_UPDATED
+  PRINTING_SETTINGS_UPDATED
 
   EVENT_CREATED
   EVENT_UPDATED
@@ -620,18 +784,41 @@ enum AuditAction {
   NFC_BALANCE_DEBIT
   NFC_BALANCE_ADJUST
   NFC_BALANCE_REFUND
+
+  CUSTOMER_CREATED
+  CUSTOMER_UPDATED
+  CUSTOMER_STATUS_UPDATED
+  CUSTOMER_ADDRESS_CREATED
+  CUSTOMER_ADDRESS_UPDATED
+  CUSTOMER_ADDRESS_STATUS_UPDATED
+  INTEREST_CREATED
+  INTEREST_UPDATED
+  INTEREST_STATUS_UPDATED
+  CUSTOMER_INTEREST_ADDED
+  CUSTOMER_INTEREST_REMOVED
+  SETTINGS_GENERAL_UPDATED
+  SETTINGS_BRANDING_UPDATED
+  BUSINESS_HOURS_UPDATED
+  BUSINESS_HOUR_EXCEPTION_CREATED
+  BUSINESS_HOUR_EXCEPTION_UPDATED
+  BUSINESS_HOUR_EXCEPTION_DELETED
+  ONLINE_STORE_SETTINGS_UPDATED
+  DELIVERY_SETTINGS_UPDATED
+  DELIVERY_FEE_RULE_CREATED
+  DELIVERY_FEE_RULE_UPDATED
+  DELIVERY_FEE_RULE_DELETED
 }
 
 model AuditLog {
   id String @id @default(cuid())
 
   organizationId String
-  eventId String?
+  eventId        String?
 
-  userId String?
+  userId   String?
   deviceId String?
 
-  entity String
+  entity   String
   entityId String?
 
   action AuditAction
@@ -659,22 +846,22 @@ model AuditLog {
 }
 
 model NfcCard {
-  id             String                @id @default(cuid())
+  id             String        @id @default(cuid())
   organizationId String
   eventId        String
-  uid            String                @unique
+  uid            String        @unique
   code           String?
   holderName     String?
-  type           NfcCardType           @default(CUSTOMER)
-  status         NfcCardStatus         @default(ACTIVE)
-  balanceInCents Int                   @default(0)
+  type           NfcCardType   @default(CUSTOMER)
+  status         NfcCardStatus @default(ACTIVE)
+  balanceInCents Int           @default(0)
   metadata       Json?
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @default(now()) @updatedAt
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now()) @updatedAt
 
-  organization Organization          @relation(fields: [organizationId], references: [id])
-  event        Event                 @relation(fields: [eventId], references: [id])
-  nfcCardReads NfcCardRead[]
+  organization        Organization         @relation(fields: [organizationId], references: [id])
+  event               Event                @relation(fields: [eventId], references: [id])
+  nfcCardReads        NfcCardRead[]
   nfcCardTransactions NfcCardTransaction[]
 
   @@index([organizationId])
@@ -685,23 +872,23 @@ model NfcCard {
 }
 
 model NfcCardTransaction {
-  id                  String                @id @default(cuid())
-  organizationId      String
-  eventId             String
-  nfcCardId           String
-  userId              String?
-  type                NfcCardTransactionType
-  amountInCents       Int
+  id                   String                 @id @default(cuid())
+  organizationId       String
+  eventId              String
+  nfcCardId            String
+  userId               String?
+  type                 NfcCardTransactionType
+  amountInCents        Int
   balanceBeforeInCents Int
   balanceAfterInCents  Int
-  description         String?
-  metadata            Json?
-  createdAt           DateTime              @default(now())
+  description          String?
+  metadata             Json?
+  createdAt            DateTime               @default(now())
 
-  organization Organization          @relation(fields: [organizationId], references: [id])
-  event        Event                 @relation(fields: [eventId], references: [id])
-  nfcCard      NfcCard               @relation(fields: [nfcCardId], references: [id])
-  user         User?                 @relation(fields: [userId], references: [id])
+  organization Organization @relation(fields: [organizationId], references: [id])
+  event        Event        @relation(fields: [eventId], references: [id])
+  nfcCard      NfcCard      @relation(fields: [nfcCardId], references: [id])
+  user         User?        @relation(fields: [userId], references: [id])
 
   @@index([organizationId])
   @@index([eventId])
@@ -733,4 +920,538 @@ model NfcCardRead {
   @@index([userId])
   @@index([deviceId])
   @@index([createdAt])
+}
+
+enum ModuleKey {
+  ONLINE_ORDERS
+  TOTEM
+  EVENTS
+  PAYMENTS
+  PRINTING
+  NFC_CASHLESS
+  FINANCIAL
+  DEVICES
+  REPORTS
+  DELIVERY
+  WHATSAPP
+  LOYALTY
+}
+
+enum OnlineOrderPaymentMethod {
+  PIX
+  CARD_ON_DELIVERY
+  CASH
+}
+
+enum OnlineOrderFulfillmentType {
+  DELIVERY
+  PICKUP
+  COUNTER
+  DINE_IN
+}
+
+enum OnlineOrderStatus {
+  RECEIVED
+  CONFIRMED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+enum OrderSource {
+  DIGITAL_MENU
+  WHATSAPP
+  ADMIN
+  POS
+  API
+}
+
+enum DeliveryFeeRuleType {
+  FLAT
+  NEIGHBORHOOD
+}
+
+enum CustomerInterestSource {
+  MANUAL
+  ONLINE_ORDER
+  EVENT
+  IMPORT
+  API
+}
+
+enum CustomerSource {
+  ONLINE
+  EVENT
+  ADMIN
+  IMPORT
+  API
+  TOTEM
+  POS
+  WHATSAPP
+}
+
+model OrganizationModule {
+  id             String    @id @default(cuid())
+  organizationId String
+  moduleKey      ModuleKey
+  enabled        Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, moduleKey])
+  @@index([organizationId])
+  @@index([moduleKey])
+}
+
+model BusinessHour {
+  id             String              @id @default(cuid())
+  organizationId String
+  contextType    SettingsContextType
+  storeId        String?
+  channel        SettingsChannel     @default(ALL)
+
+  dayOfWeek   Int
+  periodIndex Int
+  opensAt     String
+  closesAt    String
+  isClosed    Boolean @default(false)
+  is24Hours   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  store        OnlineStore? @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, contextType, storeId, channel, dayOfWeek, periodIndex])
+  @@index([organizationId])
+  @@index([storeId])
+  @@index([channel])
+  @@index([dayOfWeek])
+}
+
+model BusinessHourException {
+  id             String          @id @default(cuid())
+  organizationId String
+  storeId        String?
+  channel        SettingsChannel @default(ALL)
+
+  date      DateTime @db.Date
+  isClosed  Boolean  @default(false)
+  is24Hours Boolean  @default(false)
+  opensAt   String?
+  closesAt  String?
+  reason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  store        OnlineStore? @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([storeId])
+  @@index([channel])
+  @@index([date])
+}
+
+model OnlineStore {
+  id             String  @id @default(cuid())
+  organizationId String
+  name           String
+  slug           String  @unique
+  whatsapp       String
+  city           String
+  address        String?
+  logoUrl        String?
+  bannerUrl      String?
+  isOpen         Boolean @default(true)
+  active         Boolean @default(true)
+
+  printingEnabled  Boolean   @default(false)
+  autoPrintEnabled Boolean   @default(false)
+  printMode        PrintMode @default(FULL_ORDER)
+  printerPaperSize String    @default("80mm")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  organization           Organization            @relation(fields: [organizationId], references: [id])
+  orders                 OnlineOrder[]
+  devices                Device[]
+  printJobs              EventPrintJob[]
+  categories             OnlineCategory[]
+  products               OnlineProduct[]
+  businessHours          BusinessHour[]
+  businessHourExceptions BusinessHourException[]
+  settings               OnlineStoreSettings?
+  deliveryFeeRules       DeliveryFeeRule[]
+
+  @@index([organizationId])
+  @@index([slug])
+}
+
+model OnlineStoreSettings {
+  id             String @id @default(cuid())
+  organizationId String
+  storeId        String @unique
+
+  onlineOrderingEnabled Boolean @default(true)
+  digitalMenuEnabled    Boolean @default(true)
+
+  deliveryEnabled Boolean @default(false)
+  pickupEnabled   Boolean @default(true)
+  counterEnabled  Boolean @default(false)
+  dineInEnabled   Boolean @default(false)
+
+  allowOrdersOutsideHours Boolean @default(false)
+  autoAcceptOrders        Boolean @default(false)
+
+  minimumOrderInCents         Int  @default(0)
+  estimatedPreparationMinutes Int  @default(30)
+  estimatedDeliveryMinutes    Int  @default(45)
+  freeDeliveryAboveInCents    Int?
+  defaultDeliveryFeeInCents   Int  @default(0)
+
+  closedMessage            String?
+  checkoutNotice           String?
+  orderConfirmationMessage String?
+
+  requireCustomerName    Boolean @default(true)
+  requireCustomerPhone   Boolean @default(true)
+  requireDeliveryAddress Boolean @default(true)
+  allowCustomerNotes     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  store        OnlineStore  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([storeId])
+}
+
+model DeliveryFeeRule {
+  id             String              @id @default(cuid())
+  organizationId String
+  storeId        String
+  name           String
+  type           DeliveryFeeRuleType
+
+  neighborhood String?
+  feeInCents   Int
+
+  estimatedMinutes         Int?
+  minimumOrderInCents      Int?
+  freeDeliveryAboveInCents Int?
+  active                   Boolean @default(true)
+  sortOrder                Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  store        OnlineStore   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orders       OnlineOrder[]
+
+  @@index([organizationId])
+  @@index([storeId])
+  @@index([type])
+  @@index([active])
+  @@index([sortOrder])
+}
+
+model OnlineCategory {
+  id        String   @id @default(cuid())
+  storeId   String
+  name      String
+  slug      String
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  store    OnlineStore     @relation(fields: [storeId], references: [id])
+  products OnlineProduct[]
+
+  @@unique([storeId, slug])
+  @@index([storeId])
+}
+
+model OnlineProduct {
+  id           String   @id @default(cuid())
+  storeId      String
+  categoryId   String
+  name         String
+  description  String?
+  imageUrl     String?
+  priceInCents Int
+  active       Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  store      OnlineStore       @relation(fields: [storeId], references: [id])
+  category   OnlineCategory    @relation(fields: [categoryId], references: [id])
+  orderItems OnlineOrderItem[]
+
+  @@unique([storeId, name])
+  @@index([storeId])
+  @@index([categoryId])
+}
+
+model OnlineOrder {
+  id                   String                     @id @default(cuid())
+  storeId              String
+  orderNumber          Int
+  customerId           String?
+  customerAddressId    String?
+  customerName         String
+  customerPhone        String
+  deliveryAddress      String
+  deliveryNumber       String
+  deliveryNeighborhood String
+  deliveryComplement   String?
+  deliveryReference    String?
+  paymentMethod        OnlineOrderPaymentMethod
+  paymentStatus        PaymentStatus              @default(PENDING)
+  source               OrderSource                @default(DIGITAL_MENU)
+  fulfillmentType      OnlineOrderFulfillmentType @default(DELIVERY)
+  deliveryRuleId       String?
+  estimatedMinutes     Int?
+  changeForInCents     Int?
+  subtotalInCents      Int
+  deliveryFeeInCents   Int                        @default(0)
+  totalInCents         Int
+  status               OnlineOrderStatus          @default(RECEIVED)
+  notes                String?
+  paidAt               DateTime?
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @default(now()) @updatedAt
+
+  store           OnlineStore       @relation(fields: [storeId], references: [id])
+  deliveryRule    DeliveryFeeRule?  @relation(fields: [deliveryRuleId], references: [id])
+  customer        Customer?         @relation(fields: [customerId], references: [id])
+  customerAddress CustomerAddress?  @relation(fields: [customerAddressId], references: [id])
+  items           OnlineOrderItem[]
+  printJobs       EventPrintJob[]
+
+  @@unique([storeId, orderNumber])
+  @@index([storeId])
+  @@index([deliveryRuleId])
+  @@index([customerId])
+  @@index([customerAddressId])
+}
+
+model OnlineOrderItem {
+  id               String   @id @default(cuid())
+  orderId          String
+  productId        String?
+  catalogProductId String?
+  productName      String
+  quantity         Int
+  unitPriceInCents Int
+  totalInCents     Int
+  notes            String?
+  createdAt        DateTime @default(now())
+
+  order          OnlineOrder             @relation(fields: [orderId], references: [id])
+  product        OnlineProduct?          @relation(fields: [productId], references: [id])
+  catalogProduct CatalogProduct?         @relation(fields: [catalogProductId], references: [id])
+  options        OnlineOrderItemOption[]
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([catalogProductId])
+}
+
+model Customer {
+  id                 String         @id @default(cuid())
+  organizationId     String
+  name               String
+  phone              String?
+  normalizedPhone    String?
+  email              String?
+  normalizedEmail    String?
+  document           String?
+  normalizedDocument String?
+  birthDate          DateTime?
+  notes              String?
+  active             Boolean        @default(true)
+  firstSource        CustomerSource @default(ADMIN)
+  lastSource         CustomerSource @default(ADMIN)
+  firstSeenAt        DateTime       @default(now())
+  lastSeenAt         DateTime       @default(now())
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @default(now()) @updatedAt
+
+  organization      Organization       @relation(fields: [organizationId], references: [id])
+  addresses         CustomerAddress[]
+  customerInterests CustomerInterest[]
+  onlineOrders      OnlineOrder[]
+  orders            Order[]
+
+  @@index([organizationId])
+  @@index([organizationId, name])
+  @@index([organizationId, normalizedPhone])
+  @@index([organizationId, normalizedEmail])
+  @@index([organizationId, normalizedDocument])
+}
+
+model CustomerAddress {
+  id             String   @id @default(cuid())
+  organizationId String
+  customerId     String
+  label          String?  @map("title")
+  recipientName  String?
+  street         String
+  number         String?
+  neighborhood   String?
+  city           String?
+  state          String?
+  postalCode     String?
+  complement     String?
+  reference      String?
+  active         Boolean  @default(true)
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  customer     Customer      @relation(fields: [customerId], references: [id])
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  orders       OnlineOrder[]
+
+  @@index([organizationId, customerId])
+  @@index([customerId])
+}
+
+model Interest {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  key            String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @default(now()) @updatedAt
+
+  organization      Organization       @relation(fields: [organizationId], references: [id])
+  customerInterests CustomerInterest[]
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+}
+
+model CustomerInterest {
+  id         String                  @id @default(cuid())
+  customerId String
+  interestId String
+  source     CustomerInterestSource?
+  createdAt  DateTime                @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  interest Interest @relation(fields: [interestId], references: [id])
+
+  @@unique([customerId, interestId])
+  @@index([interestId])
+}
+
+// Grupo de opções para produto (ex: "Escolha a borda")
+model CatalogProductOptionGroup {
+  id             String @id @default(cuid())
+  organizationId String
+  productId      String
+
+  name          String
+  key           String
+  description   String?
+  required      Boolean @default(false)
+  minSelections Int     @default(0)
+  maxSelections Int     @default(1)
+  sortOrder     Int     @default(0)
+  active        Boolean @default(true)
+
+  organization Organization           @relation(fields: [organizationId], references: [id])
+  product      CatalogProduct         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  options      CatalogProductOption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([productId, key])
+  @@index([organizationId])
+  @@index([productId])
+}
+
+// Opção individual (ex: "Borda recheada")
+model CatalogProductOption {
+  id             String @id @default(cuid())
+  organizationId String
+  optionGroupId  String
+
+  name              String
+  key               String
+  description       String?
+  priceDeltaInCents Int     @default(0)
+
+  linkedProductId String?
+
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+
+  organization  Organization              @relation(fields: [organizationId], references: [id])
+  optionGroup   CatalogProductOptionGroup @relation(fields: [optionGroupId], references: [id], onDelete: Cascade)
+  linkedProduct CatalogProduct?           @relation("CatalogProductOptionLinkedProduct", fields: [linkedProductId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([optionGroupId, key])
+  @@index([organizationId])
+  @@index([optionGroupId])
+  @@index([linkedProductId])
+}
+
+// Opção selecionada em item de pedido de evento
+model OrderItemOption {
+  id          String @id @default(cuid())
+  orderItemId String
+
+  optionGroupId   String?
+  optionId        String?
+  linkedProductId String?
+
+  groupName         String
+  optionName        String
+  priceDeltaInCents Int
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([orderItemId])
+}
+
+// Opção selecionada em item de pedido online
+model OnlineOrderItemOption {
+  id                String @id @default(cuid())
+  onlineOrderItemId String
+
+  optionGroupId   String?
+  optionId        String?
+  linkedProductId String?
+
+  groupName         String
+  optionName        String
+  priceDeltaInCents Int
+
+  onlineOrderItem OnlineOrderItem @relation(fields: [onlineOrderItemId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([onlineOrderItemId])
 }

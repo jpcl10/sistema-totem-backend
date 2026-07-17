@@ -2,9 +2,9 @@ import {
   FastifyReply,
   FastifyRequest
 } from 'fastify'
-
 import { CancelPrintJobService }
   from '../services/cancel-print-job-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function cancelPrintJobController(
   request: FastifyRequest,
@@ -14,9 +14,7 @@ export async function cancelPrintJobController(
     request.params as {
       printJobId: string
     }
-
-  const organizationId =
-    request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const service =
     new CancelPrintJobService()
@@ -24,6 +22,7 @@ export async function cancelPrintJobController(
   const { printJob } =
     await service.execute({
       organizationId,
+      userRole: request.user.role,
       printJobId
     })
 

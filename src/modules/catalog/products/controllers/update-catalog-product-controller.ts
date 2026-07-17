@@ -2,10 +2,9 @@ import {
   FastifyReply,
   FastifyRequest
 } from 'fastify'
-
 import { updateCatalogProductSchema } from '../schemas/update-catalog-product-schema.js'
-
 import { UpdateCatalogProductService } from '../services/update-catalog-product-service.js'
+import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
 
 export async function updateCatalogProductController(
   request: FastifyRequest,
@@ -20,9 +19,8 @@ export async function updateCatalogProductController(
       request.body
     )
 
-  const organizationId =
-    request.user.organizationId
   const userId = request.user.sub
+  const organizationId = getTenantOrganizationId(request)
 
   const service =
     new UpdateCatalogProductService()
@@ -30,6 +28,7 @@ export async function updateCatalogProductController(
   const { product } =
     await service.execute({
       organizationId,
+      userRole: request.user.role,
       userId,
 
       productId: params.id,
@@ -41,7 +40,9 @@ export async function updateCatalogProductController(
       description: body.description,
       imageUrl: body.imageUrl,
 
-      active: body.active
+      active: body.active,
+      priceInCents: body.priceInCents,
+      sortOrder: body.sortOrder
     })
 
   return reply.send({

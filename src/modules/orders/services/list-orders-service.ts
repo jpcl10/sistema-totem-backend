@@ -1,7 +1,9 @@
 import { prisma } from '../../../lib/prisma.js'
+import { UserRole } from '@prisma/client'
 
 interface ListOrdersServiceRequest {
   organizationId: string
+  userRole: UserRole
   eventId: string
 }
 

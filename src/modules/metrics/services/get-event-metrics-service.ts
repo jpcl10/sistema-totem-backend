@@ -1,5 +1,4 @@
 import { prisma } from '../../../lib/prisma.js'
-
 import {
   DashboardPeriod,
   getPeriodDateFilter
@@ -47,6 +46,9 @@ export class GetEventMetricsService {
     const orders = await prisma.order.findMany({
       where: {
         eventId,
+        event: {
+          organizationId
+        },
         ...(createdAtFilter
           ? {
               createdAt: createdAtFilter

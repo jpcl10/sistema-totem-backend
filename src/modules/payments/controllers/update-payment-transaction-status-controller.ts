@@ -6,6 +6,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 
 import { UpdatePaymentTransactionStatusService } from '../services/update-payment-transaction-status-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 const updatePaymentTransactionStatusParamsSchema = z.object({
   paymentTransactionId: z.string()
@@ -47,7 +48,7 @@ export async function updatePaymentTransactionStatusController(
   } = updatePaymentTransactionStatusBodySchema.parse(request.body)
 
   const organizationId =
-    request.user.organizationId
+    getTenantOrganizationId(request)
 
   const updatePaymentTransactionStatusService =
     new UpdatePaymentTransactionStatusService()

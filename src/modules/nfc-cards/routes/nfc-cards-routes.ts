@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 
 import { verifyJWT } from '../../auth/middlewares/verify-jwt.js'
+import { requireTenantContext } from '../../auth/middlewares/request-context.js'
 
 import { createNfcCardController } from '../controllers/create-nfc-card-controller.js'
 import { listNfcCardsController } from '../controllers/list-nfc-cards-controller.js'
@@ -15,6 +16,7 @@ import { debitNfcCardController } from '../controllers/debit-nfc-card-controller
 import { adjustNfcCardController } from '../controllers/adjust-nfc-card-controller.js'
 import { refundNfcCardController } from '../controllers/refund-nfc-card-controller.js'
 import { listNfcCardTransactionsController } from '../controllers/list-nfc-card-transactions-controller.js'
+import { payOrderWithNfcBalanceController } from '../controllers/pay-order-with-nfc-balance-controller.js'
 
 export async function nfcCardsRoutes(
   app: FastifyInstance
@@ -33,10 +35,24 @@ export async function nfcCardsRoutes(
     identifyNfcCardController
   )
 
+  // Public route for paying order with NFC balance
+  app.post(
+    '/public/events/:eventSlug/orders/:orderId/pay-with-nfc-balance',
+    {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    payOrderWithNfcBalanceController
+  )
+
   app.post(
     '/events/:eventId/nfc-cards',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -50,7 +66,7 @@ export async function nfcCardsRoutes(
   app.get(
     '/events/:eventId/nfc-cards',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -64,7 +80,7 @@ export async function nfcCardsRoutes(
   app.get(
     '/events/:eventId/nfc-cards/uid/:uid',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -78,7 +94,7 @@ export async function nfcCardsRoutes(
   app.patch(
     '/events/:eventId/nfc-cards/:id',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -92,7 +108,7 @@ export async function nfcCardsRoutes(
   app.post(
     '/events/:eventId/nfc-cards/:id/block',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -106,7 +122,7 @@ export async function nfcCardsRoutes(
   app.post(
     '/events/:eventId/nfc-cards/read',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -120,7 +136,7 @@ export async function nfcCardsRoutes(
   app.get(
     '/events/:eventId/nfc-cards/:id/reads',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -135,7 +151,7 @@ export async function nfcCardsRoutes(
   app.post(
     '/events/:eventId/nfc-cards/:id/topup',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -149,7 +165,7 @@ export async function nfcCardsRoutes(
   app.post(
     '/events/:eventId/nfc-cards/:id/debit',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -163,7 +179,7 @@ export async function nfcCardsRoutes(
   app.post(
     '/events/:eventId/nfc-cards/:id/adjust',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -177,7 +193,7 @@ export async function nfcCardsRoutes(
   app.post(
     '/events/:eventId/nfc-cards/:id/refund',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -191,7 +207,7 @@ export async function nfcCardsRoutes(
   app.get(
     '/events/:eventId/nfc-cards/:id/transactions',
     {
-      preHandler: verifyJWT,
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,

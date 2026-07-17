@@ -1,9 +1,11 @@
 import { prisma } from '../../../lib/prisma.js'
-import { AuditAction } from '@prisma/client'
+import { AuditAction, UserRole } from '@prisma/client'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface CreateEventServiceRequest {
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
   userId: string
   name: string
   slug: string
@@ -15,21 +17,11 @@ interface CreateEventServiceRequest {
 }
 
 export class CreateEventService {
-  async execute({
-    organizationId,
-    userId,
-    name,
-    slug,
-    primaryColor,
-    secondaryColor,
-    logoUrl,
-    startsAt,
-    endsAt
-  }: CreateEventServiceRequest) {
+  async execute(request: CreateEventServiceRequest) {
     const eventWithSameSlug = await prisma.event.findFirst({
       where: {
-        organizationId,
-        slug
+        organizationId: request.organizationId,
+        slug: request.slug
       }
     })
 
@@ -39,22 +31,22 @@ export class CreateEventService {
 
     const event = await prisma.event.create({
       data: {
-        organizationId,
-        name,
-        slug,
-        primaryColor,
-        secondaryColor,
-        logoUrl,
-        startsAt,
-        endsAt
+        organizationId: request.organizationId,
+        name: request.name,
+        slug: request.slug,
+        primaryColor: request.primaryColor,
+        secondaryColor: request.secondaryColor,
+        logoUrl: request.logoUrl,
+        startsAt: request.startsAt,
+        endsAt: request.endsAt
       }
     })
 
     // Create audit log for event created
     const createAuditLogService = new CreateAuditLogService()
     await createAuditLogService.execute({
-      organizationId,
-      userId,
+      organizationId: request.organizationId,
+      userId: request.userId,
       eventId: event.id,
       entity: 'Event',
       entityId: event.id,
@@ -65,7 +57,7 @@ export class CreateEventService {
         name: event.name,
         slug: event.slug,
         active: event.active,
-        organizationId
+        organizationId: request.organizationId
       }
     })
 

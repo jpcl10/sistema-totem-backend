@@ -3,8 +3,8 @@ import {
   FastifyRequest
 } from 'fastify'
 import { z } from 'zod'
-
 import { GetEventMetricsService } from '../services/get-event-metrics-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 const getEventMetricsParamsSchema = z.object({
   eventId: z.string().min(1)
@@ -47,11 +47,9 @@ export async function getEventMetricsController(
     request.query
   )
 
-  const organizationId =
-    request.user.organizationId
-
   const service =
     new GetEventMetricsService()
+  const organizationId = getTenantOrganizationId(request)
 
   const { metrics } =
     await service.execute({

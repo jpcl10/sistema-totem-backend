@@ -2,9 +2,9 @@ import {
   FastifyReply,
   FastifyRequest
 } from 'fastify'
-
 import { MarkPrintJobPrintedService }
   from '../services/mark-print-job-printed-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function markPrintJobPrintedController(
   request: FastifyRequest,
@@ -14,9 +14,7 @@ export async function markPrintJobPrintedController(
     request.params as {
       printJobId: string
     }
-
-  const organizationId =
-    request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const service =
     new MarkPrintJobPrintedService()
@@ -24,6 +22,7 @@ export async function markPrintJobPrintedController(
   const { printJob } =
     await service.execute({
       organizationId,
+      userRole: request.user.role,
       printJobId
     })
 

@@ -43,7 +43,7 @@ export class GetNfcCardByUidService {
 
     const createAuditLogService = new CreateAuditLogService()
     await createAuditLogService.execute({
-      organizationId,
+      organizationId: nfcCard.organizationId,
       eventId,
       userId,
       entity: 'NfcCard',

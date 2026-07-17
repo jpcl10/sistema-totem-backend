@@ -2,22 +2,22 @@ import {
   FastifyReply,
   FastifyRequest
 } from 'fastify'
-
 import { ListCatalogProductsService } from '../services/list-catalog-products-service.js'
+import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
 
 export async function listCatalogProductsController(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  const organizationId =
-    request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const service =
     new ListCatalogProductsService()
 
   const { products } =
     await service.execute({
-      organizationId
+      organizationId,
+      userRole: request.user.role
     })
 
   return reply.send({

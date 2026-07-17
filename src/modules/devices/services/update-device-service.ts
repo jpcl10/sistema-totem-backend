@@ -1,12 +1,15 @@
 import {
   DeviceStatus,
-  DeviceType
+  DeviceType,
+  UserRole
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
 
 interface UpdateDeviceServiceRequest {
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
   deviceId: string
 
   name?: string
@@ -36,6 +39,19 @@ export class UpdateDeviceService {
 
     if (!device) {
       throw new Error('Device not found')
+    }
+
+    if (eventId) {
+      const event = await prisma.event.findFirst({
+        where: {
+          id: eventId,
+          organizationId
+        }
+      })
+
+      if (!event) {
+        throw new Error('Event not found')
+      }
     }
 
     const updatedDevice =

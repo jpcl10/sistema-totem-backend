@@ -1,5 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import jwt from 'jsonwebtoken'
+import { UserRole } from '@prisma/client'
 
 interface JwtPayload {
   sub: string
@@ -29,7 +30,7 @@ export async function verifyJWT(
 
     request.user = {
       sub: decoded.sub,
-      role: decoded.role,
+      role: decoded.role as UserRole,
       organizationId: decoded.organizationId
     }
   } catch {

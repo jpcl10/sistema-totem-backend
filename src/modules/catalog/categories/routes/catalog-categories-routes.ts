@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify'
 import { listCatalogCategoriesController } from '../controllers/list-catalog-categories-controller.js'
 import { verifyJWT } from '../../../auth/middlewares/verify-jwt.js'
+import { requireTenantContext } from '../../../auth/middlewares/request-context.js'
 import { updateCatalogCategoryController } from '../controllers/update-catalog-category-controller.js'
 import { createCatalogCategoryController } from '../controllers/create-catalog-category-controller.js'
 
@@ -10,7 +11,7 @@ export async function catalogCategoriesRoutes(
   app.post(
     '/catalog/categories',
     {
-      preHandler: [verifyJWT],
+      preHandler: [verifyJWT, requireTenantContext],
       config: {
         rateLimit: {
           max: 300,
@@ -23,7 +24,7 @@ export async function catalogCategoriesRoutes(
   app.get(
   '/catalog/categories',
   {
-    preHandler: [verifyJWT],
+    preHandler: [verifyJWT, requireTenantContext],
     config: {
       rateLimit: {
         max: 300,
@@ -36,7 +37,7 @@ export async function catalogCategoriesRoutes(
 app.patch(
   '/catalog/categories/:id',
   {
-    preHandler: [verifyJWT],
+    preHandler: [verifyJWT, requireTenantContext],
     config: {
       rateLimit: {
         max: 300,

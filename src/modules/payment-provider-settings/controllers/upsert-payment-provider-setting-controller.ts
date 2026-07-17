@@ -3,6 +3,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 
 import { UpsertPaymentProviderSettingService } from '../services/upsert-payment-provider-setting-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 const upsertPaymentProviderSettingParamsSchema = z.object({
   provider: z.nativeEnum(PaymentProvider)
@@ -39,8 +40,8 @@ export async function upsertPaymentProviderSettingController(
     webhookUrl
   } = upsertPaymentProviderSettingBodySchema.parse(request.body)
 
-  const organizationId = request.user.organizationId
   const userId = request.user.sub
+  const organizationId = getTenantOrganizationId(request)
 
   const upsertPaymentProviderSettingService =
     new UpsertPaymentProviderSettingService()

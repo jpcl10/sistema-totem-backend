@@ -7,6 +7,8 @@ import { z } from 'zod'
 
 import { MarkDevicePrintJobErrorService }
   from '../services/mark-device-print-job-error-service.js'
+import { getTenantOrganizationId }
+  from '../../auth/middlewares/request-context.js'
 
 const markDevicePrintJobErrorBodySchema =
   z.object({
@@ -28,7 +30,7 @@ export async function markDevicePrintJobErrorController(
     )
 
   const organizationId =
-    request.user.organizationId
+    getTenantOrganizationId(request)
 
   const service =
     new MarkDevicePrintJobErrorService()

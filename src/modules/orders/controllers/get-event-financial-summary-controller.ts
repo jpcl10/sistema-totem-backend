@@ -3,8 +3,8 @@ import {
   FastifyRequest
 } from 'fastify'
 import { z } from 'zod'
-
 import { GetEventFinancialSummaryService } from '../services/get-event-financial-summary-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 const getEventFinancialSummaryParamsSchema = z.object({
   eventId: z.string().min(1)
@@ -15,8 +15,11 @@ const getEventFinancialSummaryQuerySchema = z.object({
     .enum([
       'EVENT',
       'TODAY',
+      'YESTERDAY',
       '24H',
       '7D',
+      'LAST_7_DAYS',
+      'LAST_30_DAYS',
       'CUSTOM'
     ])
     .default('EVENT'),
@@ -47,9 +50,7 @@ export async function getEventFinancialSummaryController(
     getEventFinancialSummaryQuerySchema.parse(
       request.query
     )
-
-  const organizationId =
-    request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const getEventFinancialSummaryService =
     new GetEventFinancialSummaryService()
@@ -57,6 +58,7 @@ export async function getEventFinancialSummaryController(
   const { summary } =
     await getEventFinancialSummaryService.execute({
       organizationId,
+      userRole: request.user.role,
       eventId,
       period,
       startDate,

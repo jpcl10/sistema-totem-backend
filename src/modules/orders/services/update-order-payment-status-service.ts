@@ -1,10 +1,13 @@
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
-import { AuditAction } from '@prisma/client'
+import { AuditAction, UserRole } from '@prisma/client'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
+import { mapEventOrderToUnifiedOrder } from '../presenters/unified-order-presenter.js'
+import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
 
 interface UpdateOrderPaymentStatusServiceRequest {
   organizationId: string
+  userRole: UserRole
   userId: string
   orderId: string
   paymentStatus:
@@ -23,7 +26,10 @@ export class UpdateOrderPaymentStatusService {
   }: UpdateOrderPaymentStatusServiceRequest) {
     const order = await prisma.order.findFirst({
       where: {
-        id: orderId
+        id: orderId,
+        event: {
+          organizationId
+        }
       },
       include: {
         event: true
@@ -32,10 +38,6 @@ export class UpdateOrderPaymentStatusService {
 
     if (!order) {
       throw new Error('Order not found')
-    }
-
-    if (order.event.organizationId !== organizationId) {
-      throw new Error('Unauthorized')
     }
 
     const updatedOrder = await prisma.order.update({
@@ -52,9 +54,11 @@ export class UpdateOrderPaymentStatusService {
               include: {
                 catalogCategory: true
               }
-            }
+            },
+            options: true
           }
-        }
+        },
+        printJobs: true
       }
     })
 
@@ -76,8 +80,26 @@ export class UpdateOrderPaymentStatusService {
       }
     })
 
+    await new CreatePrintJobsForOrderService().execute({
+      orderId: updatedOrder.id
+    })
+
     io.to(`event:${order.eventId}`).emit('order-updated', {
       order: updatedOrder
+    })
+
+    io.to(`event:${order.eventId}`).emit('unified-order-updated', {
+      order: mapEventOrderToUnifiedOrder({
+        ...updatedOrder,
+        event: order.event
+      })
+    })
+
+    io.to(`organization:${organizationId}`).emit('unified-order-updated', {
+      order: mapEventOrderToUnifiedOrder({
+        ...updatedOrder,
+        event: order.event
+      })
     })
 
     return {

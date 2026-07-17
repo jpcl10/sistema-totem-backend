@@ -1,8 +1,11 @@
 import { prisma } from '../../../lib/prisma.js'
+import { UserRole } from '@prisma/client'
 import { sendToThermalPrinter } from '../../../lib/thermal-printer.js'
 
 interface TestPrinterServiceRequest {
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
   printerId: string
 }
 
@@ -14,10 +17,10 @@ export class TestPrinterService {
     const printer = await prisma.eventPrinter.findFirst({
       where: {
         id: printerId,
+        active: true,
         event: {
           organizationId
-        },
-        active: true
+        }
       },
       include: {
         event: true

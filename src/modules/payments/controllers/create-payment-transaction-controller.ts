@@ -7,6 +7,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 
 import { CreatePaymentTransactionService } from '../services/create-payment-transaction-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 const createPaymentTransactionParamsSchema = z.object({
   orderId: z.string()
@@ -39,7 +40,7 @@ export async function createPaymentTransactionController(
     metadata
   } = createPaymentTransactionBodySchema.parse(request.body)
 
-  const organizationId = request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const createPaymentTransactionService =
     new CreatePaymentTransactionService()

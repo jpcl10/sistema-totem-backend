@@ -1,12 +1,12 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
-
 import { ListPaymentProviderSettingsService } from '../services/list-payment-provider-settings-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function listPaymentProviderSettingsController(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  const organizationId = request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const listPaymentProviderSettingsService =
     new ListPaymentProviderSettingsService()

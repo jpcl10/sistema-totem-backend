@@ -12,5 +12,9 @@ export const createCatalogProductSchema =
 
     description: z.string().optional(),
 
-    imageUrl: r2UrlSchema.optional()
+    imageUrl: r2UrlSchema.optional(),
+
+    priceInCents: z.number().int().min(0),
+    
+    sortOrder: z.number().int().min(0).optional()
   })

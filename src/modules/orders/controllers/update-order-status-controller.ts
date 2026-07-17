@@ -1,7 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
-
 import { updateOrderStatusSchema } from '../schemas/update-order-status-schema.js'
 import { UpdateOrderStatusService } from '../services/update-order-status-service.js'
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
 export async function updateOrderStatusController(
   request: FastifyRequest,
@@ -16,9 +16,7 @@ export async function updateOrderStatusController(
     cancelReason,
     restoreStock
   } = updateOrderStatusSchema.parse(request.body)
-
-  const organizationId =
-    request.user.organizationId
+  const organizationId = getTenantOrganizationId(request)
 
   const updateOrderStatusService =
     new UpdateOrderStatusService()
@@ -26,6 +24,7 @@ export async function updateOrderStatusController(
   const { order } =
     await updateOrderStatusService.execute({
       organizationId,
+      userRole: request.user.role,
       orderId: id,
       status,
       cancelReason,

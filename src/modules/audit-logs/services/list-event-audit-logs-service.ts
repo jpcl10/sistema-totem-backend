@@ -27,7 +27,6 @@ export class ListEventAuditLogsService {
     startDate,
     endDate
   }: ListEventAuditLogsServiceRequest) {
-    // Verify event belongs to the organization
     const event = await prisma.event.findFirst({
       where: {
         id: eventId,

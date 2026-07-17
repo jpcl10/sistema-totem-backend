@@ -1,7 +1,10 @@
 import { prisma } from '../../../lib/prisma.js'
+import { UserRole } from '@prisma/client'
 
 interface ListPrintJobsServiceRequest {
   organizationId: string
+  userRole: UserRole
+  selectedOrganizationId?: string
   eventId: string
 }
 
@@ -47,11 +50,7 @@ export class ListPrintJobsService {
             select: {
               id: true,
               name: true,
-              slug: true,
-              printingEnabled: true,
-              autoPrintEnabled: true,
-              printMode: true,
-              printerPaperSize: true
+              slug: true
             }
           }
         },

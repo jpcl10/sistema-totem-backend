@@ -8,5 +8,7 @@ export const createCatalogCategorySchema = z.object({
   sector: z.enum([
     'BAR',
     'KITCHEN'
-  ]).optional()
+  ]).optional(),
+  
+  sortOrder: z.number().int().min(0).optional()
 })

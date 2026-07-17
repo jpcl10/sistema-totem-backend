@@ -1,34 +1,103 @@
 import { prisma } from '../../../lib/prisma.js'
+import {
+  EffectivePrintingSettings,
+  PrintingSourceKey
+} from '../../settings/services/printing-settings-service.js'
+import { SettingsResolverService } from '../../settings/services/settings-resolver-service.js'
 
 interface ListPendingDevicePrintJobsServiceRequest {
   organizationId: string
   eventId?: string
+  storeId?: string
+}
+
+function getPrintingSource(payload: unknown): PrintingSourceKey {
+  const data =
+    typeof payload === 'object' && payload !== null
+      ? payload as Record<string, unknown>
+      : {}
+
+  if (data.domain === 'ONLINE_ORDER') {
+    return data.source === 'ADMIN'
+      ? 'MANUAL_STORE'
+      : 'ONLINE_STORE'
+  }
+
+  if (data.source === 'TOTEM') {
+    return 'TOTEM'
+  }
+
+  if (data.source === 'MANUAL_EVENT' || data.manualSale === true) {
+    return 'MANUAL_EVENT'
+  }
+
+  return 'EVENT'
+}
+
+function canAutoPrint(settings: EffectivePrintingSettings, source: PrintingSourceKey) {
+  const sourceSettings = settings.sources[source]
+
+  return Boolean(
+    settings.printingEnabled &&
+    settings.autoPrintEnabled &&
+    sourceSettings?.enabled &&
+    sourceSettings?.autoPrint
+  )
 }
 
 export class ListPendingDevicePrintJobsService {
   async execute({
     organizationId,
-    eventId
+    eventId,
+    storeId
   }: ListPendingDevicePrintJobsServiceRequest) {
     const printJobs =
       await prisma.eventPrintJob.findMany({
         where: {
           status: 'PENDING',
 
-          event: {
-            organizationId,
-            printingEnabled: true
-          },
-
-          printer: {
-            is: {
-              active: true,
-              connectionType: 'SK210_LOCAL'
+          OR: [
+            {
+              event: {
+                organizationId
+              }
+            },
+            {
+              store: {
+                organizationId
+              }
             }
-          },
+          ],
+
+          AND: [
+            {
+              OR: [
+                {
+                  printer: {
+                    is: {
+                      active: true,
+                      connectionType: 'SK210_LOCAL'
+                    }
+                  }
+                },
+                {
+                  device: {
+                    is: {
+                      organizationId,
+                      status: 'ACTIVE'
+                    }
+                  }
+                }
+              ]
+            }
+          ],
 
           ...(eventId && {
             eventId
+          }),
+
+          ...(storeId && {
+            storeId
           })
         },
 
@@ -39,15 +108,19 @@ export class ListPendingDevicePrintJobsService {
             select: {
               id: true,
               name: true,
-              slug: true,
-              printingEnabled: true,
-              autoPrintEnabled: true,
-              printMode: true,
-              printerPaperSize: true
-            }
-          },
+              slug: true
+          }
+        },
 
-          order: {
+        store: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        },
+
+        order: {
             include: {
               items: {
                 include: {
@@ -57,10 +130,24 @@ export class ListPendingDevicePrintJobsService {
                     }
                   }
                 }
-              }
             }
           }
         },
+
+        onlineOrder: {
+          include: {
+            items: {
+              include: {
+                catalogProduct: {
+                  include: {
+                    catalogCategory: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
 
         orderBy: {
           createdAt: 'asc'
@@ -69,8 +156,26 @@ export class ListPendingDevicePrintJobsService {
         take: 10
       })
 
+    const filteredPrintJobs = []
+
+    for (const printJob of printJobs) {
+      const effective =
+        await new SettingsResolverService().execute({
+          organizationId,
+          eventId: printJob.eventId ?? undefined,
+          storeId: printJob.storeId ?? undefined
+        })
+
+      if (canAutoPrint(
+        effective.printing as EffectivePrintingSettings,
+        getPrintingSource(printJob.payload)
+      )) {
+        filteredPrintJobs.push(printJob)
+      }
+    }
+
     return {
-      printJobs
+      printJobs: filteredPrintJobs
     }
   }
 }
