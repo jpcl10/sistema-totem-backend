@@ -47,6 +47,44 @@ function validateSelectedOptions(selectedOptions: SelectedOptionInput[] = []) {
   return selectedOptionsMap
 }
 
+function isSizeGroup(group: { key?: string | null; name?: string | null }) {
+  return /(tamanho|size|pizza-size)/i.test(group.key ?? '') || /(tamanho|size)/i.test(group.name ?? '')
+}
+
+function resolveSizeOptionData(
+  product: {
+    optionGroups: {
+      id: string
+      key?: string | null
+      name: string
+      options: {
+        id: string
+        key?: string | null
+        priceDeltaInCents: number
+      }[]
+    }[]
+  },
+  selectedOptionsMap: Map<string, string[]>
+) {
+  const sizeGroup = product.optionGroups.find(group => isSizeGroup(group))
+  if (!sizeGroup) {
+    return {
+      selectedSizeOption: null,
+      sizeDeltaInCents: 0
+    }
+  }
+
+  const selectedSizeOptionId = selectedOptionsMap.get(sizeGroup.id)?.[0] ?? null
+  const selectedSizeOption = selectedSizeOptionId
+    ? sizeGroup.options.find(option => option.id === selectedSizeOptionId) ?? null
+    : null
+
+  return {
+    selectedSizeOption,
+    sizeDeltaInCents: selectedSizeOption?.priceDeltaInCents ?? 0
+  }
+}
+
 export async function buildConfigurableCatalogOrderItems({
   tx,
   organizationId,
@@ -83,6 +121,20 @@ export async function buildConfigurableCatalogOrderItems({
           id: { in: allFlavorIds },
           organizationId,
           active: true
+        },
+        include: {
+          optionGroups: {
+            where: {
+              active: true
+            },
+            include: {
+              options: {
+                where: {
+                  active: true
+                }
+              }
+            }
+          }
         }
       })
     : []
@@ -101,6 +153,9 @@ export async function buildConfigurableCatalogOrderItems({
     const selectedOptionsMap = validateSelectedOptions(item.selectedOptions)
     const optionSnapshots = []
     let optionsTotalDeltaInCents = 0
+    const sizeResolution = resolveSizeOptionData(product, selectedOptionsMap)
+    const primaryFullPriceInCents =
+      product.priceInCents + sizeResolution.sizeDeltaInCents
 
     for (const group of product.optionGroups) {
       const selectedOptionIds = selectedOptionsMap.get(group.id) || []
@@ -124,7 +179,9 @@ export async function buildConfigurableCatalogOrderItems({
           throw new Error(`Op\u00e7\u00e3o "${optionId}" n\u00e3o encontrada no grupo "${group.name}"`)
         }
 
-        optionsTotalDeltaInCents += option.priceDeltaInCents
+        if (!isSizeGroup(group)) {
+          optionsTotalDeltaInCents += option.priceDeltaInCents
+        }
 
         let linkedProductName: string | null = null
 
@@ -164,7 +221,7 @@ export async function buildConfigurableCatalogOrderItems({
     }
 
     const selectedFlavorIds = item.selectedFlavorProductIds ?? []
-    let basePriceInCents = product.priceInCents
+    let basePriceInCents = primaryFullPriceInCents
     const flavorSnapshots = []
 
     if (selectedFlavorIds.length > 0) {
@@ -184,6 +241,14 @@ export async function buildConfigurableCatalogOrderItems({
 
       const allowedFlavorCategoryId =
         product.halfAndHalfFlavorCategoryId ?? product.catalogCategoryId
+      const secondFlavorSizeGroup = secondFlavor.optionGroups.find(group => isSizeGroup(group))
+      const secondFlavorSizeOption = sizeResolution.selectedSizeOption?.key && secondFlavorSizeGroup
+        ? secondFlavorSizeGroup.options.find(
+            option => option.key === sizeResolution.selectedSizeOption?.key
+          ) ?? null
+        : null
+      const secondFlavorFullPriceInCents =
+        secondFlavor.priceInCents + (secondFlavorSizeOption?.priceDeltaInCents ?? 0)
 
       if (
         secondFlavor.organizationId !== organizationId ||
@@ -195,21 +260,21 @@ export async function buildConfigurableCatalogOrderItems({
       }
 
       basePriceInCents = Math.max(
-        product.priceInCents,
-        secondFlavor.priceInCents
+        primaryFullPriceInCents,
+        secondFlavorFullPriceInCents
       )
       flavorSnapshots.push(
         {
           catalogProductId: product.id,
           position: 1,
           flavorName: product.name,
-          priceInCents: product.priceInCents
+          priceInCents: primaryFullPriceInCents
         },
         {
           catalogProductId: secondFlavor.id,
           position: 2,
           flavorName: secondFlavor.name,
-          priceInCents: secondFlavor.priceInCents
+          priceInCents: secondFlavorFullPriceInCents
         }
       )
     }

@@ -124,12 +124,37 @@ export class GetPublicStoreService {
                     description: flavor.description,
                     imageUrl: flavor.imageUrl,
                     priceInCents: flavor.priceInCents,
-                    categoryId: flavor.catalogCategoryId
+                    categoryId: flavor.catalogCategoryId,
+                    optionGroups: flavor.optionGroups.map(flavorGroup => ({
+                      id: flavorGroup.id,
+                      key: flavorGroup.key,
+                      name: flavorGroup.name,
+                      description: flavorGroup.description,
+                      required: flavorGroup.required,
+                      minSelections: flavorGroup.minSelections,
+                      maxSelections: flavorGroup.maxSelections,
+                      sortOrder: flavorGroup.sortOrder,
+                      options: flavorGroup.options.map(flavorOption => ({
+                        id: flavorOption.id,
+                        key: flavorOption.key,
+                        name: flavorOption.name,
+                        description: flavorOption.description,
+                        priceDeltaInCents: flavorOption.priceDeltaInCents,
+                        linkedProductId: flavorOption.linkedProductId,
+                        sortOrder: flavorOption.sortOrder,
+                        linkedProduct: flavorOption.linkedProduct ? {
+                          id: flavorOption.linkedProduct.id,
+                          name: flavorOption.linkedProduct.name,
+                          imageUrl: flavorOption.linkedProduct.imageUrl
+                        } : null
+                      }))
+                    }))
                   }))
               : [],
           sortOrder: product.sortOrder,
           optionGroups: product.optionGroups.map(group => ({
             id: group.id,
+            key: group.key,
             name: group.name,
             description: group.description,
             required: group.required,
@@ -138,6 +163,7 @@ export class GetPublicStoreService {
             sortOrder: group.sortOrder,
             options: group.options.map(option => ({
               id: option.id,
+              key: option.key,
               name: option.name,
               description: option.description,
               priceDeltaInCents: option.priceDeltaInCents,

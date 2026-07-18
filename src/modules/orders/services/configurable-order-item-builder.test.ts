@@ -24,6 +24,34 @@ function makePizza(
     halfAndHalfFlavorCategoryId: 'pizzas',
     optionGroups: [
       {
+        id: 'size-group',
+        name: 'Escolha o tamanho',
+        key: 'pizza-size',
+        required: false,
+        minSelections: 0,
+        maxSelections: 1,
+        options: [
+          {
+            id: 'size-p',
+            key: 'p-4-pedacos',
+            name: 'P (4 pedaços)',
+            priceDeltaInCents: 0,
+            linkedProductId: null,
+            active: true,
+            sortOrder: 0
+          },
+          {
+            id: 'size-m',
+            key: 'm-8-pedacos',
+            name: 'M (8 pedaços)',
+            priceDeltaInCents: priceInCents,
+            linkedProductId: null,
+            active: true,
+            sortOrder: 1
+          }
+        ]
+      },
+      {
         id: 'border-group',
         name: 'Borda',
         required: false,
@@ -143,6 +171,36 @@ test('half-and-half uses the highest flavor price in either direction', async ()
   assert.notEqual(lowerFirst.orderItemsData[0].unitPriceInCents, 14000)
   assert.equal(lowerFirst.orderItemsData[0].flavors.create[0].catalogProductId, 'calabresa')
   assert.equal(lowerFirst.orderItemsData[0].flavors.create[1].catalogProductId, 'camarao')
+})
+
+test('half-and-half respects the selected size and uses the full price of the most expensive flavor', async () => {
+  const tx = makeTx({
+    calabresa: makePizza('calabresa', 3000),
+    camarao: makePizza('camarao', 4000)
+  })
+
+  const result = await buildConfigurableCatalogOrderItems({
+    tx,
+    organizationId,
+    items: [
+      {
+        catalogProductId: 'calabresa',
+        quantity: 1,
+        selectedOptions: [
+          {
+            optionGroupId: 'size-group',
+            optionIds: ['size-m']
+          }
+        ],
+        selectedFlavorProductIds: ['camarao']
+      }
+    ]
+  })
+
+  assert.equal(result.orderItemsData[0].unitPriceInCents, 8000)
+  assert.equal(result.subtotalInCents, 8000)
+  assert.equal(result.orderItemsData[0].flavors.create[0].priceInCents, 6000)
+  assert.equal(result.orderItemsData[0].flavors.create[1].priceInCents, 8000)
 })
 
 test('half-and-half equal prices and same flavor are allowed', async () => {
