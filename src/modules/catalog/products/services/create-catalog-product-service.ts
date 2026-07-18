@@ -1,5 +1,9 @@
 import { prisma } from '../../../../lib/prisma.js'
-import { AuditAction, UserRole } from '@prisma/client'
+import {
+  AuditAction,
+  CatalogProductPricingRule,
+  UserRole
+} from '@prisma/client'
 import { CreateAuditLogService } from '../../../audit-logs/services/create-audit-log-service.js'
 
 interface CreateCatalogProductServiceRequest {
@@ -17,6 +21,8 @@ interface CreateCatalogProductServiceRequest {
   imageUrl?: string
 
   priceInCents: number
+  pricingRule?: CatalogProductPricingRule
+  halfAndHalfFlavorCategoryId?: string | null
   sortOrder?: number
 }
 
@@ -30,6 +36,8 @@ export class CreateCatalogProductService {
     description,
     imageUrl,
     priceInCents,
+    pricingRule,
+    halfAndHalfFlavorCategoryId,
     sortOrder
   }: CreateCatalogProductServiceRequest) {
     const category =
@@ -42,6 +50,21 @@ export class CreateCatalogProductService {
 
     if (!category) {
       throw new Error('Category not found')
+    }
+
+    if (pricingRule === CatalogProductPricingRule.MAX_SELECTED_FLAVOR) {
+      const flavorCategoryId = halfAndHalfFlavorCategoryId ?? categoryId
+      const flavorCategory =
+        await prisma.catalogCategory.findFirst({
+          where: {
+            id: flavorCategoryId,
+            organizationId
+          }
+        })
+
+      if (!flavorCategory) {
+        throw new Error('Flavor category not found')
+      }
     }
 
     const productWithSameSlug =
@@ -66,6 +89,11 @@ export class CreateCatalogProductService {
                 description,
                 imageUrl,
                 priceInCents,
+                pricingRule: pricingRule ?? CatalogProductPricingRule.STANDARD,
+                halfAndHalfFlavorCategoryId:
+                  pricingRule === CatalogProductPricingRule.MAX_SELECTED_FLAVOR
+                    ? (halfAndHalfFlavorCategoryId ?? categoryId)
+                    : null,
                 sortOrder
             }
       })
@@ -79,12 +107,14 @@ export class CreateCatalogProductService {
       entityId: product.id,
       action: AuditAction.PRODUCT_CREATED,
       description: 'Produto criado',
-      metadata: {
+        metadata: {
         name: product.name,
         slug: product.slug,
         categoryId: product.catalogCategoryId,
         imageUrl: product.imageUrl,
-        priceInCents: product.priceInCents
+        priceInCents: product.priceInCents,
+        pricingRule: product.pricingRule,
+        halfAndHalfFlavorCategoryId: product.halfAndHalfFlavorCategoryId
       }
     })
 

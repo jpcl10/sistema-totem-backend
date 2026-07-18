@@ -23,7 +23,8 @@ const orderItemSchema = z.object({
   quantity: z.number().int().positive(),
   selectedOptions: z.array(
     selectedOptionSchema
-  ).optional()
+  ).optional(),
+  selectedFlavorProductIds: z.array(z.string().cuid()).optional()
 }).superRefine((item, ctx) => {
   if (!item.selectedOptions) {
     return

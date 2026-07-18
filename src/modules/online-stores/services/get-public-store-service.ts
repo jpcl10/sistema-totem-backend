@@ -99,6 +99,29 @@ export class GetPublicStoreService {
           description: product.description,
           imageUrl: product.imageUrl,
           priceInCents: product.priceInCents,
+          pricingRule: product.pricingRule,
+          acceptsHalfAndHalf:
+            product.pricingRule === 'MAX_SELECTED_FLAVOR',
+          halfAndHalfFlavorProducts:
+            product.pricingRule === 'MAX_SELECTED_FLAVOR'
+              ? products
+                  .filter(flavor =>
+                    flavor.active &&
+                    (
+                      flavor.catalogCategoryId ===
+                      (product.halfAndHalfFlavorCategoryId ?? product.catalogCategoryId)
+                    ) &&
+                    flavor.id !== product.id
+                  )
+                  .map(flavor => ({
+                    id: flavor.id,
+                    name: flavor.name,
+                    description: flavor.description,
+                    imageUrl: flavor.imageUrl,
+                    priceInCents: flavor.priceInCents,
+                    categoryId: flavor.catalogCategoryId
+                  }))
+              : [],
           sortOrder: product.sortOrder,
           optionGroups: product.optionGroups.map(group => ({
             id: group.id,
@@ -142,7 +165,11 @@ export class GetPublicStoreService {
         address: store.address,
         logoUrl,
         bannerUrl,
-        isOpen: store.isOpen
+        isOpen: operation.availability.isOpen,
+        acceptingOrders: operation.availability.acceptingOrders,
+        availabilityReason: operation.availability.reason,
+        nextOpeningAt: operation.availability.nextOpeningAt,
+        nextClosingAt: operation.availability.nextClosingAt
       },
       branding: {
         logoUrl,
@@ -155,13 +182,17 @@ export class GetPublicStoreService {
         theme: effective.branding.theme.value
       },
       operation: {
-        openNow: operation.delivery.openNow,
-        acceptingOrders: operation.delivery.acceptingOrders,
+        openNow: operation.availability.isOpen,
+        acceptingOrders: operation.availability.acceptingOrders,
         statusMessage:
-          operation.delivery.acceptingOrders
+          operation.availability.acceptingOrders
             ? 'Aberto agora'
-            : operation.onlineOrders.closedMessage ?? 'Indisponivel no momento',
-        unavailableReason: operation.delivery.unavailableReason,
+            : operation.onlineOrders.closedMessage ?? 'Fechado no momento',
+        unavailableReason: operation.availability.reason,
+        availabilityReason: operation.availability.reason,
+        timezone: operation.availability.timezone,
+        nextOpeningAt: operation.availability.nextOpeningAt,
+        nextClosingAt: operation.availability.nextClosingAt,
         estimatedPreparationMinutes:
           operation.onlineOrders.estimatedPreparationMinutes,
         estimatedDeliveryMinutes:

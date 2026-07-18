@@ -16,6 +16,7 @@ import {
   orderNotificationEvents
 } from '../../notifications/services/order-notification-service.js'
 import { mapEventOrderToUnifiedOrder } from '../presenters/unified-order-presenter.js'
+import { buildConfigurableCatalogOrderItems } from './configurable-order-item-builder.js'
 
 interface CreateManualSaleServiceRequest {
   organizationId: string
@@ -34,6 +35,7 @@ interface CreateManualSaleServiceRequest {
       optionGroupId: string
       optionIds: string[]
     }[]
+    selectedFlavorProductIds?: string[]
   }[]
 }
 
@@ -145,106 +147,25 @@ export class CreateManualSaleService {
         }
       }
 
-      let totalInCents = 0
-
-      const orderItemsData = []
-
-      for (const item of items) {
-        const eventProduct = eventProducts.find(
-          ep => ep.id === item.productId
-        )!
-        const catalogProduct = eventProduct.catalogProduct
-        const selectedOptionsMap = new Map<string, string[]>()
-
-        for (const selected of item.selectedOptions ?? []) {
-          if (selectedOptionsMap.has(selected.optionGroupId)) {
-            throw new Error(`Duplicate option group: ${selected.optionGroupId}`)
-          }
-
-          selectedOptionsMap.set(selected.optionGroupId, selected.optionIds)
-        }
-
-        const optionSnapshots = []
-        let optionsTotalDeltaInCents = 0
-
-        for (const group of catalogProduct.optionGroups) {
-          const selectedOptionIds = selectedOptionsMap.get(group.id) || []
-
-          if (group.required && selectedOptionIds.length === 0) {
-            throw new Error(`Option group "${group.name}" is required`)
-          }
-
-          if (selectedOptionIds.length < group.minSelections) {
-            throw new Error(`Option group "${group.name}" requires at least ${group.minSelections} selections`)
-          }
-
-          if (selectedOptionIds.length > group.maxSelections) {
-            throw new Error(`Option group "${group.name}" allows at most ${group.maxSelections} selections`)
-          }
-
-          for (const optionId of selectedOptionIds) {
-            const option = group.options.find(currentOption => currentOption.id === optionId)
-
-            if (!option) {
-              throw new Error(`Option "${optionId}" not found in group "${group.name}"`)
+      const eventProductById = new Map(eventProducts.map(ep => [ep.id, ep]))
+      const { orderItemsData, subtotalInCents: totalInCents } =
+        await buildConfigurableCatalogOrderItems({
+          tx,
+          organizationId,
+          items: items.map(item => {
+            const eventProduct = eventProductById.get(item.productId)!
+            return {
+              catalogProductId: eventProduct.catalogProductId,
+              quantity: item.quantity,
+              notes: item.notes,
+              selectedOptions: item.selectedOptions,
+              selectedFlavorProductIds: item.selectedFlavorProductIds,
+              basePriceInCents:
+                eventProduct.priceInCents ??
+                eventProduct.catalogProduct.priceInCents
             }
-
-            optionsTotalDeltaInCents += option.priceDeltaInCents
-
-            let linkedProductName: string | null = null
-
-            if (option.linkedProductId) {
-              const linkedProduct = await tx.catalogProduct.findFirst({
-                where: {
-                  id: option.linkedProductId,
-                  organizationId,
-                  active: true
-                },
-                select: {
-                  name: true
-                }
-              })
-
-              if (linkedProduct) {
-                linkedProductName = linkedProduct.name
-              }
-            }
-
-            optionSnapshots.push({
-              optionGroupId: group.id,
-              optionId: option.id,
-              linkedProductId: option.linkedProductId,
-              groupName: group.name,
-              optionName: linkedProductName || option.name,
-              priceDeltaInCents: option.priceDeltaInCents
-            })
-          }
-
-          selectedOptionsMap.delete(group.id)
-        }
-
-        if (selectedOptionsMap.size > 0) {
-          const unknownGroupIds = Array.from(selectedOptionsMap.keys())
-          throw new Error(`Unknown option groups: ${unknownGroupIds.join(', ')}`)
-        }
-
-        const basePriceInCents = eventProduct.priceInCents ?? catalogProduct.priceInCents
-        const unitPriceInCents = basePriceInCents + optionsTotalDeltaInCents
-        const itemTotal = unitPriceInCents * item.quantity
-        totalInCents += itemTotal
-
-        orderItemsData.push({
-          catalogProductId: eventProduct.catalogProductId,
-          quantity: item.quantity,
-          unitPriceInCents,
-          totalInCents: itemTotal,
-          productName: catalogProduct.name,
-          notes: item.notes ?? null,
-          options: {
-            create: optionSnapshots
-          }
+          })
         })
-      }
 
       const isPaid = paymentStatus === PaymentStatus.PAID
 
@@ -273,7 +194,8 @@ export class CreateManualSaleService {
                   catalogCategory: true
                 }
               },
-              options: true
+              options: true,
+              flavors: true
             }
           }
         }

@@ -35,6 +35,8 @@ export async function createCatalogProductController(
       description: body.description,
       imageUrl: body.imageUrl,
       priceInCents: body.priceInCents,
+      pricingRule: body.pricingRule,
+      halfAndHalfFlavorCategoryId: body.halfAndHalfFlavorCategoryId,
       sortOrder: body.sortOrder
     })
 

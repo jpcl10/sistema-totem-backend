@@ -27,6 +27,7 @@ interface CreateOnlineOrderItemRequest {
     optionGroupId: string
     optionIds: string[]
   }[]
+  selectedFlavorProductIds?: string[]
 }
 
 interface CreateOnlineOrderServiceRequest {
@@ -63,6 +64,17 @@ const pickupDeliverySnapshot = {
   reference: null
 }
 
+export class StoreClosedError extends Error {
+  code = 'STORE_CLOSED'
+
+  constructor(
+    public reason: string | null,
+    public nextOpeningAt: string | null
+  ) {
+    super('STORE_CLOSED')
+  }
+}
+
 export class CreateOnlineOrderService {
   async execute(request: CreateOnlineOrderServiceRequest) {
     const store = await prisma.onlineStore.findUnique({
@@ -85,6 +97,59 @@ export class CreateOnlineOrderService {
         organizationId: store.organizationId,
         items: request.items
       })
+
+      const deliverySnapshot =
+        request.fulfillment === OnlineOrderFulfillmentType.DELIVERY
+          ? {
+              address: request.deliveryAddress,
+              number: request.deliveryNumber,
+              neighborhood: request.deliveryNeighborhood,
+              complement: request.deliveryComplement ?? null,
+              reference: request.deliveryReference ?? null
+            }
+          : pickupDeliverySnapshot
+
+      const operation =
+        await new OnlineStoreSettingsService().resolveOperation({
+          organizationId: store.organizationId,
+          storeId: store.id,
+          channel: SettingsChannel.DIGITAL_MENU,
+          fulfillmentType: request.fulfillment,
+          subtotalInCents,
+          neighborhood: deliverySnapshot.neighborhood
+        })
+
+      if (!operation.delivery.acceptingOrders) {
+        const closedReasons = new Set([
+          'STORE_INACTIVE',
+          'ONLINE_ORDERING_DISABLED',
+          'MANUALLY_CLOSED',
+          'OUTSIDE_BUSINESS_HOURS'
+        ])
+
+        if (!closedReasons.has(operation.delivery.unavailableReason ?? '')) {
+          throw new Error(operation.delivery.unavailableReason ?? 'Store is currently unavailable')
+        }
+
+        throw new StoreClosedError(
+          operation.delivery.unavailableReason,
+          operation.delivery.nextOpeningAt
+        )
+      }
+
+      if (
+        request.fulfillment === OnlineOrderFulfillmentType.DELIVERY &&
+        operation.delivery.enabled === false
+      ) {
+        throw new Error('Delivery is disabled')
+      }
+
+      if (
+        request.fulfillment === OnlineOrderFulfillmentType.PICKUP &&
+        operation.delivery.pickupEnabled === false
+      ) {
+        throw new Error('Pickup is disabled')
+      }
 
       const { customer, address: customerAddress } =
         await new ResolveOrderCustomerIdentityService().execute({
@@ -121,47 +186,19 @@ export class CreateOnlineOrderService {
           fallbackCustomerPhone: request.customerPhone
         })
 
-      const deliverySnapshot =
+      const persistedDeliverySnapshot =
         request.fulfillment === OnlineOrderFulfillmentType.DELIVERY
           ? {
-              address: customerAddress?.street ?? request.deliveryAddress,
-              number: customerAddress?.number ?? request.deliveryNumber,
+              address: customerAddress?.street ?? deliverySnapshot.address,
+              number: customerAddress?.number ?? deliverySnapshot.number,
               neighborhood:
-                customerAddress?.neighborhood ?? request.deliveryNeighborhood,
+                customerAddress?.neighborhood ?? deliverySnapshot.neighborhood,
               complement:
-                customerAddress?.complement ?? request.deliveryComplement ?? null,
+                customerAddress?.complement ?? deliverySnapshot.complement,
               reference:
-                customerAddress?.reference ?? request.deliveryReference ?? null
+                customerAddress?.reference ?? deliverySnapshot.reference
             }
-          : pickupDeliverySnapshot
-
-      const operation =
-        await new OnlineStoreSettingsService().resolveOperation({
-          organizationId: store.organizationId,
-          storeId: store.id,
-          channel: SettingsChannel.DIGITAL_MENU,
-          fulfillmentType: request.fulfillment,
-          subtotalInCents,
-          neighborhood: deliverySnapshot.neighborhood
-        })
-
-      if (!operation.delivery.acceptingOrders) {
-        throw new Error(operation.delivery.unavailableReason ?? 'Store is currently unavailable')
-      }
-
-      if (
-        request.fulfillment === OnlineOrderFulfillmentType.DELIVERY &&
-        operation.delivery.enabled === false
-      ) {
-        throw new Error('Delivery is disabled')
-      }
-
-      if (
-        request.fulfillment === OnlineOrderFulfillmentType.PICKUP &&
-        operation.delivery.pickupEnabled === false
-      ) {
-        throw new Error('Pickup is disabled')
-      }
+          : deliverySnapshot
 
       const deliveryFeeInCents =
         request.fulfillment === OnlineOrderFulfillmentType.DELIVERY
@@ -189,11 +226,11 @@ export class CreateOnlineOrderService {
           customerAddressId: customerAddress?.id ?? null,
           customerName: customer?.name ?? request.customerName,
           customerPhone: customer?.phone ?? request.customerPhone ?? '',
-          deliveryAddress: deliverySnapshot.address,
-          deliveryNumber: deliverySnapshot.number,
-          deliveryNeighborhood: deliverySnapshot.neighborhood,
-          deliveryComplement: deliverySnapshot.complement,
-          deliveryReference: deliverySnapshot.reference,
+          deliveryAddress: persistedDeliverySnapshot.address,
+          deliveryNumber: persistedDeliverySnapshot.number,
+          deliveryNeighborhood: persistedDeliverySnapshot.neighborhood,
+          deliveryComplement: persistedDeliverySnapshot.complement,
+          deliveryReference: persistedDeliverySnapshot.reference,
           paymentMethod: request.paymentMethod,
           changeForInCents:
             request.paymentMethod === OnlineOrderPaymentMethod.CASH
@@ -225,7 +262,8 @@ export class CreateOnlineOrderService {
           },
           items: {
             include: {
-              options: true
+              options: true,
+              flavors: true
             }
           }
         }

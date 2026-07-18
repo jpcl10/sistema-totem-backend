@@ -1,5 +1,9 @@
 import { prisma } from '../../../../lib/prisma.js'
-import { AuditAction, UserRole } from '@prisma/client'
+import {
+  AuditAction,
+  CatalogProductPricingRule,
+  UserRole
+} from '@prisma/client'
 import { CreateAuditLogService } from '../../../audit-logs/services/create-audit-log-service.js'
 
 interface UpdateCatalogProductServiceRequest {
@@ -20,6 +24,8 @@ interface UpdateCatalogProductServiceRequest {
   active?: boolean
 
   priceInCents?: number
+  pricingRule?: CatalogProductPricingRule
+  halfAndHalfFlavorCategoryId?: string | null
   sortOrder?: number
 }
 
@@ -35,6 +41,8 @@ export class UpdateCatalogProductService {
     imageUrl,
     active,
     priceInCents,
+    pricingRule,
+    halfAndHalfFlavorCategoryId,
     sortOrder
   }: UpdateCatalogProductServiceRequest) {
     const product =
@@ -60,6 +68,28 @@ export class UpdateCatalogProductService {
 
       if (!category) {
         throw new Error('Category not found')
+      }
+    }
+
+    const effectivePricingRule = pricingRule ?? product.pricingRule
+    const effectiveHalfAndHalfFlavorCategoryId =
+      effectivePricingRule === CatalogProductPricingRule.MAX_SELECTED_FLAVOR
+        ? (halfAndHalfFlavorCategoryId !== undefined
+            ? halfAndHalfFlavorCategoryId
+            : (product.halfAndHalfFlavorCategoryId ?? product.catalogCategoryId))
+        : null
+
+    if (effectiveHalfAndHalfFlavorCategoryId) {
+      const flavorCategory =
+        await prisma.catalogCategory.findFirst({
+          where: {
+            id: effectiveHalfAndHalfFlavorCategoryId,
+            organizationId
+          }
+        })
+
+      if (!flavorCategory) {
+        throw new Error('Flavor category not found')
       }
     }
 
@@ -107,6 +137,24 @@ export class UpdateCatalogProductService {
       auditMetadata.priceInCents = product.priceInCents
     }
 
+    if (pricingRule !== undefined && pricingRule !== product.pricingRule) {
+      changedFields.push('pricingRule')
+      auditMetadata.pricingRule = pricingRule
+    } else {
+      auditMetadata.pricingRule = product.pricingRule
+    }
+
+    if (
+      effectiveHalfAndHalfFlavorCategoryId !== product.halfAndHalfFlavorCategoryId
+    ) {
+      changedFields.push('halfAndHalfFlavorCategoryId')
+      auditMetadata.halfAndHalfFlavorCategoryId =
+        effectiveHalfAndHalfFlavorCategoryId
+    } else {
+      auditMetadata.halfAndHalfFlavorCategoryId =
+        product.halfAndHalfFlavorCategoryId
+    }
+
     // Add changed fields to metadata
     if (changedFields.length > 0) {
       auditMetadata.changedFields = changedFields
@@ -145,7 +193,19 @@ export class UpdateCatalogProductService {
           ...(priceInCents !== undefined && {
             priceInCents
           }),
-          
+
+          ...(pricingRule !== undefined && {
+            pricingRule
+          }),
+
+          ...(halfAndHalfFlavorCategoryId !== undefined ||
+          pricingRule !== undefined
+            ? {
+                halfAndHalfFlavorCategoryId:
+                  effectiveHalfAndHalfFlavorCategoryId
+              }
+            : {}),
+
           ...(sortOrder !== undefined && {
             sortOrder
           })

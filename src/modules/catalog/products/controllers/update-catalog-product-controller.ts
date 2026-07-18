@@ -42,6 +42,8 @@ export async function updateCatalogProductController(
 
       active: body.active,
       priceInCents: body.priceInCents,
+      pricingRule: body.pricingRule,
+      halfAndHalfFlavorCategoryId: body.halfAndHalfFlavorCategoryId,
       sortOrder: body.sortOrder
     })
 

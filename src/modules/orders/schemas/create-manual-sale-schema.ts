@@ -20,7 +20,8 @@ export const createManualSaleBodySchema = z.object({
           optionGroupId: z.string().min(1),
           optionIds: z.array(z.string().min(1)).min(1)
         })
-      ).optional()
+      ).optional(),
+      selectedFlavorProductIds: z.array(z.string().min(1)).optional()
     })
   ).min(1)
 })

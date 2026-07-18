@@ -5,7 +5,7 @@ import {
 import { FastifyReply, FastifyRequest } from 'fastify'
 
 import { createOnlineOrderParamsSchema, createOnlineOrderSchema } from '../schemas/create-online-order-schema.js'
-import { CreateOnlineOrderService } from '../services/create-online-order-service.js'
+import { CreateOnlineOrderService, StoreClosedError } from '../services/create-online-order-service.js'
 import { isOnlineOrderItemValidationError } from '../services/online-order-items-builder.js'
 
 export async function createOnlineOrderController(
@@ -45,6 +45,15 @@ export async function createOnlineOrderController(
 
     return reply.status(201).send(result)
   } catch (error) {
+    if (error instanceof StoreClosedError) {
+      return reply.status(409).send({
+        code: error.code,
+        message: 'O estabelecimento está fechado no momento.',
+        reason: error.reason,
+        nextOpeningAt: error.nextOpeningAt
+      })
+    }
+
     if (error instanceof Error) {
       if (error.message === 'Store not found') {
         return reply.status(404).send({ message: 'Loja n\u00e3o encontrada' })

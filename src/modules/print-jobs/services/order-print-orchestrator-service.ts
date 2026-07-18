@@ -250,7 +250,8 @@ export class OrderPrintOrchestratorService {
                 catalogCategory: true
               }
             },
-            options: true
+            options: true,
+            flavors: true
           }
         }
       }
@@ -327,10 +328,18 @@ export class OrderPrintOrchestratorService {
       quantity: item.quantity,
       sector: item.catalogProduct?.catalogCategory?.sector ?? null,
       notes: item.notes,
-      options: item.options.map(option => ({
-        groupName: option.groupName,
-        optionName: option.optionName
-      }))
+      options: [
+        ...item.flavors
+          .sort((a, b) => a.position - b.position)
+          .map(flavor => ({
+            groupName: 'Meio a meio',
+            optionName: `1/2 ${flavor.flavorName}`
+          })),
+        ...item.options.map(option => ({
+          groupName: option.groupName,
+          optionName: option.optionName
+        }))
+      ]
     }))
 
     const basePayload: Prisma.InputJsonObject = {
@@ -401,7 +410,8 @@ export class OrderPrintOrchestratorService {
                 catalogCategory: true
               }
             },
-            options: true
+            options: true,
+            flavors: true
           }
         }
       }
@@ -456,10 +466,18 @@ export class OrderPrintOrchestratorService {
       quantity: item.quantity,
       sector: item.catalogProduct?.catalogCategory?.sector ?? null,
       notes: item.notes,
-      options: item.options.map(option => ({
-        groupName: option.groupName,
-        optionName: option.optionName
-      }))
+      options: [
+        ...item.flavors
+          .sort((a, b) => a.position - b.position)
+          .map(flavor => ({
+            groupName: 'Meio a meio',
+            optionName: `1/2 ${flavor.flavorName}`
+          })),
+        ...item.options.map(option => ({
+          groupName: option.groupName,
+          optionName: option.optionName
+        }))
+      ]
     }))
 
     const isDelivery = order.fulfillmentType === 'DELIVERY'

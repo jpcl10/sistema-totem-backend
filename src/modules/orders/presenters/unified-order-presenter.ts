@@ -85,6 +85,11 @@ export type UnifiedOrderDTO = {
       optionName: string
       priceDeltaInCents: number
     }[]
+    flavors?: {
+      flavorName: string
+      priceInCents: number
+      position: number
+    }[]
   }[]
   printing: {
     enabled: boolean
@@ -200,6 +205,17 @@ function mapItemOptions(options: any[] | undefined) {
   }))
 }
 
+function mapItemFlavors(flavors: any[] | undefined) {
+  return (flavors ?? [])
+    .slice()
+    .sort((a, b) => Number(a.position ?? 0) - Number(b.position ?? 0))
+    .map(flavor => ({
+      flavorName: flavor.flavorName,
+      priceInCents: flavor.priceInCents,
+      position: flavor.position
+    }))
+}
+
 function countPaymentTransactions(paymentTransactions: unknown) {
   if (Array.isArray(paymentTransactions)) {
     return paymentTransactions.length
@@ -273,7 +289,8 @@ export function mapEventOrderToUnifiedOrder(order: any): UnifiedOrderDTO {
       unitPriceInCents: item.unitPriceInCents,
       totalInCents: item.totalInCents,
       notes: null,
-      options: mapItemOptions(item.options)
+      options: mapItemOptions(item.options),
+      flavors: mapItemFlavors(item.flavors)
     })),
     printing: {
       enabled: Boolean(order.event?.printingEnabled),
@@ -360,7 +377,8 @@ export function mapOnlineOrderToUnifiedOrder(order: any): UnifiedOrderDTO {
       unitPriceInCents: item.unitPriceInCents,
       totalInCents: item.totalInCents,
       notes: item.notes ?? null,
-      options: mapItemOptions(item.options)
+      options: mapItemOptions(item.options),
+      flavors: mapItemFlavors(item.flavors)
     })),
     printing: {
       enabled: Boolean(order.store?.printingEnabled),

@@ -17,6 +17,8 @@ import { listOnlineOrdersController } from '../controllers/list-online-orders-co
 import { updateOnlineOrderStatusController } from '../controllers/update-online-order-status-controller.js'
 import { getOnlineStoreSummaryController } from '../controllers/get-online-store-summary-controller.js'
 import { createManualOnlineOrderController } from '../controllers/create-manual-online-order-controller.js'
+import { getOnlineStoreAvailabilityController } from '../controllers/get-online-store-availability-controller.js'
+import { updateOnlineStoreAvailabilityController } from '../controllers/update-online-store-availability-controller.js'
 
 export async function onlineStoresRoutes(app: FastifyInstance) {
   // Public routes
@@ -101,6 +103,18 @@ export async function onlineStoresRoutes(app: FastifyInstance) {
     '/online-stores/:storeId/summary',
     { preHandler: [verifyJWT, requireTenantContext] },
     getOnlineStoreSummaryController
+  )
+
+  app.get(
+    '/online-stores/:storeId/availability',
+    { preHandler: [verifyJWT, requireTenantContext] },
+    getOnlineStoreAvailabilityController
+  )
+
+  app.patch(
+    '/online-stores/:storeId/availability',
+    { preHandler: [verifyJWT, requireTenantContext] },
+    updateOnlineStoreAvailabilityController
   )
 
   app.get(

@@ -10,5 +10,7 @@ export const updateCatalogProductSchema = z.object({
   imageUrl: r2UrlSchema.optional().nullable(),
   active: z.boolean().optional(),
   priceInCents: z.number().int().min(0).optional(),
+  pricingRule: z.enum(['STANDARD', 'MAX_SELECTED_FLAVOR']).optional(),
+  halfAndHalfFlavorCategoryId: z.string().min(1).nullable().optional(),
   sortOrder: z.number().int().min(0).optional()
 })

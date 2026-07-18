@@ -15,6 +15,10 @@ export const createCatalogProductSchema =
     imageUrl: r2UrlSchema.optional(),
 
     priceInCents: z.number().int().min(0),
-    
+
+    pricingRule: z.enum(['STANDARD', 'MAX_SELECTED_FLAVOR']).optional(),
+
+    halfAndHalfFlavorCategoryId: z.string().min(1).nullable().optional(),
+
     sortOrder: z.number().int().min(0).optional()
   })

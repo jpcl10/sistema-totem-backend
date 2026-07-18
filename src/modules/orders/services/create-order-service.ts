@@ -10,6 +10,7 @@ import {
   orderNotificationEvents
 } from '../../notifications/services/order-notification-service.js'
 import { mapEventOrderToUnifiedOrder } from '../presenters/unified-order-presenter.js'
+import { buildConfigurableCatalogOrderItems } from './configurable-order-item-builder.js'
 
 interface CreateOrderServiceRequest {
   eventSlug: string
@@ -28,6 +29,7 @@ interface CreateOrderServiceRequest {
       optionGroupId: string
       optionIds: string[]
     }[]
+    selectedFlavorProductIds?: string[]
   }[]
 }
 
@@ -169,114 +171,24 @@ export class CreateOrderService {
         }
       }
 
-      // Calcular total e preparar order items
-      let totalInCents = 0
-      const orderItemsData = []
-
-      for (const item of items) {
-        const eventProduct = eventProducts.find(
-          ep => ep.id === item.productId
-        )!
-        const catalogProduct = eventProduct.catalogProduct
-        const optionGroups = catalogProduct.optionGroups
-
-        // Validate selected options
-        const selectedOptionsMap = new Map<string, string[]>()
-        if (item.selectedOptions) {
-          for (const selected of item.selectedOptions) {
-            if (selectedOptionsMap.has(selected.optionGroupId)) {
-              throw new Error(`Duplicate option group: ${selected.optionGroupId}`)
+      const eventProductById = new Map(eventProducts.map(ep => [ep.id, ep]))
+      const { orderItemsData, subtotalInCents: totalInCents } =
+        await buildConfigurableCatalogOrderItems({
+          tx,
+          organizationId: event.organizationId,
+          items: items.map(item => {
+            const eventProduct = eventProductById.get(item.productId)!
+            return {
+              catalogProductId: eventProduct.catalogProductId,
+              quantity: item.quantity,
+              selectedOptions: item.selectedOptions,
+              selectedFlavorProductIds: item.selectedFlavorProductIds,
+              basePriceInCents:
+                eventProduct.priceInCents ??
+                eventProduct.catalogProduct.priceInCents
             }
-            selectedOptionsMap.set(selected.optionGroupId, selected.optionIds)
-          }
-        }
-
-        // Check required groups and min/max selections
-        const optionSnapshots = []
-        let optionsTotalDeltaInCents = 0
-
-        for (const group of optionGroups) {
-          const selectedOptionIds = selectedOptionsMap.get(group.id) || []
-
-          // Check required
-          if (group.required && selectedOptionIds.length === 0) {
-            throw new Error(`Option group "${group.name}" is required`)
-          }
-
-          // Check min selections
-          if (selectedOptionIds.length < group.minSelections) {
-            throw new Error(`Option group "${group.name}" requires at least ${group.minSelections} selections`)
-          }
-
-          // Check max selections
-          if (selectedOptionIds.length > group.maxSelections) {
-            throw new Error(`Option group "${group.name}" allows at most ${group.maxSelections} selections`)
-          }
-
-          // Validate each selected option
-          for (const optionId of selectedOptionIds) {
-            const option = group.options.find(o => o.id === optionId)
-            if (!option) {
-              throw new Error(`Option "${optionId}" not found in group "${group.name}"`)
-            }
-
-            optionsTotalDeltaInCents += option.priceDeltaInCents
-
-            // Get linked product name if applicable
-            let linkedProductName: string | null = null
-            if (option.linkedProductId) {
-              const linkedProduct = await tx.catalogProduct.findFirst({
-                where: {
-                  id: option.linkedProductId,
-                  organizationId: event.organizationId,
-                  active: true
-                },
-                select: {
-                  name: true
-                }
-              })
-              if (linkedProduct) {
-                linkedProductName = linkedProduct.name
-              }
-            }
-
-            optionSnapshots.push({
-              optionGroupId: group.id,
-              optionId: option.id,
-              linkedProductId: option.linkedProductId,
-              groupName: group.name,
-              optionName: linkedProductName || option.name,
-              priceDeltaInCents: option.priceDeltaInCents
-            })
-          }
-
-          // Remove from map to check for unknown groups later
-          selectedOptionsMap.delete(group.id)
-        }
-
-        // Check for unknown option groups
-        if (selectedOptionsMap.size > 0) {
-          const unknownGroupIds = Array.from(selectedOptionsMap.keys())
-          throw new Error(`Unknown option groups: ${unknownGroupIds.join(', ')}`)
-        }
-
-        // Calculate prices
-        const basePriceInCents = eventProduct.priceInCents ?? catalogProduct.priceInCents
-        const unitPriceInCents = basePriceInCents + optionsTotalDeltaInCents
-        const itemTotalInCents = unitPriceInCents * item.quantity
-        totalInCents += itemTotalInCents
-
-        orderItemsData.push({
-          catalogProductId: eventProduct.catalogProductId,
-          quantity: item.quantity,
-          unitPriceInCents: unitPriceInCents,
-          totalInCents: itemTotalInCents,
-          productName: catalogProduct.name,
-          options: {
-            create: optionSnapshots
-          }
+          })
         })
-      }
 
       // Criar pedido
       const createdOrder = await tx.order.create({
@@ -309,7 +221,8 @@ export class CreateOrderService {
                   catalogCategory: true
                 }
               },
-              options: true
+              options: true,
+              flavors: true
             }
           }
         }

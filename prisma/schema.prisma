@@ -196,6 +196,12 @@ enum SettingsChannel {
   COUNTER
 }
 
+enum StoreManualOverrideMode {
+  AUTO
+  FORCE_OPEN
+  FORCE_CLOSED
+}
+
 enum BrandingTheme {
   LIGHT
   DARK
@@ -470,6 +476,7 @@ model OrderItem {
   order          Order             @relation(fields: [orderId], references: [id])
   catalogProduct CatalogProduct?   @relation(fields: [catalogProductId], references: [id])
   options        OrderItemOption[]
+  flavors        OrderItemFlavor[]
 }
 
 model PaymentTransaction {
@@ -557,8 +564,9 @@ model CatalogCategory {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
-  organization Organization     @relation(fields: [organizationId], references: [id])
-  products     CatalogProduct[]
+  organization        Organization     @relation(fields: [organizationId], references: [id])
+  products            CatalogProduct[]
+  halfAndHalfProducts CatalogProduct[] @relation("HalfAndHalfFlavorCategory")
 
   @@unique([organizationId, slug])
 }
@@ -574,22 +582,29 @@ model CatalogProduct {
   imageUrl     String?
   priceInCents Int
 
+  pricingRule                 CatalogProductPricingRule @default(STANDARD)
+  halfAndHalfFlavorCategoryId String?
+
   active    Boolean @default(true)
   sortOrder Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
-  organization    Organization    @relation(fields: [organizationId], references: [id])
-  catalogCategory CatalogCategory @relation(fields: [catalogCategoryId], references: [id])
+  organization              Organization     @relation(fields: [organizationId], references: [id])
+  catalogCategory           CatalogCategory  @relation(fields: [catalogCategoryId], references: [id])
+  halfAndHalfFlavorCategory CatalogCategory? @relation("HalfAndHalfFlavorCategory", fields: [halfAndHalfFlavorCategoryId], references: [id])
 
-  eventProducts        EventProduct[]
-  orderItems           OrderItem[]
-  onlineOrderItems     OnlineOrderItem[]
-  optionGroups         CatalogProductOptionGroup[]
-  linkedProductOptions CatalogProductOption[]      @relation("CatalogProductOptionLinkedProduct")
+  eventProducts          EventProduct[]
+  orderItems             OrderItem[]
+  onlineOrderItems       OnlineOrderItem[]
+  orderItemFlavors       OrderItemFlavor[]
+  onlineOrderItemFlavors OnlineOrderItemFlavor[]
+  optionGroups           CatalogProductOptionGroup[]
+  linkedProductOptions   CatalogProductOption[]      @relation("CatalogProductOptionLinkedProduct")
 
   @@unique([organizationId, slug])
+  @@index([halfAndHalfFlavorCategoryId])
 }
 
 model EventProduct {
@@ -1056,6 +1071,7 @@ enum AuditAction {
   BUSINESS_HOUR_EXCEPTION_CREATED
   BUSINESS_HOUR_EXCEPTION_UPDATED
   BUSINESS_HOUR_EXCEPTION_DELETED
+  ONLINE_STORE_AVAILABILITY_UPDATED
   ONLINE_STORE_SETTINGS_UPDATED
   DELIVERY_SETTINGS_UPDATED
   DELIVERY_FEE_RULE_CREATED
@@ -1246,6 +1262,11 @@ enum CustomerSource {
   WHATSAPP
 }
 
+enum CatalogProductPricingRule {
+  STANDARD
+  MAX_SELECTED_FLAVOR
+}
+
 model OrganizationModule {
   id             String    @id @default(cuid())
   organizationId String
@@ -1325,6 +1346,12 @@ model OnlineStore {
   bannerUrl      String?
   isOpen         Boolean @default(true)
   active         Boolean @default(true)
+
+  manualOverrideMode            StoreManualOverrideMode @default(AUTO)
+  manualOverrideUntil           DateTime?
+  manualOverrideReason          String?
+  manualOverrideUpdatedAt       DateTime?
+  manualOverrideUpdatedByUserId String?
 
   printingEnabled  Boolean   @default(false)
   autoPrintEnabled Boolean   @default(false)
@@ -1521,9 +1548,46 @@ model OnlineOrderItem {
   product        OnlineProduct?          @relation(fields: [productId], references: [id])
   catalogProduct CatalogProduct?         @relation(fields: [catalogProductId], references: [id])
   options        OnlineOrderItemOption[]
+  flavors        OnlineOrderItemFlavor[]
 
   @@index([orderId])
   @@index([productId])
+  @@index([catalogProductId])
+}
+
+model OrderItemFlavor {
+  id               String  @id @default(cuid())
+  orderItemId      String
+  catalogProductId String?
+  position         Int
+  flavorName       String
+  priceInCents     Int
+
+  orderItem      OrderItem       @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  catalogProduct CatalogProduct? @relation(fields: [catalogProductId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([orderItemId, position])
+  @@index([orderItemId])
+  @@index([catalogProductId])
+}
+
+model OnlineOrderItemFlavor {
+  id                String  @id @default(cuid())
+  onlineOrderItemId String
+  catalogProductId  String?
+  position          Int
+  flavorName        String
+  priceInCents      Int
+
+  onlineOrderItem OnlineOrderItem @relation(fields: [onlineOrderItemId], references: [id], onDelete: Cascade)
+  catalogProduct  CatalogProduct? @relation(fields: [catalogProductId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([onlineOrderItemId, position])
+  @@index([onlineOrderItemId])
   @@index([catalogProductId])
 }
 

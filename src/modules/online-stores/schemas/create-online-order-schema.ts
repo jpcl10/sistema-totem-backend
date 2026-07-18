@@ -15,7 +15,8 @@ export const createOnlineOrderItemSchema = z.object({
   quantity: z.number().int().min(1),
   notes: z.string().nullable().optional(),
   selectedOptions: z.array(createOnlineOrderSelectedOptionSchema)
-    .optional()
+    .optional(),
+  selectedFlavorProductIds: z.array(z.string().min(1)).optional()
 })
   .superRefine((item, ctx) => {
     if (!item.productId && !item.catalogProductId) {
@@ -42,7 +43,8 @@ export const createOnlineOrderItemSchema = z.object({
     catalogProductId: item.catalogProductId ?? item.productId!,
     quantity: item.quantity,
     notes: item.notes ?? undefined,
-    selectedOptions: item.selectedOptions ?? []
+    selectedOptions: item.selectedOptions ?? [],
+    selectedFlavorProductIds: item.selectedFlavorProductIds ?? []
   }))
 
 export const createOnlineOrderSchema = z.object({

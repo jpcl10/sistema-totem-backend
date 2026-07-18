@@ -29,6 +29,7 @@ interface CreateManualOnlineOrderItemRequest {
     optionGroupId: string
     optionIds: string[]
   }[]
+  selectedFlavorProductIds?: string[]
 }
 
 interface CreateManualOnlineOrderDeliveryRequest {
@@ -252,7 +253,8 @@ export class CreateManualOnlineOrderService {
           },
           items: {
             include: {
-              options: true
+              options: true,
+              flavors: true
             }
           }
         }
@@ -322,7 +324,8 @@ export class CreateManualOnlineOrderService {
         },
         items: {
           include: {
-            options: true
+            options: true,
+            flavors: true
           }
         },
         printJobs: {

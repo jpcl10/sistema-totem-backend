@@ -15,7 +15,8 @@ const manualOnlineOrderItemSchema = z.object({
   catalogProductId: z.string().min(1).optional(),
   quantity: z.number().int().positive(),
   notes: z.string().trim().nullable().optional(),
-  selectedOptions: z.array(selectedOptionSchema).optional()
+  selectedOptions: z.array(selectedOptionSchema).optional(),
+  selectedFlavorProductIds: z.array(z.string().min(1)).optional()
 })
   .superRefine((item, ctx) => {
     if (!item.productId && !item.catalogProductId) {
@@ -42,7 +43,8 @@ const manualOnlineOrderItemSchema = z.object({
     catalogProductId: item.catalogProductId ?? item.productId!,
     quantity: item.quantity,
     notes: item.notes ?? null,
-    selectedOptions: item.selectedOptions ?? []
+    selectedOptions: item.selectedOptions ?? [],
+    selectedFlavorProductIds: item.selectedFlavorProductIds ?? []
   }))
 
 export const createManualOnlineOrderSchema = z.object({
