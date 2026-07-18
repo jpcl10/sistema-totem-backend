@@ -127,7 +127,6 @@ export class GetPublicStoreService {
                     categoryId: flavor.catalogCategoryId
                   }))
               : [],
-          halfAndHalfFlavorProducts: [],
           sortOrder: product.sortOrder,
           optionGroups: product.optionGroups.map(group => ({
             id: group.id,
