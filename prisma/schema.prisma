@@ -583,6 +583,8 @@ model CatalogProduct {
   priceInCents Int
 
   pricingRule                 CatalogProductPricingRule @default(STANDARD)
+  supportsHalfAndHalf         Boolean                   @default(false)
+  canBeUsedAsFlavor           Boolean                   @default(true)
   halfAndHalfFlavorCategoryId String?
 
   active    Boolean @default(true)

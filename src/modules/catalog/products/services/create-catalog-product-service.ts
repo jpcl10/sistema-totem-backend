@@ -22,6 +22,8 @@ interface CreateCatalogProductServiceRequest {
 
   priceInCents: number
   pricingRule?: CatalogProductPricingRule
+  supportsHalfAndHalf?: boolean
+  canBeUsedAsFlavor?: boolean
   halfAndHalfFlavorCategoryId?: string | null
   sortOrder?: number
 }
@@ -37,6 +39,8 @@ export class CreateCatalogProductService {
     imageUrl,
     priceInCents,
     pricingRule,
+    supportsHalfAndHalf,
+    canBeUsedAsFlavor,
     halfAndHalfFlavorCategoryId,
     sortOrder
   }: CreateCatalogProductServiceRequest) {
@@ -52,7 +56,7 @@ export class CreateCatalogProductService {
       throw new Error('Category not found')
     }
 
-    if (pricingRule === CatalogProductPricingRule.MAX_SELECTED_FLAVOR) {
+    if (supportsHalfAndHalf || pricingRule === CatalogProductPricingRule.MAX_SELECTED_FLAVOR) {
       const flavorCategoryId = halfAndHalfFlavorCategoryId ?? categoryId
       const flavorCategory =
         await prisma.catalogCategory.findFirst({
@@ -90,7 +94,12 @@ export class CreateCatalogProductService {
                 imageUrl,
                 priceInCents,
                 pricingRule: pricingRule ?? CatalogProductPricingRule.STANDARD,
+                supportsHalfAndHalf:
+                  supportsHalfAndHalf ??
+                  pricingRule === CatalogProductPricingRule.MAX_SELECTED_FLAVOR,
+                canBeUsedAsFlavor: canBeUsedAsFlavor ?? true,
                 halfAndHalfFlavorCategoryId:
+                  supportsHalfAndHalf ||
                   pricingRule === CatalogProductPricingRule.MAX_SELECTED_FLAVOR
                     ? (halfAndHalfFlavorCategoryId ?? categoryId)
                     : null,
@@ -114,6 +123,8 @@ export class CreateCatalogProductService {
         imageUrl: product.imageUrl,
         priceInCents: product.priceInCents,
         pricingRule: product.pricingRule,
+        supportsHalfAndHalf: product.supportsHalfAndHalf,
+        canBeUsedAsFlavor: product.canBeUsedAsFlavor,
         halfAndHalfFlavorCategoryId: product.halfAndHalfFlavorCategoryId
       }
     })

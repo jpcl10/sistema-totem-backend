@@ -1,5 +1,4 @@
 import {
-  CatalogProductPricingRule,
   Prisma
 } from '@prisma/client'
 
@@ -165,46 +164,54 @@ export async function buildConfigurableCatalogOrderItems({
     }
 
     const selectedFlavorIds = item.selectedFlavorProductIds ?? []
-    let basePriceInCents = item.basePriceInCents ?? product.priceInCents
+    let basePriceInCents = product.priceInCents
     const flavorSnapshots = []
 
-    if (product.pricingRule === CatalogProductPricingRule.MAX_SELECTED_FLAVOR) {
-      if (selectedFlavorIds.length !== 2) {
-        throw new Error('Selecione exatamente dois sabores para a pizza meio a meio.')
+    if (selectedFlavorIds.length > 0) {
+      if (!product.supportsHalfAndHalf) {
+        throw new Error('Este produto n\u00e3o aceita pizza meio a meio.')
       }
 
-      if (isDuplicate(selectedFlavorIds)) {
-        throw new Error('Os dois sabores da pizza meio a meio devem ser diferentes.')
+      if (selectedFlavorIds.length !== 1) {
+        throw new Error('Selecione exatamente um segundo sabor para a pizza meio a meio.')
       }
 
-      const flavors = selectedFlavorIds.map(id => flavorMap.get(id))
+      const secondFlavor = flavorMap.get(selectedFlavorIds[0])
 
-      if (flavors.some(flavor => !flavor)) {
+      if (!secondFlavor) {
         throw new Error('Sabor inv\u00e1lido ou indispon\u00edvel.')
       }
 
       const allowedFlavorCategoryId =
         product.halfAndHalfFlavorCategoryId ?? product.catalogCategoryId
 
-      for (const flavor of flavors) {
-        if (
-          !flavor ||
-          flavor.organizationId !== organizationId ||
-          flavor.catalogCategoryId !== allowedFlavorCategoryId
-        ) {
-          throw new Error('Sabor inv\u00e1lido ou indispon\u00edvel.')
-        }
+      if (
+        secondFlavor.organizationId !== organizationId ||
+        secondFlavor.catalogCategoryId !== allowedFlavorCategoryId ||
+        !secondFlavor.canBeUsedAsFlavor ||
+        secondFlavor.pricingRule === 'MAX_SELECTED_FLAVOR'
+      ) {
+        throw new Error('Sabor inv\u00e1lido ou indispon\u00edvel.')
       }
 
-      basePriceInCents = Math.max(...flavors.map(flavor => flavor!.priceInCents))
-      flavorSnapshots.push(...flavors.map((flavor, index) => ({
-        catalogProductId: flavor!.id,
-        position: index + 1,
-        flavorName: flavor!.name,
-        priceInCents: flavor!.priceInCents
-      })))
-    } else if (selectedFlavorIds.length > 0) {
-      throw new Error('Este produto n\u00e3o aceita sele\u00e7\u00e3o de sabores.')
+      basePriceInCents = Math.max(
+        product.priceInCents,
+        secondFlavor.priceInCents
+      )
+      flavorSnapshots.push(
+        {
+          catalogProductId: product.id,
+          position: 1,
+          flavorName: product.name,
+          priceInCents: product.priceInCents
+        },
+        {
+          catalogProductId: secondFlavor.id,
+          position: 2,
+          flavorName: secondFlavor.name,
+          priceInCents: secondFlavor.priceInCents
+        }
+      )
     }
 
     const unitPriceInCents = basePriceInCents + optionsTotalDeltaInCents
@@ -237,9 +244,8 @@ export function isConfigurableOrderItemValidationError(message: string) {
   return (
     message === invalidConfigurableItemMessage ||
     message === 'Sabor inv\u00e1lido ou indispon\u00edvel.' ||
-    message === 'Selecione exatamente dois sabores para a pizza meio a meio.' ||
-    message === 'Os dois sabores da pizza meio a meio devem ser diferentes.' ||
-    message === 'Este produto n\u00e3o aceita sele\u00e7\u00e3o de sabores.' ||
+    message === 'Selecione exatamente um segundo sabor para a pizza meio a meio.' ||
+    message === 'Este produto n\u00e3o aceita pizza meio a meio.' ||
     message.startsWith('Grupo de op\u00e7\u00f5es duplicado:') ||
     message.startsWith('Op\u00e7\u00f5es duplicadas no grupo:') ||
     message.startsWith('O grupo de op\u00e7\u00f5es "') ||

@@ -91,6 +91,9 @@ export class GetPublicStoreService {
       if (product.catalogCategory.name === 'Itens do Combo') {
         continue
       }
+      if (product.pricingRule === 'MAX_SELECTED_FLAVOR') {
+        continue
+      }
       if (categoriesMap.has(product.catalogCategoryId)) {
         categoriesMap.get(product.catalogCategoryId)?.products.push({
           id: product.id,
@@ -100,18 +103,20 @@ export class GetPublicStoreService {
           imageUrl: product.imageUrl,
           priceInCents: product.priceInCents,
           pricingRule: product.pricingRule,
-          acceptsHalfAndHalf:
-            product.pricingRule === 'MAX_SELECTED_FLAVOR',
-          halfAndHalfFlavorProducts:
-            product.pricingRule === 'MAX_SELECTED_FLAVOR'
+          supportsHalfAndHalf: product.supportsHalfAndHalf,
+          acceptsHalfAndHalf: product.supportsHalfAndHalf,
+          halfAndHalfFlavorCategoryId: product.halfAndHalfFlavorCategoryId,
+          halfAndHalfFlavors:
+            product.supportsHalfAndHalf
               ? products
                   .filter(flavor =>
                     flavor.active &&
+                    flavor.canBeUsedAsFlavor &&
+                    flavor.pricingRule !== 'MAX_SELECTED_FLAVOR' &&
                     (
                       flavor.catalogCategoryId ===
                       (product.halfAndHalfFlavorCategoryId ?? product.catalogCategoryId)
-                    ) &&
-                    flavor.id !== product.id
+                    )
                   )
                   .map(flavor => ({
                     id: flavor.id,
@@ -122,6 +127,7 @@ export class GetPublicStoreService {
                     categoryId: flavor.catalogCategoryId
                   }))
               : [],
+          halfAndHalfFlavorProducts: [],
           sortOrder: product.sortOrder,
           optionGroups: product.optionGroups.map(group => ({
             id: group.id,

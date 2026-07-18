@@ -11,6 +11,8 @@ export const updateCatalogProductSchema = z.object({
   active: z.boolean().optional(),
   priceInCents: z.number().int().min(0).optional(),
   pricingRule: z.enum(['STANDARD', 'MAX_SELECTED_FLAVOR']).optional(),
+  supportsHalfAndHalf: z.boolean().optional(),
+  canBeUsedAsFlavor: z.boolean().optional(),
   halfAndHalfFlavorCategoryId: z.string().min(1).nullable().optional(),
   sortOrder: z.number().int().min(0).optional()
 })

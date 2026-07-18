@@ -25,6 +25,8 @@ interface UpdateCatalogProductServiceRequest {
 
   priceInCents?: number
   pricingRule?: CatalogProductPricingRule
+  supportsHalfAndHalf?: boolean
+  canBeUsedAsFlavor?: boolean
   halfAndHalfFlavorCategoryId?: string | null
   sortOrder?: number
 }
@@ -42,6 +44,8 @@ export class UpdateCatalogProductService {
     active,
     priceInCents,
     pricingRule,
+    supportsHalfAndHalf,
+    canBeUsedAsFlavor,
     halfAndHalfFlavorCategoryId,
     sortOrder
   }: UpdateCatalogProductServiceRequest) {
@@ -72,7 +76,12 @@ export class UpdateCatalogProductService {
     }
 
     const effectivePricingRule = pricingRule ?? product.pricingRule
+    const effectiveSupportsHalfAndHalf =
+      supportsHalfAndHalf ??
+      product.supportsHalfAndHalf ??
+      effectivePricingRule === CatalogProductPricingRule.MAX_SELECTED_FLAVOR
     const effectiveHalfAndHalfFlavorCategoryId =
+      effectiveSupportsHalfAndHalf ||
       effectivePricingRule === CatalogProductPricingRule.MAX_SELECTED_FLAVOR
         ? (halfAndHalfFlavorCategoryId !== undefined
             ? halfAndHalfFlavorCategoryId
@@ -145,6 +154,26 @@ export class UpdateCatalogProductService {
     }
 
     if (
+      supportsHalfAndHalf !== undefined &&
+      supportsHalfAndHalf !== product.supportsHalfAndHalf
+    ) {
+      changedFields.push('supportsHalfAndHalf')
+      auditMetadata.supportsHalfAndHalf = supportsHalfAndHalf
+    } else {
+      auditMetadata.supportsHalfAndHalf = product.supportsHalfAndHalf
+    }
+
+    if (
+      canBeUsedAsFlavor !== undefined &&
+      canBeUsedAsFlavor !== product.canBeUsedAsFlavor
+    ) {
+      changedFields.push('canBeUsedAsFlavor')
+      auditMetadata.canBeUsedAsFlavor = canBeUsedAsFlavor
+    } else {
+      auditMetadata.canBeUsedAsFlavor = product.canBeUsedAsFlavor
+    }
+
+    if (
       effectiveHalfAndHalfFlavorCategoryId !== product.halfAndHalfFlavorCategoryId
     ) {
       changedFields.push('halfAndHalfFlavorCategoryId')
@@ -198,8 +227,17 @@ export class UpdateCatalogProductService {
             pricingRule
           }),
 
+          ...(supportsHalfAndHalf !== undefined && {
+            supportsHalfAndHalf
+          }),
+
+          ...(canBeUsedAsFlavor !== undefined && {
+            canBeUsedAsFlavor
+          }),
+
           ...(halfAndHalfFlavorCategoryId !== undefined ||
-          pricingRule !== undefined
+          pricingRule !== undefined ||
+          supportsHalfAndHalf !== undefined
             ? {
                 halfAndHalfFlavorCategoryId:
                   effectiveHalfAndHalfFlavorCategoryId
