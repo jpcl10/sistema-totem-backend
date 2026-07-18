@@ -18,6 +18,61 @@ interface CreateAuditLogServiceRequest {
   metadata?: Prisma.InputJsonValue | null
 }
 
+const sensitiveKeyPattern =
+  /(accessToken|refreshToken|token|secret|password|senha|privateKey|authorization|cardNumber|cvv|encryptedCredentials)/i
+
+function sanitizeAuditMetadataValue(
+  value: unknown
+): Prisma.InputJsonValue | null | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (value === null) {
+    return null
+  }
+
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  ) {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map(item => sanitizeAuditMetadataValue(item) ?? null) as Prisma.InputJsonArray
+  }
+
+  if (typeof value === 'object') {
+    const sanitized: Record<string, Prisma.InputJsonValue | null> = {}
+
+    for (const [key, nestedValue] of Object.entries(value)) {
+      if (sensitiveKeyPattern.test(key)) {
+        sanitized[key] = '[REDACTED]'
+        continue
+      }
+
+      const sanitizedValue = sanitizeAuditMetadataValue(nestedValue)
+      if (sanitizedValue !== undefined) {
+        sanitized[key] = sanitizedValue
+      }
+    }
+
+    return sanitized as Prisma.InputJsonObject
+  }
+
+  return undefined
+}
+
+export function sanitizeAuditMetadata(value: unknown): Prisma.InputJsonValue | undefined {
+  const sanitized = sanitizeAuditMetadataValue(value)
+  return sanitized === null
+    ? undefined
+    : sanitized
+}
+
 export class CreateAuditLogService {
   async execute({
     organizationId,
@@ -100,7 +155,7 @@ export class CreateAuditLogService {
         entityId: entityId ?? null,
         action,
         description: description ?? null,
-        metadata: metadata ?? undefined
+        metadata: sanitizeAuditMetadata(metadata)
       }
     })
 

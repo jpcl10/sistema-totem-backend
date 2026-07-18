@@ -45,10 +45,18 @@ export class PatchCatalogProductOptionGroupStatusService {
       userId,
       entity: 'CatalogProductOptionGroup',
       entityId: updatedOptionGroup.id,
-      action: AuditAction.PRODUCT_UPDATED,
+      action: AuditAction.PRODUCT_OPTION_CHANGED,
       description: active ? 'Grupo de opções ativado' : 'Grupo de opções desativado',
       metadata: {
-        active
+        productId: updatedOptionGroup.productId,
+        optionGroupId: updatedOptionGroup.id,
+        changedFields: ['active'],
+        beforeData: {
+          active: optionGroup.active
+        },
+        afterData: {
+          active: updatedOptionGroup.active
+        }
       }
     })
 

@@ -87,6 +87,36 @@ function changedFields(data: Record<string, unknown>) {
   return Object.keys(data)
 }
 
+function resolveAvailabilityAuditAction(
+  previousMode: ManualOverrideMode,
+  nextMode: ManualOverrideMode,
+  previousUntil: Date | null,
+  nextUntil: Date | null,
+  previousReason: string | null,
+  nextReason: string | null
+) {
+  if (previousMode !== nextMode) {
+    if (nextMode === 'FORCE_OPEN') {
+      return AuditAction.STORE_FORCE_OPENED
+    }
+
+    if (nextMode === 'FORCE_CLOSED') {
+      return AuditAction.STORE_FORCE_CLOSED
+    }
+
+    return AuditAction.STORE_RETURNED_TO_AUTO
+  }
+
+  if (
+    previousUntil?.toISOString() !== nextUntil?.toISOString() ||
+    previousReason !== nextReason
+  ) {
+    return AuditAction.STORE_AVAILABILITY_OVERRIDE_UPDATED
+  }
+
+  return AuditAction.ONLINE_STORE_AVAILABILITY_UPDATED
+}
+
 const DEFAULT_TIMEZONE = 'America/Sao_Paulo'
 const MINUTES_IN_DAY = 24 * 60
 
@@ -1082,6 +1112,63 @@ export class OnlineStoreSettingsService {
   }) {
     await ensureStoreBelongsToOrganization(organizationId, storeId)
 
+    const currentStore =
+      await prisma.onlineStore.findFirst({
+        where: {
+          id: storeId,
+          organizationId
+        },
+        select: {
+          id: true,
+          manualOverrideMode: true,
+          manualOverrideUntil: true,
+          manualOverrideReason: true
+        }
+      })
+
+    if (!currentStore) {
+      throw new Error('Store not found')
+    }
+
+    const [organizationSettings, configuredHours] =
+      await Promise.all([
+        prisma.organizationSettings.findUnique({
+          where: {
+            organizationId
+          },
+          select: {
+            timezone: true
+          }
+        }),
+        prisma.businessHour.findMany({
+          where: {
+            organizationId,
+            contextType: SettingsContextType.ONLINE_STORE,
+            storeId,
+            channel: {
+              in: [
+                SettingsChannel.DIGITAL_MENU,
+                SettingsChannel.ALL
+              ]
+            }
+          },
+          orderBy: [
+            { dayOfWeek: 'asc' },
+            { channel: 'desc' },
+            { periodIndex: 'asc' }
+          ],
+          select: {
+            dayOfWeek: true,
+            opensAt: true,
+            closesAt: true,
+            isClosed: true,
+            is24Hours: true,
+            channel: true,
+            periodIndex: true
+          }
+        })
+      ])
+
     const store =
       await prisma.onlineStore.update({
         where: {
@@ -1096,18 +1183,35 @@ export class OnlineStoreSettingsService {
         }
       })
 
+    const previousMode = String(currentStore.manualOverrideMode) as ManualOverrideMode
+    const nextUntil = mode === 'AUTO' ? null : until ?? null
+    const nextReason = mode === 'AUTO' ? null : reason ?? null
+
     await new CreateAuditLogService().execute({
       organizationId,
       userId,
       entity: 'OnlineStore',
       entityId: storeId,
-      action: AuditAction.ONLINE_STORE_AVAILABILITY_UPDATED,
+      action: resolveAvailabilityAuditAction(
+        previousMode,
+        mode,
+        currentStore.manualOverrideUntil,
+        nextUntil,
+        currentStore.manualOverrideReason,
+        nextReason
+      ),
       description: 'Status de funcionamento da loja online atualizado',
       metadata: {
         storeId,
-        mode,
-        until: until?.toISOString() ?? null,
-        reason: reason ?? null
+        previousMode,
+        newMode: mode,
+        previousOverrideUntil: currentStore.manualOverrideUntil?.toISOString() ?? null,
+        overrideUntil: nextUntil?.toISOString() ?? null,
+        previousReason: currentStore.manualOverrideReason,
+        reason: nextReason,
+        actorUserId: userId,
+        timezone: organizationSettings?.timezone ?? DEFAULT_TIMEZONE,
+        configuredHours
       }
     })
 

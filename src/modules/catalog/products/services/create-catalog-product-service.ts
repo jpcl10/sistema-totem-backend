@@ -116,16 +116,37 @@ export class CreateCatalogProductService {
       entityId: product.id,
       action: AuditAction.PRODUCT_CREATED,
       description: 'Produto criado',
-        metadata: {
-        name: product.name,
-        slug: product.slug,
-        categoryId: product.catalogCategoryId,
-        imageUrl: product.imageUrl,
-        priceInCents: product.priceInCents,
-        pricingRule: product.pricingRule,
-        supportsHalfAndHalf: product.supportsHalfAndHalf,
-        canBeUsedAsFlavor: product.canBeUsedAsFlavor,
-        halfAndHalfFlavorCategoryId: product.halfAndHalfFlavorCategoryId
+      metadata: {
+        productId: product.id,
+        changedFields: [
+          'catalogCategoryId',
+          'name',
+          'slug',
+          'description',
+          'imageUrl',
+          'active',
+          'priceInCents',
+          'pricingRule',
+          'supportsHalfAndHalf',
+          'canBeUsedAsFlavor',
+          'halfAndHalfFlavorCategoryId',
+          'sortOrder'
+        ],
+        beforeData: null,
+        afterData: {
+          catalogCategoryId: product.catalogCategoryId,
+          name: product.name,
+          slug: product.slug,
+          description: product.description,
+          imageUrl: product.imageUrl,
+          active: product.active,
+          priceInCents: product.priceInCents,
+          pricingRule: product.pricingRule,
+          supportsHalfAndHalf: product.supportsHalfAndHalf,
+          canBeUsedAsFlavor: product.canBeUsedAsFlavor,
+          halfAndHalfFlavorCategoryId: product.halfAndHalfFlavorCategoryId,
+          sortOrder: product.sortOrder
+        }
       }
     })
 

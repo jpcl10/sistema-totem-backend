@@ -83,6 +83,19 @@ export class UpsertPaymentProviderSettingService {
       }
     })
 
+    const credentialFieldsChanged = [
+      ...(accessToken !== undefined ? ['accessToken'] : []),
+      ...(publicKey !== undefined ? ['publicKey'] : []),
+      ...(webhookSecret !== undefined ? ['webhookSecret'] : [])
+    ]
+    const configurationFieldsChanged = [
+      ...(enabled !== undefined ? ['enabled'] : []),
+      ...(pixEnabled !== undefined ? ['pixEnabled'] : []),
+      ...(cardEnabled !== undefined ? ['cardEnabled'] : []),
+      ...(terminalEnabled !== undefined ? ['terminalEnabled'] : []),
+      ...(webhookUrl !== undefined ? ['webhookUrl'] : [])
+    ]
+
     // Create audit log for payment provider settings update
     const createAuditLogService = new CreateAuditLogService()
     await createAuditLogService.execute({
@@ -90,10 +103,17 @@ export class UpsertPaymentProviderSettingService {
       userId,
       entity: 'PaymentProviderSettings',
       entityId: setting.id,
-      action: AuditAction.PAYMENT_PROVIDER_SETTINGS_UPDATED,
+      action: credentialFieldsChanged.length > 0
+        ? AuditAction.PAYMENT_CREDENTIAL_UPDATED
+        : AuditAction.PAYMENT_PROVIDER_SETTINGS_UPDATED,
       description: 'Configurações de provedor de pagamento atualizadas',
       metadata: {
         provider,
+        credentialUpdated: credentialFieldsChanged.length > 0,
+        fieldsChanged: [
+          ...configurationFieldsChanged,
+          ...credentialFieldsChanged
+        ],
         enabled: setting.enabled,
         pixEnabled: setting.pixEnabled,
         cardEnabled: setting.cardEnabled,

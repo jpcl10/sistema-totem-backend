@@ -31,6 +31,57 @@ interface UpdateCatalogProductServiceRequest {
   sortOrder?: number
 }
 
+const auditedProductFields = [
+  'catalogCategoryId',
+  'name',
+  'slug',
+  'description',
+  'imageUrl',
+  'active',
+  'priceInCents',
+  'pricingRule',
+  'supportsHalfAndHalf',
+  'canBeUsedAsFlavor',
+  'halfAndHalfFlavorCategoryId',
+  'sortOrder'
+] as const
+
+function pickProductAuditData(product: Record<string, any>) {
+  return Object.fromEntries(
+    auditedProductFields.map(field => [field, product[field]])
+  )
+}
+
+function resolveProductAuditAction(
+  beforeData: Record<string, any>,
+  afterData: Record<string, any>,
+  changedFields: string[]
+) {
+  if (changedFields.length === 1 && changedFields[0] === 'active') {
+    return afterData.active
+      ? AuditAction.PRODUCT_ACTIVATED
+      : AuditAction.PRODUCT_DEACTIVATED
+  }
+
+  if (changedFields.length === 1 && changedFields[0] === 'supportsHalfAndHalf') {
+    return afterData.supportsHalfAndHalf
+      ? AuditAction.HALF_AND_HALF_ENABLED
+      : AuditAction.HALF_AND_HALF_DISABLED
+  }
+
+  if (changedFields.length === 1 && changedFields[0] === 'canBeUsedAsFlavor') {
+    return afterData.canBeUsedAsFlavor
+      ? AuditAction.FLAVOR_ELIGIBILITY_ENABLED
+      : AuditAction.FLAVOR_ELIGIBILITY_DISABLED
+  }
+
+  if (changedFields.length === 1 && changedFields[0] === 'priceInCents') {
+    return AuditAction.PRODUCT_PRICE_CHANGED
+  }
+
+  return AuditAction.PRODUCT_UPDATED
+}
+
 export class UpdateCatalogProductService {
   async execute({
     organizationId,
@@ -102,92 +153,7 @@ export class UpdateCatalogProductService {
       }
     }
 
-    // Determine which fields were changed
-    const changedFields: string[] = []
-    const auditMetadata: Record<string, any> = {}
-
-    // Check name
-    if (name !== undefined && name !== product.name) {
-      changedFields.push('name')
-      auditMetadata.name = name
-    } else {
-      auditMetadata.name = product.name
-    }
-
-    // Check slug
-    if (slug !== undefined && slug !== product.slug) {
-      changedFields.push('slug')
-      auditMetadata.slug = slug
-    } else {
-      auditMetadata.slug = product.slug
-    }
-
-    // Check active
-    if (active !== undefined && active !== product.active) {
-      changedFields.push('active')
-      auditMetadata.active = active
-    } else {
-      auditMetadata.active = product.active
-    }
-
-    // Check imageUrl
-    if (imageUrl !== undefined && imageUrl !== product.imageUrl) {
-      changedFields.push('imageUrl')
-      auditMetadata.imageUrl = imageUrl
-    } else {
-      auditMetadata.imageUrl = product.imageUrl
-    }
-
-    // Check priceInCents
-    if (priceInCents !== undefined && priceInCents !== product.priceInCents) {
-      changedFields.push('priceInCents')
-      auditMetadata.priceInCents = priceInCents
-    } else {
-      auditMetadata.priceInCents = product.priceInCents
-    }
-
-    if (pricingRule !== undefined && pricingRule !== product.pricingRule) {
-      changedFields.push('pricingRule')
-      auditMetadata.pricingRule = pricingRule
-    } else {
-      auditMetadata.pricingRule = product.pricingRule
-    }
-
-    if (
-      supportsHalfAndHalf !== undefined &&
-      supportsHalfAndHalf !== product.supportsHalfAndHalf
-    ) {
-      changedFields.push('supportsHalfAndHalf')
-      auditMetadata.supportsHalfAndHalf = supportsHalfAndHalf
-    } else {
-      auditMetadata.supportsHalfAndHalf = product.supportsHalfAndHalf
-    }
-
-    if (
-      canBeUsedAsFlavor !== undefined &&
-      canBeUsedAsFlavor !== product.canBeUsedAsFlavor
-    ) {
-      changedFields.push('canBeUsedAsFlavor')
-      auditMetadata.canBeUsedAsFlavor = canBeUsedAsFlavor
-    } else {
-      auditMetadata.canBeUsedAsFlavor = product.canBeUsedAsFlavor
-    }
-
-    if (
-      effectiveHalfAndHalfFlavorCategoryId !== product.halfAndHalfFlavorCategoryId
-    ) {
-      changedFields.push('halfAndHalfFlavorCategoryId')
-      auditMetadata.halfAndHalfFlavorCategoryId =
-        effectiveHalfAndHalfFlavorCategoryId
-    } else {
-      auditMetadata.halfAndHalfFlavorCategoryId =
-        product.halfAndHalfFlavorCategoryId
-    }
-
-    // Add changed fields to metadata
-    if (changedFields.length > 0) {
-      auditMetadata.changedFields = changedFields
-    }
+    const beforeData = pickProductAuditData(product as Record<string, any>)
 
     const updatedProduct =
       await prisma.catalogProduct.update({
@@ -250,16 +216,27 @@ export class UpdateCatalogProductService {
         }
       })
 
-    // Create audit log
+    const afterData = pickProductAuditData(updatedProduct as Record<string, any>)
+    const changedFields = auditedProductFields.filter(
+      field => beforeData[field] !== afterData[field]
+    )
+
+    const action = resolveProductAuditAction(beforeData, afterData, changedFields)
+
     const createAuditLogService = new CreateAuditLogService()
     await createAuditLogService.execute({
       organizationId,
       userId,
       entity: 'CatalogProduct',
       entityId: updatedProduct.id,
-      action: AuditAction.PRODUCT_UPDATED,
+      action,
       description: 'Produto atualizado',
-      metadata: auditMetadata
+      metadata: {
+        productId: updatedProduct.id,
+        changedFields,
+        beforeData,
+        afterData
+      }
     })
 
     return {

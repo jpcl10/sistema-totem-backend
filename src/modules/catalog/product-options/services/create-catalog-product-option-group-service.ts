@@ -72,12 +72,32 @@ export class CreateCatalogProductOptionGroupService {
       userId,
       entity: 'CatalogProductOptionGroup',
       entityId: optionGroup.id,
-      action: AuditAction.PRODUCT_CREATED, // We'll add new actions later, for now use PRODUCT_CREATED
+      action: AuditAction.PRODUCT_OPTION_CHANGED,
       description: 'Grupo de opções criado',
       metadata: {
-        name: optionGroup.name,
-        key: optionGroup.key,
-        productId: optionGroup.productId
+        productId: optionGroup.productId,
+        optionGroupId: optionGroup.id,
+        changedFields: [
+          'name',
+          'key',
+          'description',
+          'required',
+          'minSelections',
+          'maxSelections',
+          'sortOrder',
+          'active'
+        ],
+        beforeData: null,
+        afterData: {
+          name: optionGroup.name,
+          key: optionGroup.key,
+          description: optionGroup.description,
+          required: optionGroup.required,
+          minSelections: optionGroup.minSelections,
+          maxSelections: optionGroup.maxSelections,
+          sortOrder: optionGroup.sortOrder,
+          active: optionGroup.active
+        }
       }
     })
 

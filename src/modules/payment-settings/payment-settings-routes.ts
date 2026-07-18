@@ -197,11 +197,19 @@ async function patchProviderCredentials(
       userId: request.user.sub,
       entity: 'PaymentProviderCredential',
       entityId: credential.id,
-      action: AuditAction.PAYMENT_PROVIDER_SETTINGS_UPDATED,
+      action: body.credentials
+        ? AuditAction.PAYMENT_CREDENTIAL_UPDATED
+        : AuditAction.PAYMENT_PROVIDER_CONFIGURED,
       description: 'Credenciais de provedor de pagamento atualizadas',
       metadata: {
         provider,
         environment: body.environment,
+        credentialUpdated: Boolean(body.credentials),
+        fieldsChanged: [
+          ...(body.credentials ? Object.keys(body.credentials) : []),
+          ...(body.active !== undefined ? ['active'] : []),
+          ...(body.publicMetadata !== undefined ? ['publicMetadata'] : [])
+        ],
         active: credential.active,
         configured: Boolean(credential.encryptedCredentials)
       }

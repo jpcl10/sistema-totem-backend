@@ -22,6 +22,13 @@ export class PatchCatalogProductOptionStatusService {
       where: {
         id: optionId,
         organizationId
+      },
+      include: {
+        optionGroup: {
+          select: {
+            productId: true
+          }
+        }
       }
     })
 
@@ -45,10 +52,19 @@ export class PatchCatalogProductOptionStatusService {
       userId,
       entity: 'CatalogProductOption',
       entityId: updatedOption.id,
-      action: AuditAction.PRODUCT_UPDATED,
+      action: AuditAction.PRODUCT_OPTION_CHANGED,
       description: active ? 'Opção ativada' : 'Opção desativada',
       metadata: {
-        active
+        productId: option.optionGroup.productId,
+        optionGroupId: updatedOption.optionGroupId,
+        optionId: updatedOption.id,
+        changedFields: ['active'],
+        beforeData: {
+          active: option.active
+        },
+        afterData: {
+          active: updatedOption.active
+        }
       }
     })
 

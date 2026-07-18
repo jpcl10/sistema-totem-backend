@@ -68,6 +68,31 @@ export class UpdateCatalogProductOptionGroupService {
       }
     })
 
+    const beforeData = {
+      name: optionGroup.name,
+      key: optionGroup.key,
+      description: optionGroup.description,
+      required: optionGroup.required,
+      minSelections: optionGroup.minSelections,
+      maxSelections: optionGroup.maxSelections,
+      sortOrder: optionGroup.sortOrder,
+      active: optionGroup.active
+    }
+    const afterData = {
+      name: updatedOptionGroup.name,
+      key: updatedOptionGroup.key,
+      description: updatedOptionGroup.description,
+      required: updatedOptionGroup.required,
+      minSelections: updatedOptionGroup.minSelections,
+      maxSelections: updatedOptionGroup.maxSelections,
+      sortOrder: updatedOptionGroup.sortOrder,
+      active: updatedOptionGroup.active
+    }
+    const changedFields = Object.keys(beforeData).filter(field =>
+      beforeData[field as keyof typeof beforeData] !==
+        afterData[field as keyof typeof afterData]
+    )
+
     // Create audit log
     const createAuditLogService = new CreateAuditLogService()
     await createAuditLogService.execute({
@@ -75,11 +100,14 @@ export class UpdateCatalogProductOptionGroupService {
       userId,
       entity: 'CatalogProductOptionGroup',
       entityId: updatedOptionGroup.id,
-      action: AuditAction.PRODUCT_UPDATED,
+      action: AuditAction.PRODUCT_OPTION_CHANGED,
       description: 'Grupo de opções atualizado',
       metadata: {
-        name: updatedOptionGroup.name,
-        key: updatedOptionGroup.key
+        productId: updatedOptionGroup.productId,
+        optionGroupId: updatedOptionGroup.id,
+        changedFields,
+        beforeData,
+        afterData
       }
     })
 

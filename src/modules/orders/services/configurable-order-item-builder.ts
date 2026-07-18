@@ -222,6 +222,20 @@ export async function buildConfigurableCatalogOrderItems({
 
     const selectedFlavorIds = item.selectedFlavorProductIds ?? []
     let basePriceInCents = primaryFullPriceInCents
+    let pricingSnapshot: Record<string, Prisma.InputJsonValue> = {
+      pricingMode: 'STANDARD',
+      pricingRule: 'PRODUCT_PRICE_PLUS_OPTIONS',
+      product: {
+        productId: product.id,
+        name: product.name,
+        fullPriceInCents: primaryFullPriceInCents
+      },
+      basePriceInCents,
+      selectedOptionsTotalInCents: optionsTotalDeltaInCents,
+      unitPriceInCents: 0,
+      quantity: item.quantity,
+      totalInCents: 0
+    }
     const flavorSnapshots = []
 
     if (selectedFlavorIds.length > 0) {
@@ -263,6 +277,26 @@ export async function buildConfigurableCatalogOrderItems({
         primaryFullPriceInCents,
         secondFlavorFullPriceInCents
       )
+      pricingSnapshot = {
+        pricingMode: 'HALF_AND_HALF',
+        pricingRule: 'MOST_EXPENSIVE_FLAVOR',
+        formula: 'Math.max(primaryFullPriceInCents, secondFlavorFullPriceInCents)',
+        primaryFlavor: {
+          productId: product.id,
+          name: product.name,
+          fullPriceInCents: primaryFullPriceInCents
+        },
+        secondFlavor: {
+          productId: secondFlavor.id,
+          name: secondFlavor.name,
+          fullPriceInCents: secondFlavorFullPriceInCents
+        },
+        basePriceInCents,
+        selectedOptionsTotalInCents: optionsTotalDeltaInCents,
+        unitPriceInCents: 0,
+        quantity: item.quantity,
+        totalInCents: 0
+      }
       flavorSnapshots.push(
         {
           catalogProductId: product.id,
@@ -281,6 +315,8 @@ export async function buildConfigurableCatalogOrderItems({
 
     const unitPriceInCents = basePriceInCents + optionsTotalDeltaInCents
     const itemTotalInCents = unitPriceInCents * item.quantity
+    pricingSnapshot.unitPriceInCents = unitPriceInCents
+    pricingSnapshot.totalInCents = itemTotalInCents
     subtotalInCents += itemTotalInCents
 
     orderItemsData.push({
@@ -290,6 +326,7 @@ export async function buildConfigurableCatalogOrderItems({
       unitPriceInCents,
       totalInCents: itemTotalInCents,
       notes: item.notes ?? undefined,
+      pricingSnapshot: pricingSnapshot as Prisma.InputJsonObject,
       options: {
         create: optionSnapshots
       },

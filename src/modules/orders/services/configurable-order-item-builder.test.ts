@@ -250,6 +250,26 @@ test('half-and-half adds border after max flavor price and applies quantity at t
 
   assert.equal(result.orderItemsData[0].unitPriceInCents, 9000)
   assert.equal(result.subtotalInCents, 18000)
+  assert.deepEqual(result.orderItemsData[0].pricingSnapshot, {
+    pricingMode: 'HALF_AND_HALF',
+    pricingRule: 'MOST_EXPENSIVE_FLAVOR',
+    formula: 'Math.max(primaryFullPriceInCents, secondFlavorFullPriceInCents)',
+    primaryFlavor: {
+      productId: 'calabresa',
+      name: 'calabresa',
+      fullPriceInCents: 6000
+    },
+    secondFlavor: {
+      productId: 'camarao',
+      name: 'camarao',
+      fullPriceInCents: 8000
+    },
+    basePriceInCents: 8000,
+    selectedOptionsTotalInCents: 1000,
+    unitPriceInCents: 9000,
+    quantity: 2,
+    totalInCents: 18000
+  })
 })
 
 test('rejects invalid half-and-half selections', async () => {

@@ -32,6 +32,13 @@ export class UpdateCatalogProductOptionService {
       where: {
         id: optionId,
         organizationId
+      },
+      include: {
+        optionGroup: {
+          select: {
+            productId: true
+          }
+        }
       }
     })
 
@@ -68,6 +75,29 @@ export class UpdateCatalogProductOptionService {
       }
     })
 
+    const beforeData = {
+      name: option.name,
+      key: option.key,
+      description: option.description,
+      priceDeltaInCents: option.priceDeltaInCents,
+      linkedProductId: option.linkedProductId,
+      sortOrder: option.sortOrder,
+      active: option.active
+    }
+    const afterData = {
+      name: updatedOption.name,
+      key: updatedOption.key,
+      description: updatedOption.description,
+      priceDeltaInCents: updatedOption.priceDeltaInCents,
+      linkedProductId: updatedOption.linkedProductId,
+      sortOrder: updatedOption.sortOrder,
+      active: updatedOption.active
+    }
+    const changedFields = Object.keys(beforeData).filter(field =>
+      beforeData[field as keyof typeof beforeData] !==
+        afterData[field as keyof typeof afterData]
+    )
+
     // Create audit log
     const createAuditLogService = new CreateAuditLogService()
     await createAuditLogService.execute({
@@ -75,11 +105,15 @@ export class UpdateCatalogProductOptionService {
       userId,
       entity: 'CatalogProductOption',
       entityId: updatedOption.id,
-      action: AuditAction.PRODUCT_UPDATED,
+      action: AuditAction.PRODUCT_OPTION_CHANGED,
       description: 'Opção atualizada',
       metadata: {
-        name: updatedOption.name,
-        key: updatedOption.key
+        productId: option.optionGroup.productId,
+        optionGroupId: updatedOption.optionGroupId,
+        optionId: updatedOption.id,
+        changedFields,
+        beforeData,
+        afterData
       }
     })
 

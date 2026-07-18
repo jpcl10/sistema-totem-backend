@@ -75,12 +75,31 @@ export class CreateCatalogProductOptionService {
       userId,
       entity: 'CatalogProductOption',
       entityId: option.id,
-      action: AuditAction.PRODUCT_CREATED,
+      action: AuditAction.PRODUCT_OPTION_CHANGED,
       description: 'Opção criada',
       metadata: {
-        name: option.name,
-        key: option.key,
-        optionGroupId: option.optionGroupId
+        productId: optionGroup.productId,
+        optionGroupId: option.optionGroupId,
+        optionId: option.id,
+        changedFields: [
+          'name',
+          'key',
+          'description',
+          'priceDeltaInCents',
+          'linkedProductId',
+          'sortOrder',
+          'active'
+        ],
+        beforeData: null,
+        afterData: {
+          name: option.name,
+          key: option.key,
+          description: option.description,
+          priceDeltaInCents: option.priceDeltaInCents,
+          linkedProductId: option.linkedProductId,
+          sortOrder: option.sortOrder,
+          active: option.active
+        }
       }
     })
 
