@@ -139,6 +139,8 @@ test('half-and-half uses the highest flavor price in either direction', async ()
 
   assert.equal(lowerFirst.subtotalInCents, 8000)
   assert.equal(higherFirst.subtotalInCents, 8000)
+  assert.notEqual(lowerFirst.orderItemsData[0].unitPriceInCents, 7000)
+  assert.notEqual(lowerFirst.orderItemsData[0].unitPriceInCents, 14000)
   assert.equal(lowerFirst.orderItemsData[0].flavors.create[0].catalogProductId, 'calabresa')
   assert.equal(lowerFirst.orderItemsData[0].flavors.create[1].catalogProductId, 'camarao')
 })
