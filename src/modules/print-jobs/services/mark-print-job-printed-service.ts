@@ -44,7 +44,10 @@ export class MarkPrintJobPrintedService {
         data: {
           status: 'PRINTED',
           printedAt: new Date(),
-          errorMessage: null
+          completedAt: new Date(),
+          errorMessage: null,
+          lockedAt: null,
+          lockedBy: null
         }
       })
 

@@ -1,4 +1,5 @@
 import { Server } from 'socket.io'
+import { createAdapter } from '@socket.io/redis-adapter'
 import jwt from 'jsonwebtoken'
 import { UserRole } from '@prisma/client'
 
@@ -9,6 +10,8 @@ import {
   corsAllowedMethods,
   validateSocketCorsOrigin
 } from './cors.js'
+import { redisConfig } from '../shared/config/redis.js'
+import { createRedisConnection } from '../infra/redis/redis-client.js'
 
 export let io: Server
 
@@ -119,7 +122,7 @@ async function resolveSocketTenantContext(socket: any) {
   }
 }
 
-export function setupSocket(server: any) {
+export async function setupSocket(server: any) {
   io = new Server(server, {
     cors: {
       origin: validateSocketCorsOrigin,
@@ -128,6 +131,40 @@ export function setupSocket(server: any) {
       credentials: true
     }
   })
+
+  if (redisConfig.enabled) {
+    const publisher = createRedisConnection('socket-publisher')
+    const subscriber = createRedisConnection('socket-subscriber')
+
+    if (publisher && subscriber) {
+      try {
+        await Promise.all([
+          publisher.connect(),
+          subscriber.connect()
+        ])
+
+        io.adapter(createAdapter(publisher, subscriber, {
+          key: `${redisConfig.keyPrefix}:socket.io`
+        }))
+
+        logger.info(
+          {
+            redisKeyPrefix: redisConfig.keyPrefix
+          },
+          'Socket.IO Redis adapter enabled'
+        )
+      } catch (error) {
+        logger.error(
+          {
+            error: error instanceof Error ? error.message : 'Redis adapter error'
+          },
+          'Socket.IO Redis adapter unavailable; using memory adapter'
+        )
+      }
+    }
+  } else {
+    logger.info('Socket.IO memory adapter enabled')
+  }
 
   io.on('connection', async (socket) => {
     logger.info({ socketId: socket.id }, 'Socket connected')

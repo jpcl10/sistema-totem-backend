@@ -12,6 +12,9 @@ export async function healthController(
   const service = new HealthService()
   const healthData = await service.execute()
 
-  const statusCode = healthData.status === 'ok' ? 200 : 503
+  const statusCode =
+    healthData.status === 'ok' || healthData.status === 'degraded'
+      ? 200
+      : 503
   return reply.status(statusCode).send(healthData)
 }

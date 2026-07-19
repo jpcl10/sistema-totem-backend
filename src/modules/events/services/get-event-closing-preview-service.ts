@@ -147,11 +147,14 @@ export class GetEventClosingPreviewService {
 
     const printSummary = {
       pending: printJobs.filter(job =>
-        job.status === PrintJobStatus.PENDING
+        job.status === PrintJobStatus.PENDING ||
+        job.status === PrintJobStatus.RETRY ||
+        job.status === PrintJobStatus.PROCESSING
       ).length,
 
       printed: printJobs.filter(job =>
-        job.status === PrintJobStatus.PRINTED
+        job.status === PrintJobStatus.PRINTED ||
+        job.status === PrintJobStatus.COMPLETED
       ).length,
 
       error: printJobs.filter(job =>

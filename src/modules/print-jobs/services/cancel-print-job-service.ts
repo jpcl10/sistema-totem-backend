@@ -36,7 +36,7 @@ export class CancelPrintJobService {
       throw new Error('Print job not found')
     }
 
-    if (printJob.status === 'PRINTED') {
+    if (printJob.status === 'PRINTED' || printJob.status === 'COMPLETED') {
       throw new Error(
         'Printed job cannot be cancelled'
       )

@@ -8,8 +8,6 @@ import fastifyRateLimit from '@fastify/rate-limit'
 import { uploadsRoutes } from './modules/uploads/routes/uploads-routes.js'
 import { healthRoutes } from './modules/health/routes/health-routes.js'
 
-// Services
-import { ProcessPrintJobsService } from './modules/print-jobs/services/process-print-jobs-service.js'
 import {
   allowedOrigins,
   corsAllowedHeaders,
@@ -81,7 +79,10 @@ export const app = Fastify({
         'secret',
         'secretAccessKey',
         'accessKeyId',
-        'token'
+        'token',
+        'redisUrl',
+        'REDIS_URL',
+        'connectionString'
       ],
       censor: '[REDACTED]'
     }
@@ -225,22 +226,5 @@ app.get('/', async () => {
     message: 'API Running 🚀'
   }
 })
-
-export let printProcessingJobStatus: 'running' | 'stopped' = 'stopped'
-
-const processPrintJobsService =
-  new ProcessPrintJobsService()
-
-const printProcessingInterval = setInterval(async () => {
-  try {
-    await processPrintJobsService.execute()
-  } catch (error) {
-    app.log.error(error, 'Print worker error')
-  }
-}, 3000)
-
-printProcessingInterval.unref?.()
-
-printProcessingJobStatus = 'running'
 
 export { allowedOrigins }

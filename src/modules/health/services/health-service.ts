@@ -1,7 +1,11 @@
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
 import { pixExpirationJobStatus } from '../../../jobs/expire-pending-pix-job.js'
-import { printProcessingJobStatus } from '../../../app.js'
+import { pingRedis } from '../../../infra/redis/redis-client.js'
+import { getPrintingQueueHealth } from '../../../infra/queues/index.js'
+import {
+  getPrintProcessingStatus
+} from '../../../infra/print-processing/print-processing-coordinator.js'
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
@@ -18,9 +22,16 @@ export class HealthService {
     const r2Result = this.checkR2()
     const mercadoPagoResult = this.checkMercadoPago()
     const socketResult = this.checkSocket()
+    const redisResult = await pingRedis()
+    const queuesResult = await this.checkQueues()
     const jobsResult = this.checkJobs()
 
-    const status = databaseResult === 'ok' ? 'ok' : 'error'
+    const status =
+      databaseResult === 'ok' && redisResult.status !== 'unavailable'
+        ? 'ok'
+        : databaseResult === 'ok'
+          ? 'degraded'
+          : 'error'
 
     return {
       status,
@@ -29,8 +40,10 @@ export class HealthService {
       services: {
         database: databaseResult,
         r2: r2Result,
-        mercadoPago: mercadoPagoResult
+        mercadoPago: mercadoPagoResult,
+        redis: redisResult
       },
+      queues: queuesResult,
       socket: socketResult,
       jobs: jobsResult,
       environment: process.env.NODE_ENV || 'development',
@@ -89,7 +102,13 @@ export class HealthService {
   private checkJobs() {
     return {
       pixExpiration: pixExpirationJobStatus,
-      printProcessing: printProcessingJobStatus
+      printProcessing: getPrintProcessingStatus()
+    }
+  }
+
+  private async checkQueues() {
+    return {
+      printing: await getPrintingQueueHealth()
     }
   }
 }

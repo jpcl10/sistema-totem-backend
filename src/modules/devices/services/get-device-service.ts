@@ -19,7 +19,8 @@ export class GetDeviceService {
         organizationId
       },
       include: {
-        event: true
+        event: true,
+        store: true
       }
     })
 

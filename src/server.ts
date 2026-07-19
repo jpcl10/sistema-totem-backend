@@ -2,6 +2,11 @@ import 'dotenv/config'
 import { app } from './app.js'
 import { setupSocket } from './lib/socket.js'
 import { startExpirePendingPixJob } from './jobs/expire-pending-pix-job.js'
+import {
+  startPrintProcessingCoordinator,
+  stopPrintProcessingCoordinator
+} from './infra/print-processing/print-processing-coordinator.js'
+import { prisma } from './lib/prisma.js'
 
 const parsePort = () => {
   const port = Number(process.env.PORT ?? 3333)
@@ -17,8 +22,9 @@ const start = async () => {
   try {
     const port = parsePort()
 
-    setupSocket(app.server)
+    await setupSocket(app.server)
     startExpirePendingPixJob()
+    await startPrintProcessingCoordinator()
 
     await app.listen({
       port,
@@ -32,5 +38,21 @@ const start = async () => {
     process.exit(1)
   }
 }
+
+async function shutdown(signal: string) {
+  app.log.info({ signal }, 'Shutting down server')
+  await stopPrintProcessingCoordinator()
+  await app.close()
+  await prisma.$disconnect()
+  process.exit(0)
+}
+
+process.on('SIGINT', () => {
+  void shutdown('SIGINT')
+})
+
+process.on('SIGTERM', () => {
+  void shutdown('SIGTERM')
+})
 
 start()

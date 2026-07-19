@@ -7,6 +7,7 @@ import {
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { enqueuePrintJob } from '../../../infra/queues/index.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 import {
   EffectivePrintingSettings,
@@ -166,6 +167,10 @@ async function createJobsIdempotently({
     })
 
     if (existingJob) {
+      if (!existingJob.deviceId) {
+        await enqueuePrintJob(existingJob.id)
+      }
+
       printJobs.push(existingJob)
       continue
     }
@@ -196,6 +201,10 @@ async function createJobsIdempotently({
         }
       })
 
+      if (!printJob.deviceId) {
+        await enqueuePrintJob(printJob.id)
+      }
+
       printJobs.push(printJob)
     } catch (error) {
       if (
@@ -213,6 +222,10 @@ async function createJobsIdempotently({
         })
 
         if (duplicatedJob) {
+          if (!duplicatedJob.deviceId) {
+            await enqueuePrintJob(duplicatedJob.id)
+          }
+
           printJobs.push(duplicatedJob)
           continue
         }

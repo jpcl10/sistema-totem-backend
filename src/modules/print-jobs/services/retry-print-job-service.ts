@@ -1,5 +1,6 @@
 import { prisma } from '../../../lib/prisma.js'
 import { UserRole } from '@prisma/client'
+import { enqueuePrintJob } from '../../../infra/queues/index.js'
 
 interface RetryPrintJobServiceRequest {
   organizationId: string
@@ -36,7 +37,7 @@ export class RetryPrintJobService {
       throw new Error('Print job not found')
     }
 
-    if (printJob.status === 'PRINTED') {
+    if (printJob.status === 'PRINTED' || printJob.status === 'COMPLETED') {
       throw new Error(
         'Printed job cannot be retried'
       )
@@ -50,9 +51,16 @@ export class RetryPrintJobService {
         data: {
           status: 'PENDING',
           printedAt: null,
-          errorMessage: null
+          errorMessage: null,
+          lockedAt: null,
+          lockedBy: null,
+          failedAt: null
         }
       })
+
+    if (!updatedPrintJob.deviceId) {
+      await enqueuePrintJob(updatedPrintJob.id)
+    }
 
     return {
       printJob: updatedPrintJob

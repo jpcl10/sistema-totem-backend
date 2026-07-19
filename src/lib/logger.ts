@@ -20,7 +20,10 @@ export const logger = pino({
       'secret',
       'secretAccessKey',
       'accessKeyId',
-      'token'
+      'token',
+      'redisUrl',
+      'REDIS_URL',
+      'connectionString'
     ],
     censor: '[REDACTED]'
   }

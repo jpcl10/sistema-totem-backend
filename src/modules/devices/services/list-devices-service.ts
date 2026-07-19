@@ -21,6 +21,12 @@ export class ListDevicesService {
             id: true,
             name: true
           }
+        },
+        store: {
+          select: {
+            id: true,
+            name: true
+          }
         }
       },
       orderBy: {
