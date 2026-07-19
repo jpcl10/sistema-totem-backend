@@ -36,10 +36,7 @@ export class GetPublicEventCatalogMenuService {
               }
             ],
             catalogProduct: {
-              active: true,
-              catalogCategory: {
-                active: true
-              }
+              active: true
             }
           },
           include: {
@@ -94,21 +91,30 @@ export class GetPublicEventCatalogMenuService {
       const product = eventProduct.catalogProduct
       const category = product.catalogCategory
 
-      if (!category.active || !product.active) {
+      if (!product.active) {
         continue
       }
 
-      if (!categoriesMap.has(category.id)) {
-        categoriesMap.set(category.id, {
-          id: category.id,
-          name: category.name,
-          slug: category.slug,
+      // If product has category and category is inactive, skip
+      if (category && !category.active) {
+        continue
+      }
+
+      const categoryId = category?.id ?? 'uncategorized'
+      const categoryName = category?.name ?? 'Outros'
+      const categorySlug = category?.slug ?? 'outros'
+
+      if (!categoriesMap.has(categoryId)) {
+        categoriesMap.set(categoryId, {
+          id: categoryId,
+          name: categoryName,
+          slug: categorySlug,
           products: []
         })
       }
 
       const effectivePriceInCents = eventProduct.priceInCents ?? product.priceInCents
-      categoriesMap.get(category.id).products.push({
+      categoriesMap.get(categoryId).products.push({
         id: eventProduct.id,
         catalogProductId: product.id,
         name: product.name,
