@@ -23,6 +23,19 @@ export async function nfcCardsRoutes(
 ) {
   // Public route for totem NFC identification
   app.post(
+    '/public/organizations/:organizationSlug/events/:eventSlug/nfc/identify',
+    {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    identifyNfcCardController
+  )
+
+  app.post(
     '/public/events/:eventSlug/nfc/identify',
     {
       config: {
@@ -36,6 +49,19 @@ export async function nfcCardsRoutes(
   )
 
   // Public route for paying order with NFC balance
+  app.post(
+    '/public/organizations/:organizationSlug/events/:eventSlug/orders/:orderId/pay-with-nfc-balance',
+    {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    payOrderWithNfcBalanceController
+  )
+
   app.post(
     '/public/events/:eventSlug/orders/:orderId/pay-with-nfc-balance',
     {

@@ -7,6 +7,11 @@ import {
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import {
+  PublicEventNotFoundError,
+  resolveCanonicalPublicEvent,
+  resolveLegacyPublicEventSlug
+} from '../../events/services/public-event-resolver.js'
 import { SettingsResolverService } from '../../settings/services/settings-resolver-service.js'
 
 type CallScreenContextType = 'STORE' | 'EVENT'
@@ -33,7 +38,13 @@ type PublicCallScreenOrders = {
 interface PublicCallScreenServiceRequest {
   contextType: CallScreenContextType
   slug: string
+  organizationSlug?: string | null
+  eventSlug?: string | null
 }
+
+type ResolvedPublicEvent = Awaited<
+  ReturnType<typeof resolveCanonicalPublicEvent>
+>
 
 const maxItemsPerColumn = 10
 
@@ -163,7 +174,9 @@ export class PublicCallScreenService {
 
   private async resolveContext({
     contextType,
-    slug
+    slug,
+    organizationSlug,
+    eventSlug
   }: PublicCallScreenServiceRequest) {
     if (contextType === 'STORE') {
       const store = await prisma.onlineStore.findFirst({
@@ -196,9 +209,27 @@ export class PublicCallScreenService {
       }
     }
 
+    let resolvedEvent: ResolvedPublicEvent
+
+    try {
+      resolvedEvent = organizationSlug && eventSlug
+        ? await resolveCanonicalPublicEvent({
+            organizationSlug,
+            eventSlug
+          })
+        : await resolveLegacyPublicEventSlug(slug)
+    } catch (error) {
+      if (error instanceof PublicEventNotFoundError) {
+        throw new Error('Call screen context not found')
+      }
+
+      throw error
+    }
+
     const event = await prisma.event.findFirst({
       where: {
-        slug,
+        id: resolvedEvent.id,
+        organizationId: resolvedEvent.organizationId,
         active: true
       },
       select: {
@@ -223,7 +254,10 @@ export class PublicCallScreenService {
       type: 'EVENT' as const,
       id: event.id,
       organizationId: event.organizationId,
+      organizationSlug: resolvedEvent.organizationSlug,
       slug: event.slug,
+      canonicalPath: resolvedEvent.canonicalPath,
+      canonicalUrl: resolvedEvent.canonicalUrl,
       name: event.name,
       logoUrl: event.logoUrl,
       bannerUrl: event.bannerUrl,

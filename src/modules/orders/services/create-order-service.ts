@@ -9,11 +9,16 @@ import {
   OrderNotificationService,
   orderNotificationEvents
 } from '../../notifications/services/order-notification-service.js'
+import {
+  resolveCanonicalPublicEvent,
+  resolveLegacyPublicEventSlug
+} from '../../events/services/public-event-resolver.js'
 import { mapEventOrderToUnifiedOrder } from '../presenters/unified-order-presenter.js'
 import { buildConfigurableCatalogOrderItems } from './configurable-order-item-builder.js'
 
 interface CreateOrderServiceRequest {
   eventSlug: string
+  organizationSlug?: string | null
 
   deviceId?: string | null
 
@@ -36,15 +41,24 @@ interface CreateOrderServiceRequest {
 export class CreateOrderService {
   async execute({
     eventSlug,
+    organizationSlug,
     deviceId,
     customerName,
     customerId,
     paymentStatus,
     items
   }: CreateOrderServiceRequest) {
+    const resolvedEvent = organizationSlug
+      ? await resolveCanonicalPublicEvent({
+          organizationSlug,
+          eventSlug
+        })
+      : await resolveLegacyPublicEventSlug(eventSlug)
+
     const event = await prisma.event.findFirst({
       where: {
-        slug: eventSlug,
+        id: resolvedEvent.id,
+        organizationId: resolvedEvent.organizationId,
         active: true
       }
     })

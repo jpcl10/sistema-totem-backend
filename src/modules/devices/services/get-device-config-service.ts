@@ -1,6 +1,7 @@
 import { prisma } from '../../../lib/prisma.js'
 import {
   getApiPublicUrl,
+  buildPublicEventUrl,
   getFrontendUrl,
   getSocketPublicUrl
 } from '../../../lib/public-urls.js'
@@ -24,6 +25,11 @@ export class GetDeviceConfigService {
             select: {
               id: true,
               name: true,
+              slug: true
+            }
+          },
+          organization: {
+            select: {
               slug: true
             }
           },
@@ -51,12 +57,21 @@ export class GetDeviceConfigService {
     const frontendUrl = getFrontendUrl()
     const apiPublicUrl = getApiPublicUrl()
     const socketPublicUrl = getSocketPublicUrl()
+    const canonicalPublicUrl =
+      device.event
+        ? buildPublicEventUrl({
+            organizationSlug: device.organization.slug,
+            eventSlug: device.event.slug
+          })
+        : null
 
     return {
       device,
       config: {
         eventId: device.eventId,
         eventSlug: device.event?.slug ?? null,
+        organizationSlug: device.organization.slug,
+        canonicalPublicUrl,
         eventName: device.event?.name ?? null,
         storeId: device.storeId,
         storeSlug: device.store?.slug ?? null,

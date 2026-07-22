@@ -44,6 +44,9 @@ function installMocks({
     organizationId,
     slug: 'evento',
     name: 'Evento',
+    organization: {
+      slug: 'guellos-pizza'
+    },
     logoUrl: null,
     bannerUrl: null,
     primaryColor: null,
@@ -60,6 +63,7 @@ function installMocks({
   const originals = {
     onlineStoreFindFirst: prisma.onlineStore.findFirst,
     eventFindFirst: prisma.event.findFirst,
+    eventFindMany: prisma.event.findMany,
     onlineOrderFindMany: prisma.onlineOrder.findMany,
     orderFindMany: prisma.order.findMany,
     settingsExecute: SettingsResolverService.prototype.execute
@@ -71,6 +75,7 @@ function installMocks({
 
   ;(prisma.onlineStore.findFirst as any) = async () => store
   ;(prisma.event.findFirst as any) = async () => event
+  ;(prisma.event.findMany as any) = async () => (event ? [event] : [])
   ;(prisma.onlineOrder.findMany as any) = async (args: any) => {
     calls.onlineOrderFindMany.push(args)
     return storeOrders
@@ -88,6 +93,7 @@ function installMocks({
     restore() {
       ;(prisma.onlineStore.findFirst as any) = originals.onlineStoreFindFirst
       ;(prisma.event.findFirst as any) = originals.eventFindFirst
+      ;(prisma.event.findMany as any) = originals.eventFindMany
       ;(prisma.onlineOrder.findMany as any) = originals.onlineOrderFindMany
       ;(prisma.order.findMany as any) = originals.orderFindMany
       SettingsResolverService.prototype.execute = originals.settingsExecute

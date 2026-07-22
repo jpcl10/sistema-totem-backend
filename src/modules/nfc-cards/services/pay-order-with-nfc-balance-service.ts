@@ -13,9 +13,14 @@ import {
 import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 import { mapEventOrderToUnifiedOrder } from '../../orders/presenters/unified-order-presenter.js'
+import {
+  resolveCanonicalPublicEvent,
+  resolveLegacyPublicEventSlug
+} from '../../events/services/public-event-resolver.js'
 
 interface PayOrderWithNfcBalanceServiceRequest {
   eventSlug: string
+  organizationSlug?: string | null
   orderId: string
   nfcCardId?: string | null
   uid?: string | null
@@ -24,14 +29,22 @@ interface PayOrderWithNfcBalanceServiceRequest {
 export class PayOrderWithNfcBalanceService {
   async execute({
     eventSlug,
+    organizationSlug,
     orderId,
     nfcCardId,
     uid
   }: PayOrderWithNfcBalanceServiceRequest) {
-    // Find event by slug
+    const resolvedEvent = organizationSlug
+      ? await resolveCanonicalPublicEvent({
+          organizationSlug,
+          eventSlug
+        })
+      : await resolveLegacyPublicEventSlug(eventSlug)
+
     const event = await prisma.event.findFirst({
       where: {
-        slug: eventSlug,
+        id: resolvedEvent.id,
+        organizationId: resolvedEvent.organizationId,
         active: true
       }
     })

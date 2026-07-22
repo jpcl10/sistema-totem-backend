@@ -1,6 +1,9 @@
 import 'dotenv/config'
 import { AuditAction, PrismaClient } from '@prisma/client'
 
+// LEGACY MAINTENANCE SCRIPT.
+// Do not use as a routine operational tool.
+// This file exists only for historical reference and emergency recovery under explicit approval.
 const prisma = new PrismaClient()
 
 const FROM_ORG_ID = 'cmra0xvdh0000vwas3yfwzxi9'
@@ -9,6 +12,13 @@ const STORE_ID = 'cmra0xven000xvwashub9xwug'
 const STORE_SLUG = 'guellos-pizza'
 
 const DRY_RUN = process.env.DRY_RUN !== 'false'
+const LEGACY_CONFIRMATION = process.env.ALLOW_LEGACY_TENANT_FIX
+
+if (!DRY_RUN && LEGACY_CONFIRMATION !== 'I_UNDERSTAND_THIS_IS_DANGEROUS') {
+  throw new Error(
+    'Legacy tenant fix script refused to run without explicit confirmation.'
+  )
+}
 
 type CorrectionContext = {
   categoryIds: string[]

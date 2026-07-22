@@ -76,6 +76,31 @@ export async function eventsRoutes(app: FastifyInstance)
   )
 
   app.get(
+  '/public/organizations/:organizationSlug/events/:eventSlug/menu',
+  {
+    config: {
+      rateLimit: {
+        max: 60,
+        timeWindow: '1 minute'
+      }
+    }
+  },
+  getPublicEventMenuController
+  )
+  app.get(
+  '/public/organizations/:organizationSlug/events/:eventSlug/catalog-menu',
+  {
+    config: {
+      rateLimit: {
+        max: 60,
+        timeWindow: '1 minute'
+      }
+    }
+  },
+  getPublicEventCatalogMenuController
+  )
+
+  app.get(
   '/public/events/:slug/menu',
   {
     config: {

@@ -1,17 +1,30 @@
 import { prisma } from '../../../lib/prisma.js'
 import { logger } from '../../../lib/logger.js'
 import { NfcReadSource } from '@prisma/client'
+import {
+  resolveCanonicalPublicEvent,
+  resolveLegacyPublicEventSlug
+} from '../../events/services/public-event-resolver.js'
 
 interface IdentifyNfcCardServiceRequest {
   eventSlug: string
+  organizationSlug?: string | null
   uid: string
 }
 
 export class IdentifyNfcCardService {
-  async execute({ eventSlug, uid }: IdentifyNfcCardServiceRequest) {
+  async execute({ eventSlug, organizationSlug, uid }: IdentifyNfcCardServiceRequest) {
+    const resolvedEvent = organizationSlug
+      ? await resolveCanonicalPublicEvent({
+          organizationSlug,
+          eventSlug
+        })
+      : await resolveLegacyPublicEventSlug(eventSlug)
+
     const event = await prisma.event.findFirst({
       where: {
-        slug: eventSlug,
+        id: resolvedEvent.id,
+        organizationId: resolvedEvent.organizationId,
         active: true
       }
     })

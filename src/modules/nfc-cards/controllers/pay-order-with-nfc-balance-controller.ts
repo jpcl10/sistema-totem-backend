@@ -3,8 +3,13 @@ import { z } from 'zod'
 
 import { payOrderWithNfcBalanceSchema } from '../schemas/pay-order-with-nfc-balance-schema.js'
 import { PayOrderWithNfcBalanceService } from '../services/pay-order-with-nfc-balance-service.js'
+import {
+  AmbiguousEventSlugError,
+  buildAmbiguousEventSlugResponse
+} from '../../events/services/public-event-resolver.js'
 
 const paramsSchema = z.object({
+  organizationSlug: z.string().optional(),
   eventSlug: z.string(),
   orderId: z.string()
 })
@@ -13,7 +18,7 @@ export async function payOrderWithNfcBalanceController(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
-  const { eventSlug, orderId } = paramsSchema.parse(request.params)
+  const { organizationSlug, eventSlug, orderId } = paramsSchema.parse(request.params)
   const { nfcCardId, uid } = payOrderWithNfcBalanceSchema.parse(request.body)
 
   const payOrderWithNfcBalanceService = new PayOrderWithNfcBalanceService()
@@ -21,6 +26,7 @@ export async function payOrderWithNfcBalanceController(
   try {
     const result = await payOrderWithNfcBalanceService.execute({
       eventSlug,
+      organizationSlug: organizationSlug ?? null,
       orderId,
       nfcCardId,
       uid
@@ -29,6 +35,10 @@ export async function payOrderWithNfcBalanceController(
     return reply.status(200).send(result)
   } catch (error) {
     if (error instanceof Error) {
+      if (error instanceof AmbiguousEventSlugError) {
+        return reply.status(409).send(buildAmbiguousEventSlugResponse(error))
+      }
+
       if (
         error.message === 'Event not found' ||
         error.message === 'Order not found' ||

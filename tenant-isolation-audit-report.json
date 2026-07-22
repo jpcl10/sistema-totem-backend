@@ -1,0 +1,1215 @@
+{
+  "generatedAt": "2026-07-22T20:46:12.129Z",
+  "mode": "READ_ONLY_DIAGNOSTIC",
+  "organizations": {
+    "guellos": {
+      "id": "cmra0xvea000rvwasonliufxu",
+      "name": "Guello's Pizza",
+      "slug": "guellos-pizza",
+      "active": null,
+      "createdAt": "2026-07-07T02:22:55.282Z",
+      "updatedAt": "2026-07-07T02:22:55.282Z"
+    },
+    "zeDoFacao": {
+      "id": "cmra0xvdh0000vwas3yfwzxi9",
+      "name": "Zé do Facão",
+      "slug": "ze-do-facao",
+      "active": null,
+      "createdAt": "2026-07-07T02:22:55.254Z",
+      "updatedAt": "2026-07-11T16:31:43.108Z"
+    }
+  },
+  "counts": {
+    "User": {
+      "totals": [
+        {
+          "organizationId": "cmra0xvdh0000vwas3yfwzxi9",
+          "total": 1
+        },
+        {
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "total": 1
+        }
+      ],
+      "samples": [
+        {
+          "id": "cmra0xveg000tvwasjsykzy2r",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "name": "Admin Guello",
+          "email": "[REDACTED]",
+          "password": "[REDACTED]",
+          "role": "ADMIN",
+          "createdAt": "2026-07-07T02:22:55.289Z",
+          "updatedAt": "2026-07-13T11:43:32.467Z"
+        },
+        {
+          "id": "cmra0xvdw0002vwastnaudjz8",
+          "organizationId": "cmra0xvdh0000vwas3yfwzxi9",
+          "name": "Super Admin",
+          "email": "[REDACTED]",
+          "password": "[REDACTED]",
+          "role": "SUPER_ADMIN",
+          "createdAt": "2026-07-07T02:22:55.268Z",
+          "updatedAt": "2026-07-07T03:37:52.215Z"
+        }
+      ]
+    },
+    "OrganizationModule": {
+      "totals": [
+        {
+          "organizationId": "cmra0xvdh0000vwas3yfwzxi9",
+          "total": 12
+        },
+        {
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "total": 12
+        }
+      ],
+      "samples": [
+        {
+          "id": "cmrgl0uc1000avwg85bwlmckp",
+          "organizationId": "cmra0xvdh0000vwas3yfwzxi9",
+          "moduleKey": "ONLINE_ORDERS",
+          "enabled": true,
+          "createdAt": "2026-07-11T16:31:43.249Z",
+          "updatedAt": "2026-07-11T16:31:43.249Z"
+        },
+        {
+          "id": "cmrgl0uc1000bvwg8zofip687",
+          "organizationId": "cmra0xvdh0000vwas3yfwzxi9",
+          "moduleKey": "TOTEM",
+          "enabled": true,
+          "createdAt": "2026-07-11T16:31:43.249Z",
+          "updatedAt": "2026-07-11T16:31:43.249Z"
+        },
+        {
+          "id": "cmrgl0uc1000cvwg8sdkvwcqp",
+          "organizationId": "cmra0xvdh0000vwas3yfwzxi9",
+          "moduleKey": "EVENTS",
+          "enabled": true,
+          "createdAt": "2026-07-11T16:31:43.249Z",
+          "updatedAt": "2026-07-11T16:31:43.249Z"
+        },
+        {
+          "id": "cmrgl0uc1000dvwg8me2dk7wk",
+          "organizationId": "cmra0xvdh0000vwas3yfwzxi9",
+          "moduleKey": "PAYMENTS",
+          "enabled": true,
+          "createdAt": "2026-07-11T16:31:43.249Z",
+          "updatedAt": "2026-07-11T16:31:43.249Z"
+        },
+        {
+          "id": "cmrgl0uc1000evwg8ydke41jr",
+          "organizationId": "cmra0xvdh0000vwas3yfwzxi9",
+          "moduleKey": "PRINTING",
+          "enabled": true,
+          "createdAt": "2026-07-11T16:31:43.249Z",
+          "updatedAt": "2026-07-11T16:31:43.249Z"
+        }
+      ]
+    },
+    "CatalogCategory": {
+      "totals": [
+        {
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "total": 6
+        }
+      ],
+      "samples": [
+        {
+          "id": "cmrghp3uw000bvwsccluil8ce",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "name": "Itens do Combo",
+          "slug": "itens-do-combo",
+          "active": true,
+          "createdAt": "2026-07-11T14:58:36.873Z",
+          "updatedAt": "2026-07-16T21:10:49.985Z",
+          "sector": "BAR",
+          "sortOrder": 99
+        },
+        {
+          "id": "cmrghp3uv0009vwscxs1lc9hl",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "name": "Água",
+          "slug": "agua",
+          "active": true,
+          "createdAt": "2026-07-11T14:58:36.872Z",
+          "updatedAt": "2026-07-13T12:41:41.183Z",
+          "sector": "BAR",
+          "sortOrder": 5
+        },
+        {
+          "id": "cmrghp3uu0007vwscd5qa551w",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "name": "Refrigerantes",
+          "slug": "refrigerantes",
+          "active": true,
+          "createdAt": "2026-07-11T14:58:36.871Z",
+          "updatedAt": "2026-07-13T12:41:41.183Z",
+          "sector": "BAR",
+          "sortOrder": 4
+        },
+        {
+          "id": "cmrghp3ut0005vwscygh1bhb0",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "name": "Sucos de 1 Litro",
+          "slug": "sucos-1-litro",
+          "active": true,
+          "createdAt": "2026-07-11T14:58:36.869Z",
+          "updatedAt": "2026-07-13T12:41:41.183Z",
+          "sector": "BAR",
+          "sortOrder": 3
+        },
+        {
+          "id": "cmrghp3us0003vwscsqq6r7cz",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "name": "Promoções",
+          "slug": "promocoes",
+          "active": true,
+          "createdAt": "2026-07-11T14:58:36.868Z",
+          "updatedAt": "2026-07-13T12:41:41.183Z",
+          "sector": "KITCHEN",
+          "sortOrder": 2
+        }
+      ]
+    },
+    "CatalogProduct": {
+      "totals": [
+        {
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "total": 26
+        }
+      ],
+      "samples": [
+        {
+          "id": "cmrghp3vo001rvwscbri8lqgl",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "catalogCategoryId": "cmrghp3us0003vwscsqq6r7cz",
+          "name": "Combo Pizza + Refrigerante",
+          "slug": "combo-pizza-refrigerante",
+          "description": "Escolha uma pizza tradicional e um refrigerante participante.",
+          "imageUrl": null,
+          "active": true,
+          "createdAt": "2026-07-11T14:58:36.901Z",
+          "updatedAt": "2026-07-13T12:41:41.184Z",
+          "priceInCents": 7000,
+          "sortOrder": 1,
+          "pricingRule": "STANDARD",
+          "halfAndHalfFlavorCategoryId": null,
+          "supportsHalfAndHalf": false,
+          "canBeUsedAsFlavor": true
+        },
+        {
+          "id": "cmrghp3vo001pvwscdqdbs9e9",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "catalogCategoryId": "cmrghp3uw000bvwsccluil8ce",
+          "name": "Guaraná Kuat",
+          "slug": "guarana-kuat",
+          "description": "Item disponível inicialmente como escolha de combo.",
+          "imageUrl": null,
+          "active": true,
+          "createdAt": "2026-07-11T14:58:36.900Z",
+          "updatedAt": "2026-07-13T12:41:41.184Z",
+          "priceInCents": 0,
+          "sortOrder": 3,
+          "pricingRule": "STANDARD",
+          "halfAndHalfFlavorCategoryId": null,
+          "supportsHalfAndHalf": false,
+          "canBeUsedAsFlavor": true
+        },
+        {
+          "id": "cmrghp3vn001nvwsc4r5td24u",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "catalogCategoryId": "cmrghp3uw000bvwsccluil8ce",
+          "name": "Fanta",
+          "slug": "fanta",
+          "description": "Item disponível inicialmente como escolha de combo.",
+          "imageUrl": null,
+          "active": true,
+          "createdAt": "2026-07-11T14:58:36.899Z",
+          "updatedAt": "2026-07-13T12:41:41.184Z",
+          "priceInCents": 0,
+          "sortOrder": 2,
+          "pricingRule": "STANDARD",
+          "halfAndHalfFlavorCategoryId": null,
+          "supportsHalfAndHalf": false,
+          "canBeUsedAsFlavor": true
+        },
+        {
+          "id": "cmrghp3vl001lvwscz0wezxlr",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "catalogCategoryId": "cmrghp3uw000bvwsccluil8ce",
+          "name": "Pepsi",
+          "slug": "pepsi",
+          "description": "Item disponível inicialmente como escolha de combo.",
+          "imageUrl": null,
+          "active": true,
+          "createdAt": "2026-07-11T14:58:36.898Z",
+          "updatedAt": "2026-07-13T12:41:41.184Z",
+          "priceInCents": 0,
+          "sortOrder": 1,
+          "pricingRule": "STANDARD",
+          "halfAndHalfFlavorCategoryId": null,
+          "supportsHalfAndHalf": false,
+          "canBeUsedAsFlavor": true
+        },
+        {
+          "id": "cmrghp3vk001jvwsck20carlf",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "catalogCategoryId": "cmrghp3uv0009vwscxs1lc9hl",
+          "name": "Água Mineral",
+          "slug": "agua-mineral",
+          "description": null,
+          "imageUrl": null,
+          "active": true,
+          "createdAt": "2026-07-11T14:58:36.897Z",
+          "updatedAt": "2026-07-13T12:41:41.184Z",
+          "priceInCents": 300,
+          "sortOrder": 1,
+          "pricingRule": "STANDARD",
+          "halfAndHalfFlavorCategoryId": null,
+          "supportsHalfAndHalf": false,
+          "canBeUsedAsFlavor": true
+        }
+      ]
+    },
+    "CatalogProductOptionGroup": {
+      "totals": [
+        {
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "total": 28
+        }
+      ],
+      "samples": [
+        {
+          "id": "cmrj91lm30021vwb4wkpccibk",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "productId": "cmrghp3vb0011vwscqhnioat7",
+          "name": "Escolha o tamanho",
+          "description": null,
+          "required": true,
+          "minSelections": 1,
+          "maxSelections": 1,
+          "sortOrder": 0,
+          "active": true,
+          "createdAt": "2026-07-13T13:19:41.739Z",
+          "updatedAt": "2026-07-13T13:19:41.739Z",
+          "key": "pizza-size"
+        },
+        {
+          "id": "cmrj91lm0001vvwb42akbgaux",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "productId": "cmrghp3va000zvwsczbp0k52s",
+          "name": "Escolha o tamanho",
+          "description": null,
+          "required": true,
+          "minSelections": 1,
+          "maxSelections": 1,
+          "sortOrder": 0,
+          "active": true,
+          "createdAt": "2026-07-13T13:19:41.737Z",
+          "updatedAt": "2026-07-13T13:19:41.737Z",
+          "key": "pizza-size"
+        },
+        {
+          "id": "cmrj91lly001pvwb4gowy03n6",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "productId": "cmrghp3v9000xvwscx286zat4",
+          "name": "Escolha o tamanho",
+          "description": null,
+          "required": true,
+          "minSelections": 1,
+          "maxSelections": 1,
+          "sortOrder": 0,
+          "active": true,
+          "createdAt": "2026-07-13T13:19:41.734Z",
+          "updatedAt": "2026-07-13T13:19:41.734Z",
+          "key": "pizza-size"
+        },
+        {
+          "id": "cmrj91llu001jvwb47x7bmlsw",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "productId": "cmrghp3v8000vvwscxtihxycm",
+          "name": "Escolha o tamanho",
+          "description": null,
+          "required": true,
+          "minSelections": 1,
+          "maxSelections": 1,
+          "sortOrder": 0,
+          "active": true,
+          "createdAt": "2026-07-13T13:19:41.731Z",
+          "updatedAt": "2026-07-13T13:19:41.731Z",
+          "key": "pizza-size"
+        },
+        {
+          "id": "cmrj91lls001dvwb4wvdzdky6",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "productId": "cmrghp3v7000tvwscwhqp6n6r",
+          "name": "Escolha o tamanho",
+          "description": null,
+          "required": true,
+          "minSelections": 1,
+          "maxSelections": 1,
+          "sortOrder": 0,
+          "active": true,
+          "createdAt": "2026-07-13T13:19:41.728Z",
+          "updatedAt": "2026-07-13T13:19:41.728Z",
+          "key": "pizza-size"
+        }
+      ]
+    },
+    "CatalogProductOption": {
+      "totals": [
+        {
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "total": 104
+        }
+      ],
+      "samples": [
+        {
+          "id": "cmrj91lm40023vwb45nrov30z",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "optionGroupId": "cmrj91lm30021vwb4wkpccibk",
+          "name": "P (4 pedaços)",
+          "description": null,
+          "priceDeltaInCents": 0,
+          "linkedProductId": null,
+          "sortOrder": 0,
+          "active": true,
+          "createdAt": "2026-07-13T13:19:41.741Z",
+          "updatedAt": "2026-07-13T13:19:41.741Z",
+          "key": "p-4-pedacos"
+        },
+        {
+          "id": "cmrj91lm50025vwb43ku2h09u",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "optionGroupId": "cmrj91lm30021vwb4wkpccibk",
+          "name": "M (8 pedaços)",
+          "description": null,
+          "priceDeltaInCents": 3000,
+          "linkedProductId": null,
+          "sortOrder": 1,
+          "active": true,
+          "createdAt": "2026-07-13T13:19:41.741Z",
+          "updatedAt": "2026-07-13T13:19:41.741Z",
+          "key": "m-8-pedacos"
+        },
+        {
+          "id": "cmrj91lm1001zvwb43fhppk41",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "optionGroupId": "cmrj91lm0001vvwb42akbgaux",
+          "name": "M (8 pedaços)",
+          "description": null,
+          "priceDeltaInCents": 3000,
+          "linkedProductId": null,
+          "sortOrder": 1,
+          "active": true,
+          "createdAt": "2026-07-13T13:19:41.738Z",
+          "updatedAt": "2026-07-13T13:19:41.738Z",
+          "key": "m-8-pedacos"
+        },
+        {
+          "id": "cmrj91lm1001xvwb4w4hpzjmz",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "optionGroupId": "cmrj91lm0001vvwb42akbgaux",
+          "name": "P (4 pedaços)",
+          "description": null,
+          "priceDeltaInCents": 0,
+          "linkedProductId": null,
+          "sortOrder": 0,
+          "active": true,
+          "createdAt": "2026-07-13T13:19:41.737Z",
+          "updatedAt": "2026-07-13T13:19:41.737Z",
+          "key": "p-4-pedacos"
+        },
+        {
+          "id": "cmrj91lly001rvwb4c1hbzjyf",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "optionGroupId": "cmrj91lly001pvwb4gowy03n6",
+          "name": "P (4 pedaços)",
+          "description": null,
+          "priceDeltaInCents": 0,
+          "linkedProductId": null,
+          "sortOrder": 0,
+          "active": true,
+          "createdAt": "2026-07-13T13:19:41.735Z",
+          "updatedAt": "2026-07-13T13:19:41.735Z",
+          "key": "p-4-pedacos"
+        }
+      ]
+    },
+    "Event": {
+      "totals": [
+        {
+          "organizationId": "cmra0xvdh0000vwas3yfwzxi9",
+          "total": 1
+        },
+        {
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "total": 1
+        }
+      ],
+      "samples": [
+        {
+          "id": "cmrgky1zw0007vwg899ujc0n9",
+          "organizationId": "cmra0xvdh0000vwas3yfwzxi9",
+          "name": "teste",
+          "slug": "teste",
+          "active": true,
+          "createdAt": "2026-07-11T16:29:33.212Z",
+          "endsAt": "2026-07-12T16:29:00.000Z",
+          "logoUrl": null,
+          "primaryColor": "#6366f1",
+          "secondaryColor": "#a855f7",
+          "startsAt": "2026-07-11T16:29:00.000Z",
+          "updatedAt": "2026-07-11T16:29:33.212Z",
+          "bannerUrl": null,
+          "totemAutoResetSeconds": 60,
+          "totemBackgroundColor": null,
+          "totemFullscreenRecommended": true,
+          "totemRequireCustomerName": true,
+          "totemShowLogo": true,
+          "totemShowLowStock": true,
+          "totemShowPrices": true,
+          "totemTextColor": null,
+          "totemWelcomeMessage": null,
+          "pixCity": null,
+          "pixEnabled": false,
+          "pixInstructions": null,
+          "pixKey": null,
+          "pixReceiverName": null,
+          "autoPrintEnabled": false,
+          "printMode": "FULL_ORDER",
+          "printerPaperSize": "80mm",
+          "printingEnabled": false,
+          "closed": false,
+          "closedAt": null,
+          "pixPaymentExpirationMinutes": 5
+        },
+        {
+          "id": "cmrgkw4ev0001vwg89j5y35mz",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "name": "JOAO PEDRO CARDOSO LOPES",
+          "slug": "joao-pedro-cardoso-lopes",
+          "active": true,
+          "createdAt": "2026-07-11T16:28:03.031Z",
+          "endsAt": "2026-07-12T16:27:00.000Z",
+          "logoUrl": null,
+          "primaryColor": "#6366f1",
+          "secondaryColor": "#a855f7",
+          "startsAt": "2026-07-11T16:27:00.000Z",
+          "updatedAt": "2026-07-11T16:28:03.031Z",
+          "bannerUrl": null,
+          "totemAutoResetSeconds": 60,
+          "totemBackgroundColor": null,
+          "totemFullscreenRecommended": true,
+          "totemRequireCustomerName": true,
+          "totemShowLogo": true,
+          "totemShowLowStock": true,
+          "totemShowPrices": true,
+          "totemTextColor": null,
+          "totemWelcomeMessage": null,
+          "pixCity": null,
+          "pixEnabled": false,
+          "pixInstructions": null,
+          "pixKey": null,
+          "pixReceiverName": null,
+          "autoPrintEnabled": false,
+          "printMode": "FULL_ORDER",
+          "printerPaperSize": "80mm",
+          "printingEnabled": false,
+          "closed": false,
+          "closedAt": null,
+          "pixPaymentExpirationMinutes": 5
+        }
+      ]
+    },
+    "OnlineStore": {
+      "totals": [
+        {
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "total": 1
+        }
+      ],
+      "samples": [
+        {
+          "id": "cmra0xven000xvwashub9xwug",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "name": "Guello's Pizza",
+          "slug": "guellos-pizza",
+          "whatsapp": "[REDACTED]",
+          "city": "Itambacuri",
+          "address": null,
+          "logoUrl": null,
+          "bannerUrl": null,
+          "isOpen": true,
+          "active": true,
+          "createdAt": "2026-07-07T02:22:55.296Z",
+          "updatedAt": "2026-07-13T12:41:41.180Z",
+          "printingEnabled": false,
+          "autoPrintEnabled": false,
+          "printMode": "FULL_ORDER",
+          "printerPaperSize": "80mm",
+          "manualOverrideMode": "AUTO",
+          "manualOverrideUntil": null,
+          "manualOverrideReason": null,
+          "manualOverrideUpdatedAt": null,
+          "manualOverrideUpdatedByUserId": null
+        }
+      ]
+    },
+    "PaymentTransaction": {
+      "totals": [],
+      "samples": []
+    },
+    "PaymentProviderCredential": {
+      "totals": [],
+      "samples": []
+    },
+    "ContextPaymentSettings": {
+      "totals": [],
+      "samples": []
+    },
+    "BusinessHour": {
+      "totals": [
+        {
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "total": 7
+        }
+      ],
+      "samples": [
+        {
+          "id": "cmrk3v8me0000vwmkh8axul9i",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "contextType": "ONLINE_STORE",
+          "storeId": "cmra0xven000xvwashub9xwug",
+          "channel": "ALL",
+          "dayOfWeek": 0,
+          "periodIndex": 0,
+          "opensAt": "17:00",
+          "closesAt": "23:00",
+          "isClosed": false,
+          "is24Hours": false,
+          "createdAt": "2026-07-14T03:42:33.062Z",
+          "updatedAt": "2026-07-14T03:42:33.062Z"
+        },
+        {
+          "id": "cmrk3v8me0001vwmkvxd4w53e",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "contextType": "ONLINE_STORE",
+          "storeId": "cmra0xven000xvwashub9xwug",
+          "channel": "ALL",
+          "dayOfWeek": 1,
+          "periodIndex": 0,
+          "opensAt": "17:00",
+          "closesAt": "23:00",
+          "isClosed": false,
+          "is24Hours": false,
+          "createdAt": "2026-07-14T03:42:33.062Z",
+          "updatedAt": "2026-07-14T03:42:33.062Z"
+        },
+        {
+          "id": "cmrk3v8me0002vwmk57kv208c",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "contextType": "ONLINE_STORE",
+          "storeId": "cmra0xven000xvwashub9xwug",
+          "channel": "ALL",
+          "dayOfWeek": 2,
+          "periodIndex": 0,
+          "opensAt": "17:00",
+          "closesAt": "23:00",
+          "isClosed": false,
+          "is24Hours": false,
+          "createdAt": "2026-07-14T03:42:33.062Z",
+          "updatedAt": "2026-07-14T03:42:33.062Z"
+        },
+        {
+          "id": "cmrk3v8me0003vwmkt71qtvc9",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "contextType": "ONLINE_STORE",
+          "storeId": "cmra0xven000xvwashub9xwug",
+          "channel": "ALL",
+          "dayOfWeek": 3,
+          "periodIndex": 0,
+          "opensAt": "17:00",
+          "closesAt": "23:00",
+          "isClosed": false,
+          "is24Hours": false,
+          "createdAt": "2026-07-14T03:42:33.062Z",
+          "updatedAt": "2026-07-14T03:42:33.062Z"
+        },
+        {
+          "id": "cmrk3v8me0004vwmkxvt8nrv9",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "contextType": "ONLINE_STORE",
+          "storeId": "cmra0xven000xvwashub9xwug",
+          "channel": "ALL",
+          "dayOfWeek": 4,
+          "periodIndex": 0,
+          "opensAt": "17:00",
+          "closesAt": "23:00",
+          "isClosed": false,
+          "is24Hours": false,
+          "createdAt": "2026-07-14T03:42:33.062Z",
+          "updatedAt": "2026-07-14T03:42:33.062Z"
+        }
+      ]
+    },
+    "BusinessHourException": {
+      "totals": [],
+      "samples": []
+    },
+    "AuditLog": {
+      "totals": [
+        {
+          "organizationId": "cmra0xvdh0000vwas3yfwzxi9",
+          "total": 24
+        },
+        {
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "total": 43
+        }
+      ],
+      "samples": [
+        {
+          "id": "cmrp3b7rz0001vwj0g9ovlrh1",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "eventId": null,
+          "userId": "cmra0xveg000tvwasjsykzy2r",
+          "deviceId": null,
+          "entity": "User",
+          "entityId": "cmra0xveg000tvwasjsykzy2r",
+          "action": "USER_LOGGED_IN",
+          "description": "Usuário fez login",
+          "metadata": {
+            "role": "ADMIN",
+            "email": "[REDACTED]",
+            "userId": "cmra0xveg000tvwasjsykzy2r"
+          },
+          "createdAt": "2026-07-17T15:25:49.727Z"
+        },
+        {
+          "id": "cmroxh7fw0001vw7g2ynmbqq6",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "eventId": null,
+          "userId": "cmra0xveg000tvwasjsykzy2r",
+          "deviceId": null,
+          "entity": "User",
+          "entityId": "cmra0xveg000tvwasjsykzy2r",
+          "action": "USER_LOGGED_IN",
+          "description": "Usuário fez login",
+          "metadata": {
+            "role": "ADMIN",
+            "email": "[REDACTED]",
+            "userId": "cmra0xveg000tvwasjsykzy2r"
+          },
+          "createdAt": "2026-07-17T12:42:31.531Z"
+        },
+        {
+          "id": "cmro97zgi000dvwvo37jol2lh",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "eventId": null,
+          "userId": null,
+          "deviceId": null,
+          "entity": "OrganizationBranding",
+          "entityId": "cmrjvo7if0001vwtgsza2zyss",
+          "action": "SETTINGS_BRANDING_UPDATED",
+          "description": "Identidade visual atualizada",
+          "metadata": {
+            "changedFields": [
+              "theme"
+            ]
+          },
+          "createdAt": "2026-07-17T01:23:30.498Z"
+        },
+        {
+          "id": "cmro97mm50009vwvohirmxuwf",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "eventId": null,
+          "userId": null,
+          "deviceId": null,
+          "entity": "OrganizationBranding",
+          "entityId": "cmrjvo7if0001vwtgsza2zyss",
+          "action": "SETTINGS_BRANDING_UPDATED",
+          "description": "Identidade visual atualizada",
+          "metadata": {
+            "changedFields": [
+              "theme"
+            ]
+          },
+          "createdAt": "2026-07-17T01:23:13.854Z"
+        },
+        {
+          "id": "cmro97h5v0005vwvouttiy1zg",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "eventId": null,
+          "userId": null,
+          "deviceId": null,
+          "entity": "OrganizationBranding",
+          "entityId": "cmrjvo7if0001vwtgsza2zyss",
+          "action": "SETTINGS_BRANDING_UPDATED",
+          "description": "Identidade visual atualizada",
+          "metadata": {
+            "changedFields": [
+              "theme"
+            ]
+          },
+          "createdAt": "2026-07-17T01:23:06.787Z"
+        }
+      ]
+    },
+    "NfcCard": {
+      "totals": [],
+      "samples": []
+    },
+    "NfcCardRead": {
+      "totals": [],
+      "samples": []
+    },
+    "NfcCardTransaction": {
+      "totals": [],
+      "samples": []
+    },
+    "Customer": {
+      "totals": [
+        {
+          "organizationId": "cmra0xvdh0000vwas3yfwzxi9",
+          "total": 5
+        },
+        {
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "total": 5
+        }
+      ],
+      "samples": [
+        {
+          "id": "cmrjasycu000hvwkkaqafpzlv",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "name": "Teste Fluxo Online",
+          "phone": "[REDACTED]",
+          "email": null,
+          "createdAt": "2026-07-13T14:08:57.582Z",
+          "updatedAt": "2026-07-13T14:08:57.582Z",
+          "normalizedPhone": "15999990004",
+          "normalizedEmail": null,
+          "document": null,
+          "normalizedDocument": null,
+          "birthDate": null,
+          "notes": null,
+          "active": true,
+          "firstSource": "ONLINE",
+          "lastSource": "ONLINE",
+          "firstSeenAt": "2026-07-11T16:18:44.706Z",
+          "lastSeenAt": "2026-07-13T14:08:57.582Z"
+        },
+        {
+          "id": "cmrjasycq000dvwkkd07m5p4z",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "name": "Teste Fluxo Online",
+          "phone": "[REDACTED]",
+          "email": null,
+          "createdAt": "2026-07-13T14:08:57.579Z",
+          "updatedAt": "2026-07-13T14:08:57.579Z",
+          "normalizedPhone": "15999990003",
+          "normalizedEmail": null,
+          "document": null,
+          "normalizedDocument": null,
+          "birthDate": null,
+          "notes": null,
+          "active": true,
+          "firstSource": "ONLINE",
+          "lastSource": "ONLINE",
+          "firstSeenAt": "2026-07-11T16:18:44.695Z",
+          "lastSeenAt": "2026-07-13T14:08:57.579Z"
+        },
+        {
+          "id": "cmrjasycn0009vwkk421ba0gq",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "name": "Teste Fluxo Online",
+          "phone": "[REDACTED]",
+          "email": null,
+          "createdAt": "2026-07-13T14:08:57.575Z",
+          "updatedAt": "2026-07-13T14:08:57.575Z",
+          "normalizedPhone": "15999990002",
+          "normalizedEmail": null,
+          "document": null,
+          "normalizedDocument": null,
+          "birthDate": null,
+          "notes": null,
+          "active": true,
+          "firstSource": "ONLINE",
+          "lastSource": "ONLINE",
+          "firstSeenAt": "2026-07-11T16:18:44.685Z",
+          "lastSeenAt": "2026-07-13T14:08:57.575Z"
+        },
+        {
+          "id": "cmrjasyck0005vwkk4lv6zn0s",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "name": "Teste Fluxo Online",
+          "phone": "[REDACTED]",
+          "email": null,
+          "createdAt": "2026-07-13T14:08:57.572Z",
+          "updatedAt": "2026-07-13T14:49:06.471Z",
+          "normalizedPhone": "15999990001",
+          "normalizedEmail": null,
+          "document": null,
+          "normalizedDocument": null,
+          "birthDate": null,
+          "notes": null,
+          "active": true,
+          "firstSource": "ONLINE",
+          "lastSource": "ONLINE",
+          "firstSeenAt": "2026-07-11T16:18:44.666Z",
+          "lastSeenAt": "2026-07-13T14:08:57.572Z"
+        },
+        {
+          "id": "cmrjasyc40001vwkkdbte098x",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "name": "João Pedro",
+          "phone": "[REDACTED]",
+          "email": null,
+          "createdAt": "2026-07-13T14:08:57.557Z",
+          "updatedAt": "2026-07-16T21:34:31.587Z",
+          "normalizedPhone": "15996921244",
+          "normalizedEmail": null,
+          "document": null,
+          "normalizedDocument": null,
+          "birthDate": null,
+          "notes": null,
+          "active": true,
+          "firstSource": "ONLINE",
+          "lastSource": "ONLINE",
+          "firstSeenAt": "2026-07-11T15:52:35.444Z",
+          "lastSeenAt": "2026-07-16T21:34:31.581Z"
+        }
+      ]
+    },
+    "CustomerAddress": {
+      "totals": [
+        {
+          "organizationId": "cmra0xvdh0000vwas3yfwzxi9",
+          "total": 5
+        },
+        {
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "total": 5
+        }
+      ],
+      "samples": [
+        {
+          "id": "cmrjasycv000jvwkkkjaoytsx",
+          "customerId": "cmrjasycu000hvwkkaqafpzlv",
+          "title": null,
+          "street": "[REDACTED]",
+          "number": "[REDACTED]",
+          "neighborhood": "Centro",
+          "city": null,
+          "complement": null,
+          "reference": null,
+          "isDefault": false,
+          "createdAt": "2026-07-13T14:08:57.583Z",
+          "updatedAt": "2026-07-13T14:08:57.583Z",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "recipientName": null,
+          "state": null,
+          "postalCode": null,
+          "active": true
+        },
+        {
+          "id": "cmrjasycr000fvwkkk9uywiab",
+          "customerId": "cmrjasycq000dvwkkd07m5p4z",
+          "title": null,
+          "street": "[REDACTED]",
+          "number": "[REDACTED]",
+          "neighborhood": "Centro",
+          "city": null,
+          "complement": null,
+          "reference": null,
+          "isDefault": false,
+          "createdAt": "2026-07-13T14:08:57.580Z",
+          "updatedAt": "2026-07-13T14:08:57.580Z",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "recipientName": null,
+          "state": null,
+          "postalCode": null,
+          "active": true
+        },
+        {
+          "id": "cmrjasycp000bvwkkb6xdgnra",
+          "customerId": "cmrjasycn0009vwkk421ba0gq",
+          "title": null,
+          "street": "[REDACTED]",
+          "number": "[REDACTED]",
+          "neighborhood": "Centro",
+          "city": null,
+          "complement": null,
+          "reference": null,
+          "isDefault": false,
+          "createdAt": "2026-07-13T14:08:57.577Z",
+          "updatedAt": "2026-07-13T14:08:57.577Z",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "recipientName": null,
+          "state": null,
+          "postalCode": null,
+          "active": true
+        },
+        {
+          "id": "cmrjasycl0007vwkkbdcj1z36",
+          "customerId": "cmrjasyck0005vwkk4lv6zn0s",
+          "title": null,
+          "street": "[REDACTED]",
+          "number": "[REDACTED]",
+          "neighborhood": "Centro",
+          "city": null,
+          "complement": null,
+          "reference": null,
+          "isDefault": false,
+          "createdAt": "2026-07-13T14:08:57.573Z",
+          "updatedAt": "2026-07-13T14:08:57.573Z",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "recipientName": null,
+          "state": null,
+          "postalCode": null,
+          "active": true
+        },
+        {
+          "id": "cmrjasyc70003vwkkmry14dp9",
+          "customerId": "cmrjasyc40001vwkkdbte098x",
+          "title": null,
+          "street": "[REDACTED]",
+          "number": "[REDACTED]",
+          "neighborhood": "Centro",
+          "city": null,
+          "complement": null,
+          "reference": null,
+          "isDefault": false,
+          "createdAt": "2026-07-13T14:08:57.559Z",
+          "updatedAt": "2026-07-13T14:08:57.559Z",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "recipientName": null,
+          "state": null,
+          "postalCode": null,
+          "active": true
+        }
+      ]
+    },
+    "Device": {
+      "totals": [],
+      "samples": []
+    },
+    "OnlineStoreSettings": {
+      "totals": [
+        {
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "total": 1
+        }
+      ],
+      "samples": [
+        {
+          "id": "cmrnwl9rq0001vwd8dfxg9l47",
+          "organizationId": "cmra0xvea000rvwasonliufxu",
+          "storeId": "cmra0xven000xvwashub9xwug",
+          "onlineOrderingEnabled": true,
+          "digitalMenuEnabled": true,
+          "deliveryEnabled": true,
+          "pickupEnabled": true,
+          "counterEnabled": true,
+          "dineInEnabled": false,
+          "allowOrdersOutsideHours": false,
+          "autoAcceptOrders": false,
+          "minimumOrderInCents": 0,
+          "estimatedPreparationMinutes": 30,
+          "estimatedDeliveryMinutes": 45,
+          "freeDeliveryAboveInCents": null,
+          "defaultDeliveryFeeInCents": 0,
+          "closedMessage": null,
+          "checkoutNotice": null,
+          "orderConfirmationMessage": null,
+          "requireCustomerName": true,
+          "requireCustomerPhone": true,
+          "requireDeliveryAddress": true,
+          "allowCustomerNotes": true,
+          "createdAt": "2026-07-16T19:29:55.380Z",
+          "updatedAt": "2026-07-16T19:29:55.380Z"
+        }
+      ]
+    },
+    "DeliveryFeeRule": {
+      "totals": [],
+      "samples": []
+    },
+    "PaymentTerminal": {
+      "totals": [],
+      "samples": []
+    },
+    "PaymentRefund": {
+      "totals": [],
+      "samples": []
+    },
+    "PaymentWebhookEvent": {
+      "totals": [],
+      "samples": []
+    },
+    "PaymentSettingsMigrationConflict": {
+      "totals": [],
+      "samples": []
+    },
+    "EventClosing": {
+      "totals": [],
+      "samples": []
+    },
+    "Order": [],
+    "OrderItem": [],
+    "EventProduct": [
+      {
+        "organizationId": "cmra0xvea000rvwasonliufxu",
+        "total": 22
+      }
+    ],
+    "EventPrintJob": [],
+    "EventPrinter": [],
+    "OnlineCategory": [],
+    "OnlineProduct": [],
+    "OnlineOrder": [
+      {
+        "organizationId": "cmra0xvea000rvwasonliufxu",
+        "total": 12
+      }
+    ],
+    "OnlineOrderItem": [
+      {
+        "organizationId": "cmra0xvea000rvwasonliufxu",
+        "total": 14
+      }
+    ]
+  },
+  "crossTenantIssues": {
+    "eventProductEventVsCatalogProduct": [],
+    "catalogProductVsCategory": [],
+    "optionGroupVsProduct": [],
+    "optionVsGroup": [],
+    "optionLinkedProduct": [],
+    "orderDeviceCustomerVsEvent": [],
+    "orderItemCatalogProductVsOrderEvent": [],
+    "onlineOrderItemCatalogProductVsStore": [],
+    "onlineProductVsCategoryStore": [],
+    "onlineOrderRelationsVsStore": [],
+    "deviceVsEventStore": [],
+    "printJobRelations": [],
+    "businessHoursVsStore": [],
+    "paymentTransactions": [],
+    "contextPaymentSettings": [],
+    "nfcRelations": []
+  },
+  "knownGuellosProductNameMatches": [
+    {
+      "id": "cmrghp3v0000fvwscrrhadt1w",
+      "name": "Calabresa",
+      "slug": "calabresa",
+      "organizationId": "cmra0xvea000rvwasonliufxu",
+      "catalogCategoryId": "cmrghp3up0001vwscdp5gheud",
+      "categoryName": "Pizzas",
+      "categoryOrganizationId": "cmra0xvea000rvwasonliufxu",
+      "createdAt": "2026-07-11T14:58:36.876Z",
+      "updatedAt": "2026-07-13T13:19:41.705Z",
+      "eventProductCount": 1,
+      "orderItemCount": 0,
+      "onlineOrderItemCount": 5,
+      "eventSlugs": [
+        "joao-pedro-cardoso-lopes"
+      ]
+    },
+    {
+      "id": "cmrghp3v7000tvwscwhqp6n6r",
+      "name": "Camarão",
+      "slug": "camarao",
+      "organizationId": "cmra0xvea000rvwasonliufxu",
+      "catalogCategoryId": "cmrghp3up0001vwscdp5gheud",
+      "categoryName": "Pizzas",
+      "categoryOrganizationId": "cmra0xvea000rvwasonliufxu",
+      "createdAt": "2026-07-11T14:58:36.884Z",
+      "updatedAt": "2026-07-13T13:19:41.728Z",
+      "eventProductCount": 1,
+      "orderItemCount": 0,
+      "onlineOrderItemCount": 0,
+      "eventSlugs": [
+        "joao-pedro-cardoso-lopes"
+      ]
+    },
+    {
+      "id": "cmrghp3v2000jvwscjjna9n9a",
+      "name": "Carne de Sol",
+      "slug": "carne-de-sol",
+      "organizationId": "cmra0xvea000rvwasonliufxu",
+      "catalogCategoryId": "cmrghp3up0001vwscdp5gheud",
+      "categoryName": "Pizzas",
+      "categoryOrganizationId": "cmra0xvea000rvwasonliufxu",
+      "createdAt": "2026-07-11T14:58:36.878Z",
+      "updatedAt": "2026-07-13T13:19:41.713Z",
+      "eventProductCount": 1,
+      "orderItemCount": 0,
+      "onlineOrderItemCount": 0,
+      "eventSlugs": [
+        "joao-pedro-cardoso-lopes"
+      ]
+    },
+    {
+      "id": "cmrghp3v8000vvwscxtihxycm",
+      "name": "Costela Desfiada",
+      "slug": "costela-desfiada",
+      "organizationId": "cmra0xvea000rvwasonliufxu",
+      "catalogCategoryId": "cmrghp3up0001vwscdp5gheud",
+      "categoryName": "Pizzas",
+      "categoryOrganizationId": "cmra0xvea000rvwasonliufxu",
+      "createdAt": "2026-07-11T14:58:36.885Z",
+      "updatedAt": "2026-07-13T13:19:41.730Z",
+      "eventProductCount": 1,
+      "orderItemCount": 0,
+      "onlineOrderItemCount": 0,
+      "eventSlugs": [
+        "joao-pedro-cardoso-lopes"
+      ]
+    },
+    {
+      "id": "cmrghp3v1000hvwscwzhqlvuy",
+      "name": "Frango com Catupiry",
+      "slug": "frango-com-catupiry",
+      "organizationId": "cmra0xvea000rvwasonliufxu",
+      "catalogCategoryId": "cmrghp3up0001vwscdp5gheud",
+      "categoryName": "Pizzas",
+      "categoryOrganizationId": "cmra0xvea000rvwasonliufxu",
+      "createdAt": "2026-07-11T14:58:36.877Z",
+      "updatedAt": "2026-07-13T13:19:41.709Z",
+      "eventProductCount": 1,
+      "orderItemCount": 0,
+      "onlineOrderItemCount": 0,
+      "eventSlugs": [
+        "joao-pedro-cardoso-lopes"
+      ]
+    },
+    {
+      "id": "cmrghp3uy000dvwsc054sbei9",
+      "name": "Portuguesa",
+      "slug": "portuguesa",
+      "organizationId": "cmra0xvea000rvwasonliufxu",
+      "catalogCategoryId": "cmrghp3up0001vwscdp5gheud",
+      "categoryName": "Pizzas",
+      "categoryOrganizationId": "cmra0xvea000rvwasonliufxu",
+      "createdAt": "2026-07-11T14:58:36.874Z",
+      "updatedAt": "2026-07-13T13:19:41.695Z",
+      "eventProductCount": 1,
+      "orderItemCount": 0,
+      "onlineOrderItemCount": 5,
+      "eventSlugs": [
+        "joao-pedro-cardoso-lopes"
+      ]
+    }
+  ],
+  "likelyGuellosRecordsUnderZeDoFacao": [],
+  "duplicateEventSlugs": [],
+  "notes": [
+    "Este script não executa UPDATE, DELETE, INSERT ou migration.",
+    "Nomes de produtos são apenas indícios; a propriedade correta deve ser decidida por vínculos, histórico e auditoria.",
+    "O script antigo backend/scripts/fix-guellos-tenant.ts contém IDs fixos e não deve ser usado como fonte única de verdade."
+  ]
+}

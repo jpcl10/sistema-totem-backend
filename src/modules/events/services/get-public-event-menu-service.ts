@@ -3,18 +3,27 @@ import { SettingsChannel } from '@prisma/client'
 import { prisma } from '../../../lib/prisma.js'
 import { formatOptionGroups } from '../../catalog/event-products/services/event-product-presenter.js'
 import { SettingsResolverService } from '../../settings/services/settings-resolver-service.js'
+import { resolveCanonicalPublicEvent } from './public-event-resolver.js'
 
 interface GetPublicEventMenuServiceRequest {
-  slug: string
+  organizationSlug: string
+  eventSlug: string
 }
 
 export class GetPublicEventMenuService {
   async execute({
-    slug
+    organizationSlug,
+    eventSlug
   }: GetPublicEventMenuServiceRequest) {
+    const resolvedEvent = await resolveCanonicalPublicEvent({
+      organizationSlug,
+      eventSlug
+    })
+
     const event = await prisma.event.findFirst({
       where: {
-        slug,
+        id: resolvedEvent.id,
+        organizationId: resolvedEvent.organizationId,
         active: true
       },
       include: {
@@ -163,6 +172,10 @@ export class GetPublicEventMenuService {
         id: event.id,
         name: event.name,
         slug: event.slug,
+        organizationId: event.organizationId,
+        organizationSlug: resolvedEvent.organizationSlug,
+        canonicalPath: resolvedEvent.canonicalPath,
+        canonicalUrl: resolvedEvent.canonicalUrl,
 
         primaryColor: effective.branding.primaryColor.value ?? event.primaryColor,
         secondaryColor: effective.branding.secondaryColor.value ?? event.secondaryColor,

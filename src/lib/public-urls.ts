@@ -24,3 +24,29 @@ export function buildPublicUrl(baseUrl: string | null, path: string) {
 
   return `${baseUrl}/${path.replace(/^\/+/, '')}`
 }
+
+export function buildPublicEventPath({
+  organizationSlug,
+  eventSlug
+}: {
+  organizationSlug: string
+  eventSlug: string
+}) {
+  return `/e/${organizationSlug}/${eventSlug}`
+}
+
+export function buildPublicEventUrl({
+  organizationSlug,
+  eventSlug
+}: {
+  organizationSlug: string
+  eventSlug: string
+}) {
+  return buildPublicUrl(
+    getFrontendUrl(),
+    buildPublicEventPath({
+      organizationSlug,
+      eventSlug
+    })
+  )
+}

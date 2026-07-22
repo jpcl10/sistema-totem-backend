@@ -7,6 +7,7 @@ import {
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { buildPublicEventUrl } from '../../../lib/public-urls.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 import { SettingsResolverService } from '../../settings/services/settings-resolver-service.js'
 
@@ -45,6 +46,11 @@ export class ActivateDeviceService {
             select: {
               id: true,
               name: true,
+              slug: true
+            }
+          },
+          organization: {
+            select: {
               slug: true
             }
           }
@@ -126,8 +132,13 @@ export class ActivateDeviceService {
                 name: true,
                 slug: true
               }
-            },
-            store: {
+          },
+          organization: {
+            select: {
+              slug: true
+            }
+          },
+          store: {
               select: {
                 id: true,
                 name: true,
@@ -161,6 +172,13 @@ export class ActivateDeviceService {
         storeId: updatedDevice.storeId ?? undefined,
         deviceId: updatedDevice.id
       })
+    const canonicalPublicUrl =
+      updatedDevice.event
+        ? buildPublicEventUrl({
+            organizationSlug: updatedDevice.organization.slug,
+            eventSlug: updatedDevice.event.slug
+          })
+        : null
 
     return {
       deviceToken,
@@ -169,6 +187,8 @@ export class ActivateDeviceService {
         apiBaseUrl: null,
         eventId: updatedDevice.eventId,
         eventSlug: updatedDevice.event?.slug ?? null,
+        organizationSlug: updatedDevice.organization.slug,
+        canonicalPublicUrl,
         eventName: updatedDevice.event?.name ?? null,
         storeId: updatedDevice.storeId,
         storeSlug: updatedDevice.store?.slug ?? null,

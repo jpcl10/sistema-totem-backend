@@ -27,6 +27,20 @@ export async function ordersRoutes(
   app: FastifyInstance
 ) {
   app.post(
+    '/public/organizations/:organizationSlug/events/:eventSlug/orders',
+    {
+      preHandler: [tryVerifyDeviceJWT],
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    createOrderController
+  )
+
+  app.post(
     '/public/events/:slug/orders',
     {
       preHandler: [tryVerifyDeviceJWT],
@@ -153,6 +167,19 @@ export async function ordersRoutes(
   )
 
   app.get(
+    '/public/organizations/:organizationSlug/events/:eventSlug/orders',
+    {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    listPublicEventCallScreenOrdersController
+  )
+
+  app.get(
     '/public/events/:slug/orders',
     {
       config: {
@@ -192,6 +219,32 @@ export async function ordersRoutes(
   )
 
   app.get(
+    '/public/call-screens/organizations/:organizationSlug/events/:eventSlug',
+    {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    getPublicEventCallScreenController
+  )
+
+  app.get(
+    '/public/call-screens/organizations/:organizationSlug/events/:eventSlug/orders',
+    {
+      config: {
+        rateLimit: {
+          max: 120,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    listPublicEventCallScreenOrdersController
+  )
+
+  app.get(
     '/public/call-screens/event/:slug',
     {
       config: {
@@ -215,6 +268,19 @@ export async function ordersRoutes(
       }
     },
     listPublicEventCallScreenOrdersController
+  )
+
+  app.get(
+    '/public/organizations/:organizationSlug/events/:eventSlug/call-screen-orders',
+    {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    listPublicCallScreenOrdersController
   )
 
   app.get(

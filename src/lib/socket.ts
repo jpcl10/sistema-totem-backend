@@ -12,6 +12,11 @@ import {
 } from './cors.js'
 import { redisConfig } from '../shared/config/redis.js'
 import { createRedisConnection } from '../infra/redis/redis-client.js'
+import {
+  AmbiguousEventSlugError,
+  resolveCanonicalPublicEvent,
+  resolveLegacyPublicEventSlug
+} from '../modules/events/services/public-event-resolver.js'
 
 export let io: Server
 
@@ -59,6 +64,42 @@ function readSocketOrganizationId(socket: any): string | undefined {
     readSingleValue(socket.handshake.auth?.organizationId) ??
     readSingleValue(socket.handshake.headers?.['x-organization-id'])
   )
+}
+
+function readPublicEventRoomPayload(payload: unknown) {
+  if (typeof payload === 'string') {
+    return {
+      slug: payload,
+      eventSlug: payload,
+      organizationSlug: null
+    }
+  }
+
+  if (payload && typeof payload === 'object') {
+    const value = payload as Record<string, unknown>
+    const eventSlug =
+      typeof value.eventSlug === 'string'
+        ? value.eventSlug
+        : typeof value.slug === 'string'
+          ? value.slug
+          : ''
+    const organizationSlug =
+      typeof value.organizationSlug === 'string'
+        ? value.organizationSlug
+        : null
+
+    return {
+      slug: eventSlug,
+      eventSlug,
+      organizationSlug
+    }
+  }
+
+  return {
+    slug: '',
+    eventSlug: '',
+    organizationSlug: null
+  }
 }
 
 async function resolveSocketTenantContext(socket: any) {
@@ -274,35 +315,55 @@ export async function setupSocket(server: any) {
       )
     })
 
-    socket.on('join-call-screen-event', async (slug: string) => {
-      const event = await prisma.event.findFirst({
-        where: {
-          slug,
-          active: true
-        },
-        select: {
-          id: true,
-          slug: true
+    socket.on('join-call-screen-event', async (payload: unknown) => {
+      const publicEventPayload = readPublicEventRoomPayload(payload)
+
+      try {
+        const resolvedEvent = publicEventPayload.organizationSlug
+          ? await resolveCanonicalPublicEvent({
+              organizationSlug: publicEventPayload.organizationSlug,
+              eventSlug: publicEventPayload.eventSlug
+            })
+          : await resolveLegacyPublicEventSlug(publicEventPayload.eventSlug)
+
+        const event = await prisma.event.findFirst({
+          where: {
+            id: resolvedEvent.id,
+            organizationId: resolvedEvent.organizationId,
+            active: true
+          },
+          select: {
+            id: true
+          }
+        })
+
+        if (!event) {
+          logger.warn(
+            { socketId: socket.id, slug: publicEventPayload.slug },
+            'Public call screen event room join denied because event was not found'
+          )
+
+          return
         }
-      })
 
-      if (!event) {
-        logger.warn(
-          { socketId: socket.id, slug },
-          'Public call screen event room join denied because event was not found'
+        socket.join(`call-screen:event:${event.id}`)
+        logger.info(
+          {
+            socketId: socket.id,
+            eventId: event.id
+          },
+          'Socket joined public event call screen room'
         )
-
-        return
+      } catch (error) {
+        logger.warn(
+          {
+            socketId: socket.id,
+            slug: publicEventPayload.slug,
+            ambiguous: error instanceof AmbiguousEventSlugError
+          },
+          'Public call screen event room join denied by tenant boundary'
+        )
       }
-
-      socket.join(`call-screen:event:${event.id}`)
-      logger.info(
-        {
-          socketId: socket.id,
-          eventId: event.id
-        },
-        'Socket joined public event call screen room'
-      )
     })
 
     socket.on('leave-organization-room', () => {
