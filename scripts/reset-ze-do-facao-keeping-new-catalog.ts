@@ -9,6 +9,8 @@ const ZE_SLUG = 'ze-do-facao'
 const GUELLOS_SLUG = 'guellos-pizza'
 const EXPECTED_ZE_ID = 'cmra0xvdh0000vwas3yfwzxi9'
 const EXPECTED_GUELLOS_ID = 'cmra0xvea000rvwasonliufxu'
+const DEFAULT_TIMEZONE = 'America/Sao_Paulo'
+const MAX_PRESERVE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 
 const defaultReportDir = resolve(process.cwd(), 'repair-reports')
 
@@ -36,6 +38,14 @@ type PreserveProduct = {
   auditUserId: string | null
 }
 
+type PreserveWindow = {
+  from: Date
+  to: Date
+  timezone: string
+  source: 'PRESERVE_FROM_TO' | 'PRESERVE_LOCAL_DATE_TIMEZONE' | 'AUTO_YESTERDAY'
+  localDate?: string
+}
+
 function envFlag(name: string) {
   return process.env[name] === 'true'
 }
@@ -45,14 +55,210 @@ function envString(name: string) {
   return value ? value : undefined
 }
 
-function startOfYesterdayLocal() {
-  const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0)
+function assertValidTimezone(timezone: string) {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format(new Date())
+  } catch {
+    throw new Error(`Invalid timezone: ${timezone}`)
+  }
+  return timezone
 }
 
-function endOfYesterdayLocal() {
-  const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+function getTimeZoneOffsetInMs(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).formatToParts(date)
+
+  const values = Object.fromEntries(
+    parts
+      .filter(part => part.type !== 'literal')
+      .map(part => [part.type, Number(part.value)])
+  )
+
+  const localTimeAsUtc = Date.UTC(
+    values.year,
+    values.month - 1,
+    values.day,
+    values.hour,
+    values.minute,
+    values.second
+  )
+  const dateWithoutMilliseconds = Math.floor(date.getTime() / 1000) * 1000
+  return localTimeAsUtc - dateWithoutMilliseconds
+}
+
+function zonedTimeToUtc(
+  timeZone: string,
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  second: number,
+  millisecond: number
+) {
+  const utcGuess = Date.UTC(year, month - 1, day, hour, minute, second, millisecond)
+  let offset = getTimeZoneOffsetInMs(new Date(utcGuess), timeZone)
+  let utcDate = new Date(utcGuess - offset)
+  offset = getTimeZoneOffsetInMs(utcDate, timeZone)
+  utcDate = new Date(utcGuess - offset)
+  return utcDate
+}
+
+function getZonedDateParts(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(date)
+
+  const values = Object.fromEntries(
+    parts
+      .filter(part => part.type !== 'literal')
+      .map(part => [part.type, Number(part.value)])
+  )
+
+  return {
+    year: values.year,
+    month: values.month,
+    day: values.day
+  }
+}
+
+function formatLocalDateKey(date: Date, timezone: string) {
+  const parts = getZonedDateParts(date, timezone)
+  return [
+    String(parts.year).padStart(4, '0'),
+    String(parts.month).padStart(2, '0'),
+    String(parts.day).padStart(2, '0')
+  ].join('-')
+}
+
+function formatLocalDateTime(date: Date | null, timezone: string) {
+  if (!date) return null
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(date)
+}
+
+function parseLocalDate(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) throw new Error(`Invalid PRESERVE_LOCAL_DATE: ${value}`)
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const check = new Date(Date.UTC(year, month - 1, day))
+  if (
+    check.getUTCFullYear() !== year ||
+    check.getUTCMonth() !== month - 1 ||
+    check.getUTCDate() !== day
+  ) {
+    throw new Error(`Invalid PRESERVE_LOCAL_DATE: ${value}`)
+  }
+
+  return { year, month, day }
+}
+
+function parseUtcDateEnv(name: string, value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid ${name}: ${value}`)
+  }
+  return date
+}
+
+function validatePreserveWindow(window: PreserveWindow) {
+  if (window.from >= window.to) {
+    throw new Error('Preserve window start must be before preserve window end')
+  }
+  const duration = window.to.getTime() - window.from.getTime()
+  if (duration > MAX_PRESERVE_WINDOW_MS) {
+    throw new Error('Preserve window is too large; maximum is 7 days')
+  }
+  if (duration <= 0) {
+    throw new Error('Preserve window must be positive')
+  }
+  return window
+}
+
+function resolveAppTimezone() {
+  return assertValidTimezone(envString('APP_TIMEZONE') ?? DEFAULT_TIMEZONE)
+}
+
+function resolvePreserveWindow(now = new Date()): PreserveWindow {
+  const explicitFrom = envString('PRESERVE_FROM')
+  const explicitTo = envString('PRESERVE_TO')
+  const legacyFrom = envString('PRESERVE_CREATED_FROM')
+  const legacyTo = envString('PRESERVE_CREATED_TO')
+  if ((explicitFrom && !explicitTo) || (!explicitFrom && explicitTo)) {
+    throw new Error('PRESERVE_FROM and PRESERVE_TO must be provided together')
+  }
+  if ((legacyFrom && !legacyTo) || (!legacyFrom && legacyTo)) {
+    throw new Error('PRESERVE_CREATED_FROM and PRESERVE_CREATED_TO must be provided together')
+  }
+  if (explicitFrom && explicitTo) {
+    return validatePreserveWindow({
+      from: parseUtcDateEnv('PRESERVE_FROM', explicitFrom),
+      to: parseUtcDateEnv('PRESERVE_TO', explicitTo),
+      timezone: assertValidTimezone(envString('PRESERVE_TIMEZONE') ?? resolveAppTimezone()),
+      source: 'PRESERVE_FROM_TO'
+    })
+  }
+  if (legacyFrom && legacyTo) {
+    return validatePreserveWindow({
+      from: parseUtcDateEnv('PRESERVE_CREATED_FROM', legacyFrom),
+      to: parseUtcDateEnv('PRESERVE_CREATED_TO', legacyTo),
+      timezone: assertValidTimezone(envString('PRESERVE_TIMEZONE') ?? resolveAppTimezone()),
+      source: 'PRESERVE_FROM_TO'
+    })
+  }
+
+  const requestedLocalDate = envString('PRESERVE_LOCAL_DATE')
+  const timezone = assertValidTimezone(envString('PRESERVE_TIMEZONE') ?? resolveAppTimezone())
+
+  if (requestedLocalDate) {
+    const parts = parseLocalDate(requestedLocalDate)
+    return validatePreserveWindow({
+      from: zonedTimeToUtc(timezone, parts.year, parts.month, parts.day, 0, 0, 0, 0),
+      to: zonedTimeToUtc(timezone, parts.year, parts.month, parts.day + 1, 0, 0, 0, 0),
+      timezone,
+      source: 'PRESERVE_LOCAL_DATE_TIMEZONE',
+      localDate: requestedLocalDate
+    })
+  }
+
+  const today = getZonedDateParts(now, timezone)
+  const todayStart = zonedTimeToUtc(timezone, today.year, today.month, today.day, 0, 0, 0, 0)
+  const yesterday = getZonedDateParts(new Date(todayStart.getTime() - 24 * 60 * 60 * 1000), timezone)
+  const localDate = [
+    String(yesterday.year).padStart(4, '0'),
+    String(yesterday.month).padStart(2, '0'),
+    String(yesterday.day).padStart(2, '0')
+  ].join('-')
+
+  return validatePreserveWindow({
+    from: zonedTimeToUtc(timezone, yesterday.year, yesterday.month, yesterday.day, 0, 0, 0, 0),
+    to: todayStart,
+    timezone,
+    source: 'AUTO_YESTERDAY',
+    localDate
+  })
 }
 
 function numberFrom(value: unknown) {
@@ -265,7 +471,212 @@ async function collectTenantCounts(organizationId: string): Promise<CountMap> {
   return counts
 }
 
-async function collectPreservedCatalog(organizationId: string, from: Date, to: Date) {
+function incrementBucket(map: Record<string, number>, key: string | null | undefined) {
+  const bucket = key || '(none)'
+  map[bucket] = (map[bucket] ?? 0) + 1
+}
+
+async function collectZeCatalogDiagnostics(organization: Org, window: PreserveWindow) {
+  const catalogSummaryRows = await raw<{
+    product_count: bigint
+    category_count: bigint
+    min_created_at: Date | null
+    max_created_at: Date | null
+  }>`
+    SELECT
+      COUNT(cp.*) AS product_count,
+      COUNT(DISTINCT cc.id) AS category_count,
+      MIN(cp."createdAt") AS min_created_at,
+      MAX(cp."createdAt") AS max_created_at
+    FROM "CatalogCategory" cc
+    LEFT JOIN "CatalogProduct" cp
+      ON cp."catalogCategoryId" = cc.id
+     AND cp."organizationId" = ${organization.id}
+    WHERE cc."organizationId" = ${organization.id}
+  `
+
+  const products = await raw<{
+    id: string
+    name: string
+    slug: string
+    categoryId: string
+    categoryName: string
+    createdAt: Date
+    updatedAt: Date
+    auditCreatedAt: Date | null
+    auditUserId: string | null
+    auditAction: string | null
+    auditDescription: string | null
+  }>`
+    SELECT
+      cp.id,
+      cp.name,
+      cp.slug,
+      cp."catalogCategoryId" AS "categoryId",
+      cc.name AS "categoryName",
+      cp."createdAt",
+      cp."updatedAt",
+      first_audit."createdAt" AS "auditCreatedAt",
+      first_audit."userId" AS "auditUserId",
+      first_audit.action::text AS "auditAction",
+      first_audit.description AS "auditDescription"
+    FROM "CatalogProduct" cp
+    JOIN "CatalogCategory" cc
+      ON cc.id = cp."catalogCategoryId"
+     AND cc."organizationId" = ${organization.id}
+    LEFT JOIN LATERAL (
+      SELECT al."createdAt", al."userId", al.action, al.description
+      FROM "AuditLog" al
+      WHERE al."organizationId" = ${organization.id}
+        AND al.entity = 'CatalogProduct'
+        AND al."entityId" = cp.id
+      ORDER BY al."createdAt" ASC
+      LIMIT 1
+    ) first_audit ON true
+    WHERE cp."organizationId" = ${organization.id}
+    ORDER BY cp."createdAt" ASC, cp.name ASC
+  `
+
+  const catalogAuditLogs = await raw<{
+    id: string
+    createdAt: Date
+    userId: string | null
+    entity: string
+    entityId: string | null
+    action: string
+    description: string | null
+    metadata: Prisma.JsonValue | null
+  }>`
+    SELECT
+      al.id,
+      al."createdAt",
+      al."userId",
+      al.entity,
+      al."entityId",
+      al.action::text AS action,
+      al.description,
+      al.metadata
+    FROM "AuditLog" al
+    WHERE al."organizationId" = ${organization.id}
+      AND (
+        al.entity IN (
+          'CatalogCategory',
+          'CatalogProduct',
+          'CatalogProductOptionGroup',
+          'CatalogProductOption',
+          'CatalogImport'
+        )
+        OR al.action IN (
+          'PRODUCT_CREATED',
+          'PRODUCT_UPDATED',
+          'PRODUCT_ACTIVATED',
+          'PRODUCT_DEACTIVATED',
+          'PRODUCT_PRICE_CHANGED',
+          'PRODUCT_OPTION_CHANGED',
+          'EVENT_PRODUCT_CREATED',
+          'EVENT_PRODUCT_UPDATED',
+          'EVENT_PRODUCT_DELETED'
+        )
+      )
+    ORDER BY al."createdAt" ASC
+  `
+
+  const productsByLocalDay: CountMap = {}
+  const productsByUser: CountMap = {}
+  const productsByCategory: CountMap = {}
+  for (const product of products) {
+    incrementBucket(productsByLocalDay, formatLocalDateKey(product.createdAt, window.timezone))
+    incrementBucket(productsByUser, product.auditUserId)
+    incrementBucket(productsByCategory, product.categoryName)
+  }
+
+  const auditByLocalDay: CountMap = {}
+  const auditByUser: CountMap = {}
+  const auditByAction: CountMap = {}
+  for (const audit of catalogAuditLogs) {
+    incrementBucket(auditByLocalDay, formatLocalDateKey(audit.createdAt, window.timezone))
+    incrementBucket(auditByUser, audit.userId)
+    incrementBucket(auditByAction, audit.action)
+  }
+
+  const summary = catalogSummaryRows[0]
+  const auditMin = catalogAuditLogs[0]?.createdAt ?? null
+  const auditMax = catalogAuditLogs[catalogAuditLogs.length - 1]?.createdAt ?? null
+
+  return {
+    abortReason: 'NO_PRESERVED_PRODUCTS_IN_WINDOW',
+    organization: {
+      id: organization.id,
+      slug: organization.slug,
+      name: organization.name
+    },
+    preserveWindow: {
+      source: window.source,
+      timezone: window.timezone,
+      localDate: window.localDate ?? null,
+      from: window.from,
+      to: window.to,
+      fromLocal: formatLocalDateTime(window.from, window.timezone),
+      toLocal: formatLocalDateTime(window.to, window.timezone)
+    },
+    currentCatalog: {
+      productCount: numberFrom(summary?.product_count),
+      categoryCount: numberFrom(summary?.category_count),
+      minCreatedAt: summary?.min_created_at ?? null,
+      minCreatedAtLocal: formatLocalDateTime(summary?.min_created_at ?? null, window.timezone),
+      maxCreatedAt: summary?.max_created_at ?? null,
+      maxCreatedAtLocal: formatLocalDateTime(summary?.max_created_at ?? null, window.timezone),
+      productsByLocalDay,
+      productsByUser,
+      productsByCategory,
+      products: products.map(product => ({
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        createdAtUtc: product.createdAt,
+        createdAtLocal: formatLocalDateTime(product.createdAt, window.timezone),
+        updatedAtUtc: product.updatedAt,
+        updatedAtLocal: formatLocalDateTime(product.updatedAt, window.timezone),
+        categoryId: product.categoryId,
+        categoryName: product.categoryName,
+        createdByAudit: product.auditCreatedAt
+          ? {
+              createdAtUtc: product.auditCreatedAt,
+              createdAtLocal: formatLocalDateTime(product.auditCreatedAt, window.timezone),
+              userId: product.auditUserId,
+              action: product.auditAction,
+              description: product.auditDescription
+            }
+          : null
+      }))
+    },
+    catalogAudit: {
+      count: catalogAuditLogs.length,
+      minCreatedAt: auditMin,
+      minCreatedAtLocal: formatLocalDateTime(auditMin, window.timezone),
+      maxCreatedAt: auditMax,
+      maxCreatedAtLocal: formatLocalDateTime(auditMax, window.timezone),
+      byLocalDay: auditByLocalDay,
+      byUser: auditByUser,
+      byAction: auditByAction,
+      logs: catalogAuditLogs.map(audit => ({
+        id: audit.id,
+        createdAtUtc: audit.createdAt,
+        createdAtLocal: formatLocalDateTime(audit.createdAt, window.timezone),
+        userId: audit.userId,
+        entity: audit.entity,
+        entityId: audit.entityId,
+        action: audit.action,
+        description: audit.description,
+        metadata: audit.metadata
+      }))
+    }
+  }
+}
+
+async function collectPreservedCatalog(organization: Org, window: PreserveWindow) {
+  const organizationId = organization.id
+  const { from, to } = window
   const products = await raw<PreserveProduct>`
     SELECT
       cp.id,
@@ -297,8 +708,10 @@ async function collectPreservedCatalog(organizationId: string, from: Date, to: D
   `
 
   if (products.length === 0) {
+    const diagnostics = await collectZeCatalogDiagnostics(organization, window)
+    console.error(JSON.stringify(normalizeJson(diagnostics), null, 2))
     throw new Error(
-      `No preserved Zé catalog products found between ${from.toISOString()} and ${to.toISOString()}`
+      `No preserved Ze catalog products found between ${from.toISOString()} and ${to.toISOString()}`
     )
   }
 
@@ -877,7 +1290,11 @@ async function assertBackupForApply() {
   }
 }
 
-async function assertApplyGuards(preservedCount: number, dbInfo: Awaited<ReturnType<typeof collectDbInfo>>) {
+async function assertApplyGuards(
+  preservedCount: number,
+  dbInfo: Awaited<ReturnType<typeof collectDbInfo>>,
+  preserveWindow: PreserveWindow
+) {
   if (!envFlag('APPLY_ZE_RESET')) return null
 
   if (envString('CONFIRM_ORGANIZATION_SLUG') !== ZE_SLUG) {
@@ -898,6 +1315,16 @@ async function assertApplyGuards(preservedCount: number, dbInfo: Awaited<ReturnT
       `Connected database mismatch. Expected ${expectedDatabase}, found ${dbInfo.database}`
     )
   }
+  if (envString('CONFIRM_PRESERVE_FROM') !== preserveWindow.from.toISOString()) {
+    throw new Error(
+      `CONFIRM_PRESERVE_FROM=${preserveWindow.from.toISOString()} is required for APPLY_ZE_RESET=true`
+    )
+  }
+  if (envString('CONFIRM_PRESERVE_TO') !== preserveWindow.to.toISOString()) {
+    throw new Error(
+      `CONFIRM_PRESERVE_TO=${preserveWindow.to.toISOString()} is required for APPLY_ZE_RESET=true`
+    )
+  }
 
   return assertBackupForApply()
 }
@@ -905,28 +1332,16 @@ async function assertApplyGuards(preservedCount: number, dbInfo: Awaited<ReturnT
 async function main() {
   const repairBatchId = `ze-reset-${new Date().toISOString().replace(/[:.]/g, '-')}`
   const dryRun = !envFlag('APPLY_ZE_RESET')
-  const preserveFrom = envString('PRESERVE_CREATED_FROM')
-    ? new Date(envString('PRESERVE_CREATED_FROM') as string)
-    : startOfYesterdayLocal()
-  const preserveTo = envString('PRESERVE_CREATED_TO')
-    ? new Date(envString('PRESERVE_CREATED_TO') as string)
-    : endOfYesterdayLocal()
-
-  if (Number.isNaN(preserveFrom.getTime()) || Number.isNaN(preserveTo.getTime())) {
-    throw new Error('Invalid PRESERVE_CREATED_FROM/PRESERVE_CREATED_TO')
-  }
-  if (preserveFrom >= preserveTo) {
-    throw new Error('PRESERVE_CREATED_FROM must be before PRESERVE_CREATED_TO')
-  }
+  const preserveWindow = resolvePreserveWindow()
+  const { from: preserveFrom, to: preserveTo } = preserveWindow
 
   const dbInfo = await collectDbInfo()
   const organizations = await resolveOrganizations()
   const preservedCatalog = await collectPreservedCatalog(
-    organizations.ze.id,
-    preserveFrom,
-    preserveTo
+    organizations.ze,
+    preserveWindow
   )
-  const backup = await assertApplyGuards(preservedCatalog.products.length, dbInfo)
+  const backup = await assertApplyGuards(preservedCatalog.products.length, dbInfo, preserveWindow)
 
   const [guellosBeforeCounts, zeBeforeCounts, deletionPlan, crossTenantIssues] =
     await Promise.all([
@@ -956,7 +1371,13 @@ async function main() {
     preserveWindow: {
       from: preserveFrom,
       to: preserveTo,
-      note: 'Defaults to yesterday in the process local timezone. Override with PRESERVE_CREATED_FROM/PRESERVE_CREATED_TO ISO timestamps if production timezone differs.'
+      fromLocal: formatLocalDateTime(preserveFrom, preserveWindow.timezone),
+      toLocal: formatLocalDateTime(preserveTo, preserveWindow.timezone),
+      timezone: preserveWindow.timezone,
+      source: preserveWindow.source,
+      localDate: preserveWindow.localDate ?? null,
+      note:
+        'Resolution priority: PRESERVE_FROM/PRESERVE_TO UTC, then PRESERVE_LOCAL_DATE/PRESERVE_TIMEZONE, then yesterday in APP_TIMEZONE or America/Sao_Paulo.'
     },
     preservedCatalog: {
       productCount: preservedCatalog.products.length,
@@ -976,6 +1397,7 @@ async function main() {
         'Preserved product count differs from EXPECTED_PRESERVED_PRODUCT_COUNT in apply mode',
         'Connected database differs from CONFIRM_DATABASE_NAME when provided',
         'Backup file missing or empty in apply mode',
+        'Preserve window differs from CONFIRM_PRESERVE_FROM/CONFIRM_PRESERVE_TO in apply mode',
         'Preserved option links to a product outside the preserved batch'
       ]
     },
@@ -984,6 +1406,8 @@ async function main() {
       'CONFIRM_ORGANIZATION_SLUG=ze-do-facao',
       'CONFIRM_KEEP_NEW_CATALOG=true',
       `EXPECTED_PRESERVED_PRODUCT_COUNT=${preservedCatalog.products.length}`,
+      `CONFIRM_PRESERVE_FROM=${preserveFrom.toISOString()}`,
+      `CONFIRM_PRESERVE_TO=${preserveTo.toISOString()}`,
       'CONFIRM_DATABASE_NAME=<current_database()>',
       'BACKUP_FILE=<validated-pg-dump-path>',
       'node dist/scripts/reset-ze-do-facao-keeping-new-catalog.js'
