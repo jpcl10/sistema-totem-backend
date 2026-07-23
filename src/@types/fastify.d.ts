@@ -11,6 +11,7 @@ declare module 'fastify' {
       sub: string
       role: UserRole
       organizationId: string
+      sessionVersion: number
     }
 
     device: {

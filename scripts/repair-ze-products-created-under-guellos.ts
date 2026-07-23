@@ -1,4 +1,5 @@
 import { AuditAction } from '@prisma/client'
+import { existsSync } from 'node:fs'
 
 import { prisma } from '../src/lib/prisma.js'
 
@@ -6,6 +7,10 @@ const GUELLOS_SLUG = 'guellos-pizza'
 const ZE_SLUG = 'ze-do-facao'
 const EXPECTED_GUELLOS_ID = 'cmra0xvea000rvwasonliufxu'
 const EXPECTED_ZE_ID = 'cmra0xvdh0000vwas3yfwzxi9'
+const HIGOR_USER_ID = 'cmrsawo0d001bmp01pgozcwig'
+const HIGOR_EMAIL = 'admin@zedofacao.com.br'
+const REPAIR_REASON =
+  'Correcao de administrador do Ze do Facao vinculado incorretamente a organizacao Guellos Pizza.'
 
 const LEGIT_GUELLOS_CATEGORY_NAMES = new Set([
   'pizzas',
@@ -25,6 +30,22 @@ const ZE_CANDIDATE_CATEGORY_NAMES = new Set([
   'adicionais'
 ])
 
+const ZE_CANDIDATE_PRODUCT_NAMES = new Set([
+  'queijo extra',
+  'bacon na chapa',
+  'costela desfiada 100 g',
+  'banana caramelizada',
+  'gelo',
+  'bola de sorvete extra',
+  'banana extra',
+  'bolinho 3 un chopp 500',
+  'espetinho chopp 500',
+  'pao de alho chopp 500',
+  'burger chopp 770',
+  'meia costela chopp 770',
+  'costela 400 g 2 chopps 770'
+])
+
 const RECENT_BATCH_FROM = new Date('2026-07-18T00:00:00.000Z')
 
 type GroupName = 'A_LEGIT_GUELLOS' | 'B_ZE_UNDER_GUELLOS' | 'C_AMBIGUOUS'
@@ -35,10 +56,45 @@ type EvidenceClassification = {
   warnings: string[]
 }
 
-function assertDryRunOnly() {
-  if (process.env.APPLY_ZE_GUELLOS_REPAIR === 'true') {
+function isApplyMode() {
+  return process.env.APPLY_ZE_GUELLOS_REPAIR === 'true'
+}
+
+function requireEnv(name: string, expected?: string) {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`${name} is required for APPLY_ZE_GUELLOS_REPAIR=true`)
+  }
+
+  if (expected !== undefined && value !== expected) {
+    throw new Error(`${name} mismatch. Expected ${expected}, got ${value}`)
+  }
+
+  return value
+}
+
+function validateApplyConfirmations(expectedCategoryCount: number, expectedProductCount: number) {
+  requireEnv('CONFIRM_USER_EMAIL', HIGOR_EMAIL)
+  requireEnv('CONFIRM_SOURCE_ORG_SLUG', GUELLOS_SLUG)
+  requireEnv('CONFIRM_TARGET_ORG_SLUG', ZE_SLUG)
+
+  const backupFile = requireEnv('BACKUP_FILE')
+  if (!existsSync(backupFile)) {
+    throw new Error(`BACKUP_FILE does not exist: ${backupFile}`)
+  }
+
+  const categoryCount = Number(requireEnv('EXPECTED_CATEGORY_COUNT'))
+  const productCount = Number(requireEnv('EXPECTED_PRODUCT_COUNT'))
+
+  if (categoryCount !== expectedCategoryCount) {
     throw new Error(
-      'Real repair is disabled in this diagnostic script. Run without APPLY_ZE_GUELLOS_REPAIR.'
+      `EXPECTED_CATEGORY_COUNT mismatch. Expected approved ${expectedCategoryCount}, got ${categoryCount}`
+    )
+  }
+
+  if (productCount !== expectedProductCount) {
+    throw new Error(
+      `EXPECTED_PRODUCT_COUNT mismatch. Expected approved ${expectedProductCount}, got ${productCount}`
     )
   }
 }
@@ -132,9 +188,11 @@ function classifyCategory(input: {
 }
 
 function classifyProduct(input: {
+  name: string
   categoryClassification: EvidenceClassification
   createdAt: Date
   auditCount: number
+  createdByTargetUser: boolean
   eventLinkCount: number
   orderLinkCount: number
   optionGroupCount: number
@@ -148,6 +206,14 @@ function classifyProduct(input: {
 
   if (input.auditCount > 0) {
     evidence.push(`produto possui ${input.auditCount} AuditLog(s)`)
+  }
+
+  if (input.createdByTargetUser) {
+    evidence.push(`AuditLog vinculado ao usuario ${HIGOR_EMAIL}`)
+  }
+
+  if (ZE_CANDIDATE_PRODUCT_NAMES.has(normalizeName(input.name))) {
+    evidence.push('nome corresponde a produto informado do novo cardapio do Ze')
   }
 
   if (input.optionGroupCount > 0) {
@@ -164,10 +230,7 @@ function classifyProduct(input: {
     return { group: 'A_LEGIT_GUELLOS', evidence, warnings }
   }
 
-  if (
-    input.categoryClassification.group === 'B_ZE_UNDER_GUELLOS' &&
-    warnings.length === 0
-  ) {
+  if (evidence.length >= 3 && warnings.length === 0) {
     return { group: 'B_ZE_UNDER_GUELLOS', evidence, warnings }
   }
 
@@ -175,8 +238,6 @@ function classifyProduct(input: {
 }
 
 async function main() {
-  assertDryRunOnly()
-
   const [guellos, ze] = await Promise.all([
     prisma.organization.findUnique({
       where: { slug: GUELLOS_SLUG },
@@ -200,6 +261,28 @@ async function main() {
 
   if (ze.id !== EXPECTED_ZE_ID) {
     throw new Error(`Ze organizationId mismatch. Expected ${EXPECTED_ZE_ID}, got ${ze.id}`)
+  }
+
+  const higor = await prisma.user.findUnique({
+    where: { email: HIGOR_EMAIL },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      organizationId: true,
+      sessionVersion: true,
+      createdAt: true,
+      updatedAt: true
+    }
+  })
+
+  if (!higor) {
+    throw new Error(`User not found: ${HIGOR_EMAIL}`)
+  }
+
+  if (higor.id !== HIGOR_USER_ID) {
+    throw new Error(`Higor userId mismatch. Expected ${HIGOR_USER_ID}, got ${higor.id}`)
   }
 
   const [guellosCategoryCount, guellosProductCount, zeCategoryCount, zeProductCount] =
@@ -385,8 +468,31 @@ async function main() {
       })
     : []
 
-  const auditsByEntityId = new Map<string, typeof auditLogs>()
-  for (const log of auditLogs) {
+  const higorAuditLogs = await prisma.auditLog.findMany({
+    where: {
+      userId: higor.id,
+      organizationId: guellos.id
+    },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      organizationId: true,
+      eventId: true,
+      userId: true,
+      deviceId: true,
+      entity: true,
+      entityId: true,
+      action: true,
+      description: true,
+      metadata: true,
+      createdAt: true,
+      user: { select: { id: true, name: true, email: true, role: true, organizationId: true } }
+    }
+  })
+
+  const allRelevantAuditLogs = [...auditLogs, ...higorAuditLogs]
+  const auditsByEntityId = new Map<string, typeof allRelevantAuditLogs>()
+  for (const log of allRelevantAuditLogs) {
     if (!log.entityId) continue
     const current = auditsByEntityId.get(log.entityId) ?? []
     current.push(log)
@@ -467,9 +573,11 @@ async function main() {
       product.orderItemFlavors.length +
       product.onlineOrderItemFlavors.length
     const classification = classifyProduct({
+      name: product.name,
       categoryClassification,
       createdAt: product.createdAt,
       auditCount: productAudits.length,
+      createdByTargetUser: productAudits.some(log => log.userId === higor.id),
       eventLinkCount,
       orderLinkCount,
       optionGroupCount: product.optionGroups.length
@@ -516,13 +624,222 @@ async function main() {
 
   const categoryGroups = countBy(categoryReport.map(category => category.classification.group))
   const productGroups = countBy(productReport.map(product => product.classification.group))
+  const productsCandidateToMove = productReport.filter(
+    product => product.classification.group === 'B_ZE_UNDER_GUELLOS'
+  )
+  const productIdsToMove = new Set(productsCandidateToMove.map(product => product.id))
+  const sourceCategoryIdsForMovedProducts = Array.from(
+    new Set(productsCandidateToMove.map(product => product.categoryId))
+  )
+  const categoriesCandidateToMove = categoryReport.filter(category =>
+    sourceCategoryIdsForMovedProducts.includes(category.id)
+  )
+  const unsafeLinkedOptions = productsCandidateToMove.flatMap(product =>
+    product.optionGroups.flatMap(group =>
+      group.options
+        .filter(option => option.linkedProductId && !productIdsToMove.has(option.linkedProductId))
+        .map(option => ({
+          productId: product.id,
+          productName: product.name,
+          optionId: option.id,
+          optionName: option.name,
+          linkedProductId: option.linkedProductId
+        }))
+    )
+  )
+
+  let applyResult: unknown = null
+
+  if (isApplyMode()) {
+    validateApplyConfirmations(
+      categoriesCandidateToMove.length,
+      productsCandidateToMove.length
+    )
+
+    if (higor.organizationId !== guellos.id) {
+      throw new Error(
+        `Refusing apply: ${HIGOR_EMAIL} is not currently linked to Guellos. Current organizationId=${higor.organizationId}`
+      )
+    }
+
+    if (unsafeLinkedOptions.length > 0) {
+      throw new Error(
+        `Refusing apply: ${unsafeLinkedOptions.length} option(s) link to products that are not approved to move`
+      )
+    }
+
+    applyResult = await prisma.$transaction(async tx => {
+      const categoryTargetBySourceId = new Map<string, string>()
+
+      for (const category of categoriesCandidateToMove) {
+        const allProductsInCategory = productReport.filter(
+          product => product.categoryId === category.id
+        )
+        const canMoveCategoryId =
+          category.classification.group === 'B_ZE_UNDER_GUELLOS' &&
+          allProductsInCategory.length > 0 &&
+          allProductsInCategory.every(
+            product => product.classification.group === 'B_ZE_UNDER_GUELLOS'
+          )
+
+        if (canMoveCategoryId) {
+          await tx.catalogCategory.update({
+            where: { id: category.id },
+            data: { organizationId: ze.id }
+          })
+          categoryTargetBySourceId.set(category.id, category.id)
+          continue
+        }
+
+        const existingTargetCategory = await tx.catalogCategory.findUnique({
+          where: {
+            organizationId_slug: {
+              organizationId: ze.id,
+              slug: category.slug
+            }
+          },
+          select: { id: true }
+        })
+
+        if (existingTargetCategory) {
+          categoryTargetBySourceId.set(category.id, existingTargetCategory.id)
+          continue
+        }
+
+        const createdTargetCategory = await tx.catalogCategory.create({
+          data: {
+            organizationId: ze.id,
+            name: category.name,
+            slug: category.slug,
+            sector: category.sector,
+            active: category.active,
+            sortOrder: category.sortOrder
+          },
+          select: { id: true }
+        })
+
+        categoryTargetBySourceId.set(category.id, createdTargetCategory.id)
+      }
+
+      for (const product of productsCandidateToMove) {
+        const targetCategoryId = categoryTargetBySourceId.get(product.categoryId)
+        if (!targetCategoryId) {
+          throw new Error(`No target category for product ${product.id}`)
+        }
+
+        await tx.catalogProduct.update({
+          where: { id: product.id },
+          data: {
+            organizationId: ze.id,
+            catalogCategoryId: targetCategoryId
+          }
+        })
+
+        await tx.catalogProductOptionGroup.updateMany({
+          where: { productId: product.id },
+          data: { organizationId: ze.id }
+        })
+
+        await tx.catalogProductOption.updateMany({
+          where: { optionGroup: { productId: product.id } },
+          data: { organizationId: ze.id }
+        })
+      }
+
+      const movedProductIds = productsCandidateToMove.map(product => product.id)
+      const movedOptionGroupIds = productsCandidateToMove.flatMap(product =>
+        product.optionGroups.map(group => group.id)
+      )
+      const movedOptionIds = productsCandidateToMove.flatMap(product =>
+        product.optionGroups.flatMap(group => group.options.map(option => option.id))
+      )
+      const movedCategoryIds = Array.from(categoryTargetBySourceId.values())
+      const movedEntityIds = [
+        ...movedProductIds,
+        ...movedOptionGroupIds,
+        ...movedOptionIds,
+        ...movedCategoryIds
+      ]
+
+      const guellosEventLinks = await tx.eventProduct.findMany({
+        where: {
+          catalogProductId: { in: movedProductIds },
+          event: { organizationId: guellos.id }
+        },
+        select: { id: true }
+      })
+
+      if (guellosEventLinks.length > 0) {
+        await tx.eventProduct.deleteMany({
+          where: { id: { in: guellosEventLinks.map(link => link.id) } }
+        })
+      }
+
+      await tx.auditLog.updateMany({
+        where: {
+          organizationId: guellos.id,
+          entityId: { in: movedEntityIds }
+        },
+        data: { organizationId: ze.id }
+      })
+
+      const updatedUser = await tx.user.update({
+        where: { id: higor.id },
+        data: {
+          organizationId: ze.id,
+          sessionVersion: { increment: 1 }
+        },
+        select: {
+          id: true,
+          email: true,
+          organizationId: true,
+          sessionVersion: true
+        }
+      })
+
+      await tx.auditLog.create({
+        data: {
+          organizationId: ze.id,
+          userId: higor.id,
+          entity: 'User',
+          entityId: higor.id,
+          action: AuditAction.USER_UPDATED,
+          description: REPAIR_REASON,
+          metadata: {
+            previousOrganizationId: guellos.id,
+            newOrganizationId: ze.id,
+            movedCategoryCount: categoriesCandidateToMove.length,
+            movedProductCount: productsCandidateToMove.length,
+            removedGuellosEventProductLinks: guellosEventLinks.length,
+            backupFile: process.env.BACKUP_FILE
+          }
+        }
+      })
+
+      return {
+        updatedUser,
+        movedCategoryCount: categoriesCandidateToMove.length,
+        movedProductCount: productsCandidateToMove.length,
+        removedGuellosEventProductLinks: guellosEventLinks.length
+      }
+    })
+  }
 
   const report = {
-    mode: 'DRY_RUN_READ_ONLY',
-    appliedChanges: false,
+    mode: isApplyMode() ? 'APPLY' : 'DRY_RUN_READ_ONLY',
+    appliedChanges: isApplyMode(),
+    applyResult,
     organizations: {
       guellos,
       ze
+    },
+    user: {
+      ...higor,
+      expectedOrganizationId: ze.id,
+      currentlyIncorrectlyLinkedToSourceOrganization: higor.organizationId === guellos.id,
+      activePersistentSessions: 'none: this schema has no persistent session or refresh token table',
+      tokenInvalidationStrategy:
+        'User.sessionVersion is incremented in apply mode; HTTP and Socket.IO reject older JWTs.'
     },
     counts: {
       guellos: {
@@ -549,14 +866,12 @@ async function main() {
       categoriesToKeepInGuellos: categoryReport
         .filter(category => category.classification.group === 'A_LEGIT_GUELLOS')
         .map(category => ({ id: category.id, name: category.name })),
-      categoriesCandidateToMoveToZe: categoryReport
-        .filter(category => category.classification.group === 'B_ZE_UNDER_GUELLOS')
+      categoriesCandidateToMoveToZe: categoriesCandidateToMove
         .map(category => ({ id: category.id, name: category.name, evidence: category.classification.evidence })),
       productsToKeepInGuellos: productReport
         .filter(product => product.classification.group === 'A_LEGIT_GUELLOS')
         .map(product => ({ id: product.id, name: product.name, categoryName: product.categoryName })),
-      productsCandidateToMoveToZe: productReport
-        .filter(product => product.classification.group === 'B_ZE_UNDER_GUELLOS')
+      productsCandidateToMoveToZe: productsCandidateToMove
         .map(product => ({ id: product.id, name: product.name, categoryName: product.categoryName })),
       ambiguousCategories: categoryReport
         .filter(category => category.classification.group === 'C_AMBIGUOUS')
@@ -571,9 +886,21 @@ async function main() {
         'Do not move categories/products with Guellos order or event links without manual approval.',
         'Move category, product, option group and option organizationId together only after review.',
         'Validate every product catalogCategory.organizationId matches product.organizationId after repair.'
-      ]
+      ],
+      unsafeLinkedOptions,
+      realCommand: [
+        'APPLY_ZE_GUELLOS_REPAIR=true',
+        `CONFIRM_USER_EMAIL=${HIGOR_EMAIL}`,
+        `CONFIRM_SOURCE_ORG_SLUG=${GUELLOS_SLUG}`,
+        `CONFIRM_TARGET_ORG_SLUG=${ZE_SLUG}`,
+        `EXPECTED_CATEGORY_COUNT=${categoriesCandidateToMove.length}`,
+        `EXPECTED_PRODUCT_COUNT=${productsCandidateToMove.length}`,
+        'BACKUP_FILE=/path/to/approved-backup.sql',
+        'node dist/scripts/repair-ze-products-created-under-guellos.js'
+      ].join(' ')
     },
-    auditLogsFromRecentCatalogBatch: auditLogs,
+    higorAuditLogs,
+    auditLogsFromRecentCatalogBatch: allRelevantAuditLogs,
     productionCommand:
       'node dist/scripts/repair-ze-products-created-under-guellos.js'
   }

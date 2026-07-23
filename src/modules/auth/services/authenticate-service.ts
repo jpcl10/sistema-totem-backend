@@ -54,7 +54,8 @@ export class AuthenticateService {
     const token = jwt.sign(
       {
         role: user.role,
-        organizationId: user.organizationId
+        organizationId: user.organizationId,
+        sessionVersion: user.sessionVersion
       },
       secret,
       {

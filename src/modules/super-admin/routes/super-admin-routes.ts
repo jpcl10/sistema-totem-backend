@@ -9,6 +9,7 @@ import { updateOrganizationController } from '../controllers/update-organization
 import { updateOrganizationModulesController } from '../controllers/update-organization-modules-controller.js'
 import { listSuperAdminUsersController } from '../controllers/list-super-admin-users-controller.js'
 import { createSuperAdminUserController } from '../controllers/create-super-admin-user-controller.js'
+import { updateSuperAdminUserController } from '../controllers/update-super-admin-user-controller.js'
 
 export async function superAdminRoutes(app: FastifyInstance) {
   // Organizations
@@ -46,5 +47,10 @@ export async function superAdminRoutes(app: FastifyInstance) {
   app.post('/super-admin/users',
     { preHandler: [verifyJWT, requirePlatformContext] },
     createSuperAdminUserController
+  )
+
+  app.patch('/super-admin/users/:id',
+    { preHandler: [verifyJWT, requirePlatformContext] },
+    updateSuperAdminUserController
   )
 }

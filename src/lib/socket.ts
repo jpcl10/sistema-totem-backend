@@ -28,6 +28,7 @@ interface SocketJwtPayload {
   sub: string
   role: UserRole
   organizationId?: string | null
+  sessionVersion?: number
 }
 
 function readSingleValue(value: unknown): string | undefined {
@@ -114,7 +115,23 @@ async function resolveSocketTenantContext(socket: any) {
     process.env.JWT_SECRET as string
   ) as SocketJwtPayload
 
-  if (decoded.role === UserRole.SUPER_ADMIN) {
+  const user = await prisma.user.findUnique({
+    where: {
+      id: decoded.sub
+    },
+    select: {
+      id: true,
+      role: true,
+      organizationId: true,
+      sessionVersion: true
+    }
+  })
+
+  if (!user || decoded.sessionVersion !== user.sessionVersion) {
+    return null
+  }
+
+  if (user.role === UserRole.SUPER_ADMIN) {
     const organizationId = readSocketOrganizationId(socket)
 
     if (!organizationId) {
@@ -136,13 +153,13 @@ async function resolveSocketTenantContext(socket: any) {
 
     return {
       organizationId: organization.id,
-      actingUserId: decoded.sub,
+      actingUserId: user.id,
       actingUserRole: UserRole.SUPER_ADMIN,
       impersonated: true
     }
   }
 
-  if (!decoded.organizationId) {
+  if (!user.organizationId) {
     return null
   }
 
@@ -150,15 +167,15 @@ async function resolveSocketTenantContext(socket: any) {
 
   if (
     requestedOrganizationId &&
-    requestedOrganizationId !== decoded.organizationId
+    requestedOrganizationId !== user.organizationId
   ) {
     return null
   }
 
   return {
-    organizationId: decoded.organizationId,
-    actingUserId: decoded.sub,
-    actingUserRole: decoded.role,
+    organizationId: user.organizationId,
+    actingUserId: user.id,
+    actingUserRole: user.role,
     impersonated: false
   }
 }

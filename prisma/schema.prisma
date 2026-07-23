@@ -344,6 +344,7 @@ model User {
   email          String   @unique
   password       String
   role           UserRole
+  sessionVersion Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @default(now()) @updatedAt
 
@@ -1066,6 +1067,7 @@ enum AuditAction {
 
   USER_LOGGED_IN
   USER_CREATED
+  USER_UPDATED
 
   NFC_CARD_CREATED
   NFC_CARD_UPDATED
