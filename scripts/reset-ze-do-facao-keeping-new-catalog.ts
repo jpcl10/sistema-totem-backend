@@ -1,7 +1,6 @@
 import 'dotenv/config'
 import { mkdir, stat, writeFile } from 'node:fs/promises'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
 import { Prisma, PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
@@ -11,8 +10,7 @@ const GUELLOS_SLUG = 'guellos-pizza'
 const EXPECTED_ZE_ID = 'cmra0xvdh0000vwas3yfwzxi9'
 const EXPECTED_GUELLOS_ID = 'cmra0xvea000rvwasonliufxu'
 
-const scriptDir = dirname(fileURLToPath(import.meta.url))
-const defaultReportDir = resolve(scriptDir, '..', 'repair-reports')
+const defaultReportDir = resolve(process.cwd(), 'repair-reports')
 
 type Org = {
   id: string
@@ -988,7 +986,7 @@ async function main() {
       `EXPECTED_PRESERVED_PRODUCT_COUNT=${preservedCatalog.products.length}`,
       'CONFIRM_DATABASE_NAME=<current_database()>',
       'BACKUP_FILE=<validated-pg-dump-path>',
-      'npx tsx scripts/reset-ze-do-facao-keeping-new-catalog.ts'
+      'node dist/scripts/reset-ze-do-facao-keeping-new-catalog.js'
     ].join(' ')
   }
 

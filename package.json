@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && npm run build:scripts",
+    "build:scripts": "tsc -p tsconfig.scripts.json",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
     "ngrok": "ngrok http 3333",

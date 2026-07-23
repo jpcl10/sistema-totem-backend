@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist",
+    "types": ["node"],
+    "noEmit": false
+  },
+  "include": ["scripts/**/*.ts", "src/@types/**/*.d.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "prisma.config.ts",
+    "scripts/test-*.ts",
+    "scripts/verify-*.ts"
+  ]
+}

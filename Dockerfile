@@ -22,8 +22,9 @@ ENV DATABASE_URL=postgresql://defumar:defumar@localhost:5432/defumar?schema=publ
 
 COPY prisma ./prisma
 COPY prisma.config.ts ./
-COPY tsconfig.json tsconfig.build.json ./
+COPY tsconfig.json tsconfig.build.json tsconfig.scripts.json ./
 COPY src ./src
+COPY scripts ./scripts
 
 RUN npm run prisma:generate
 RUN npm run build
