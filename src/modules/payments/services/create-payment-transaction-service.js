@@ -1,0 +1,114 @@
+import { PaymentMethod, PaymentProvider, AuditAction } from '@prisma/client';
+import { prisma } from '../../../lib/prisma.js';
+import { makePaymentProvider } from '../providers/payment-provider-factory.js';
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js';
+import { PaymentSettingsResolver } from '../../payment-settings/payment-settings-resolver.js';
+export class CreatePaymentTransactionService {
+    async execute({ organizationId, orderId, provider, method, amountInCents, externalReference, gatewayStatus, gatewayMessage, metadata }) {
+        const order = await prisma.order.findFirst({
+            where: {
+                id: orderId,
+                event: {
+                    organizationId
+                }
+            },
+            select: {
+                id: true,
+                totalInCents: true,
+                paymentStatus: true,
+                eventId: true,
+                orderNumber: true,
+                customerName: true,
+                event: {
+                    select: {
+                        pixPaymentExpirationMinutes: true
+                    }
+                }
+            }
+        });
+        if (!order) {
+            throw new Error('Order not found');
+        }
+        const finalAmountInCents = amountInCents ?? order.totalInCents;
+        if (finalAmountInCents <= 0) {
+            throw new Error('Amount must be greater than zero');
+        }
+        const finalMethod = method ?? PaymentMethod.OTHER;
+        const paymentSettings = await new PaymentSettingsResolver().resolve({
+            organizationId,
+            contextType: 'EVENT',
+            eventId: order.eventId
+        });
+        if (finalMethod === PaymentMethod.PIX_AUTOMATIC &&
+            !paymentSettings.methods.pix) {
+            throw new Error('PIX is disabled for this context');
+        }
+        const expirationMinutes = paymentSettings.pixExpirationMinutes ??
+            order.event.pixPaymentExpirationMinutes ??
+            5;
+        const safeExpirationMinutes = Math.min(Math.max(expirationMinutes, 2), 15);
+        const expiresAt = provider === PaymentProvider.MERCADO_PAGO &&
+            finalMethod === PaymentMethod.PIX_AUTOMATIC
+            ? new Date(Date.now() +
+                safeExpirationMinutes * 60 * 1000)
+            : null;
+        const paymentProvider = makePaymentProvider(provider);
+        const providerResponse = await paymentProvider.createPayment({
+            organizationId,
+            orderId: order.id,
+            amountInCents: finalAmountInCents,
+            method: finalMethod,
+            description: `Pedido #${order.orderNumber}`,
+            payerName: order.customerName,
+            expiresAt,
+            metadata
+        });
+        const paymentTransaction = await prisma.paymentTransaction.create({
+            data: {
+                organizationId,
+                orderId: order.id,
+                contextType: 'EVENT',
+                eventId: order.eventId,
+                provider: providerResponse.provider,
+                status: providerResponse.status,
+                method: providerResponse.method,
+                amountInCents: providerResponse.amountInCents,
+                externalId: providerResponse.externalId ?? null,
+                externalReference: providerResponse.externalReference ??
+                    externalReference ??
+                    null,
+                qrCode: providerResponse.qrCode ?? null,
+                qrCodeBase64: providerResponse.qrCodeBase64 ?? null,
+                pixCopyPaste: providerResponse.pixCopyPaste ?? null,
+                expiresAt,
+                gatewayStatus: providerResponse.gatewayStatus ??
+                    gatewayStatus ??
+                    null,
+                gatewayMessage: providerResponse.gatewayMessage ??
+                    gatewayMessage ??
+                    null,
+                metadata: providerResponse.metadata ??
+                    metadata ??
+                    undefined
+            }
+        });
+        // Audit: PAYMENT_CREATED
+        const createAuditLogService = new CreateAuditLogService();
+        await createAuditLogService.execute({
+            organizationId,
+            eventId: order.eventId,
+            entity: 'PaymentTransaction',
+            entityId: paymentTransaction.id,
+            action: AuditAction.PAYMENT_CREATED,
+            description: 'Cobrança PIX criada',
+            metadata: {
+                paymentId: paymentTransaction.id,
+                orderId: order.id,
+                amountInCents: paymentTransaction.amountInCents
+            }
+        });
+        return {
+            paymentTransaction
+        };
+    }
+}

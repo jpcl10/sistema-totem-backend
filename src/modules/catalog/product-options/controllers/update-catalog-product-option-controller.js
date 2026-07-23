@@ -1,0 +1,25 @@
+import { updateCatalogProductOptionSchema } from '../schemas/update-catalog-product-option-schema.js';
+import { UpdateCatalogProductOptionService } from '../services/update-catalog-product-option-service.js';
+import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js';
+export async function updateCatalogProductOptionController(request, reply) {
+    const params = request.params;
+    const body = updateCatalogProductOptionSchema.parse(request.body);
+    const userId = request.user.sub;
+    const organizationId = getTenantOrganizationId(request);
+    const service = new UpdateCatalogProductOptionService();
+    const { option } = await service.execute({
+        organizationId,
+        userRole: request.user.role,
+        userId,
+        optionId: params.optionId,
+        name: body.name,
+        key: body.key,
+        description: body.description,
+        priceDeltaInCents: body.priceDeltaInCents,
+        linkedProductId: body.linkedProductId,
+        sortOrder: body.sortOrder
+    });
+    return reply.status(200).send({
+        option
+    });
+}

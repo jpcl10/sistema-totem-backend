@@ -2,6 +2,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { ImportCatalogService } from '../services/import-catalog-service.js'
 import { importCatalogSchema } from '../schemas/import-catalog-schema.js'
 import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
+import { logCatalogTenantContext } from '../../shared/tenant-guard.js'
 
 export async function importCatalogController(
   request: FastifyRequest,
@@ -9,6 +10,7 @@ export async function importCatalogController(
 ) {
   const body = importCatalogSchema.parse(request.body)
   const organizationId = getTenantOrganizationId(request)
+  logCatalogTenantContext(request, 'POST /catalog/import', organizationId)
 
   const service = new ImportCatalogService()
 

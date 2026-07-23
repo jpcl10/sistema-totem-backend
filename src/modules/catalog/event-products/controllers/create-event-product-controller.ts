@@ -5,6 +5,7 @@ import {
 import { createEventProductSchema } from '../schemas/create-event-product-schema.js'
 import { CreateEventProductService } from '../services/create-event-product-service.js'
 import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
+import { logCatalogTenantContext } from '../../shared/tenant-guard.js'
 
 export async function createEventProductController(
   request: FastifyRequest,
@@ -21,6 +22,11 @@ export async function createEventProductController(
 
   const userId = request.user.sub
   const organizationId = getTenantOrganizationId(request)
+  logCatalogTenantContext(
+    request,
+    'POST /events/:eventId/catalog-products',
+    organizationId
+  )
 
   const service =
     new CreateEventProductService()

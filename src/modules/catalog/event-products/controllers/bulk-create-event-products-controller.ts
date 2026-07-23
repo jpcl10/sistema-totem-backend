@@ -3,6 +3,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
 import { bulkCreateEventProductsSchema } from '../schemas/bulk-create-event-products-schema.js'
 import { BulkCreateEventProductsService } from '../services/bulk-create-event-products-service.js'
+import { logCatalogTenantContext } from '../../shared/tenant-guard.js'
 
 export async function bulkCreateEventProductsController(
   request: FastifyRequest,
@@ -14,6 +15,11 @@ export async function bulkCreateEventProductsController(
 
   const body = bulkCreateEventProductsSchema.parse(request.body)
   const organizationId = getTenantOrganizationId(request)
+  logCatalogTenantContext(
+    request,
+    'POST /events/:eventId/catalog-products/bulk',
+    organizationId
+  )
 
   const service = new BulkCreateEventProductsService()
 

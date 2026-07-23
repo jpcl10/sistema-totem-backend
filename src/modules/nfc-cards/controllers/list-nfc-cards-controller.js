@@ -1,0 +1,16 @@
+import { listNfcCardsSchema } from '../schemas/list-nfc-cards-schema.js';
+import { ListNfcCardsService } from '../services/list-nfc-cards-service.js';
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js';
+export async function listNfcCardsController(request, reply) {
+    const paramsSchema = request.params;
+    const querySchema = listNfcCardsSchema.parse(request.query);
+    const service = new ListNfcCardsService();
+    const organizationId = getTenantOrganizationId(request);
+    const result = await service.execute({
+        organizationId,
+        eventId: paramsSchema.eventId,
+        type: querySchema.type,
+        status: querySchema.status
+    });
+    return reply.send(result);
+}

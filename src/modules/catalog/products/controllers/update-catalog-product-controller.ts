@@ -5,6 +5,7 @@ import {
 import { updateCatalogProductSchema } from '../schemas/update-catalog-product-schema.js'
 import { UpdateCatalogProductService } from '../services/update-catalog-product-service.js'
 import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
+import { logCatalogTenantContext } from '../../shared/tenant-guard.js'
 
 export async function updateCatalogProductController(
   request: FastifyRequest,
@@ -21,6 +22,7 @@ export async function updateCatalogProductController(
 
   const userId = request.user.sub
   const organizationId = getTenantOrganizationId(request)
+  logCatalogTenantContext(request, 'PUT /catalog/products/:id', organizationId)
 
   const service =
     new UpdateCatalogProductService()

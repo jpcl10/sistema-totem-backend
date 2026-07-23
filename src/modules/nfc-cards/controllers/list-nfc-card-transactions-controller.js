@@ -1,0 +1,27 @@
+import { listNfcCardTransactionsSchema } from '../schemas/list-nfc-card-transactions-schema.js';
+import { ListNfcCardTransactionsService } from '../services/list-nfc-card-transactions-service.js';
+import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js';
+export async function listNfcCardTransactionsController(request, reply) {
+    const paramsSchema = request.params;
+    const { page, limit } = listNfcCardTransactionsSchema.parse(request.query);
+    const service = new ListNfcCardTransactionsService();
+    const organizationId = getTenantOrganizationId(request);
+    try {
+        const result = await service.execute({
+            organizationId,
+            eventId: paramsSchema.eventId,
+            nfcCardId: paramsSchema.id,
+            page,
+            limit
+        });
+        return reply.status(200).send(result);
+    }
+    catch (error) {
+        if (error instanceof Error) {
+            if (error.message === 'Event not found' || error.message === 'NFC card not found') {
+                return reply.status(404).send({ message: error.message });
+            }
+        }
+        throw error;
+    }
+}

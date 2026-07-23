@@ -5,6 +5,7 @@ import {
 import { CreateCatalogCategoryService } from '../services/create-catalog-category-service.js'
 import { createCatalogCategorySchema } from '../schemas/create-catalog-category-schema.js'
 import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
+import { logCatalogTenantContext } from '../../shared/tenant-guard.js'
 
 export async function createCatalogCategoryController(
   request: FastifyRequest,
@@ -15,6 +16,7 @@ export async function createCatalogCategoryController(
       request.body
     )
   const organizationId = getTenantOrganizationId(request)
+  logCatalogTenantContext(request, 'POST /catalog/categories', organizationId)
 
   const service =
     new CreateCatalogCategoryService()

@@ -2,6 +2,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { updateCatalogProductOptionSchema } from '../schemas/update-catalog-product-option-schema.js'
 import { UpdateCatalogProductOptionService } from '../services/update-catalog-product-option-service.js'
 import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
+import { logCatalogTenantContext } from '../../shared/tenant-guard.js'
 
 export async function updateCatalogProductOptionController(
   request: FastifyRequest,
@@ -12,6 +13,7 @@ export async function updateCatalogProductOptionController(
 
   const userId = request.user.sub
   const organizationId = getTenantOrganizationId(request)
+  logCatalogTenantContext(request, 'PUT /catalog/options/:optionId', organizationId)
   const service = new UpdateCatalogProductOptionService()
 
   const { option } = await service.execute({

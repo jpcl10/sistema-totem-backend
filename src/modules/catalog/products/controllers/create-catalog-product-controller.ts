@@ -5,6 +5,7 @@ import {
 import { createCatalogProductSchema } from '../schemas/create-catalog-product-schema.js'
 import { CreateCatalogProductService } from '../services/create-catalog-product-service.js'
 import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
+import { logCatalogTenantContext } from '../../shared/tenant-guard.js'
 
 export async function createCatalogProductController(
   request: FastifyRequest,
@@ -17,6 +18,7 @@ export async function createCatalogProductController(
 
   const userId = request.user.sub
   const organizationId = getTenantOrganizationId(request)
+  logCatalogTenantContext(request, 'POST /catalog/products', organizationId)
 
   const service =
     new CreateCatalogProductService()

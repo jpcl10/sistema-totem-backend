@@ -2,6 +2,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { createCatalogProductOptionSchema } from '../schemas/create-catalog-product-option-schema.js'
 import { CreateCatalogProductOptionService } from '../services/create-catalog-product-option-service.js'
 import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
+import { logCatalogTenantContext } from '../../shared/tenant-guard.js'
 
 export async function createCatalogProductOptionController(
   request: FastifyRequest,
@@ -12,6 +13,11 @@ export async function createCatalogProductOptionController(
 
   const userId = request.user.sub
   const organizationId = getTenantOrganizationId(request)
+  logCatalogTenantContext(
+    request,
+    'POST /catalog/option-groups/:groupId/options',
+    organizationId
+  )
   const service = new CreateCatalogProductOptionService()
 
   const { option } = await service.execute({

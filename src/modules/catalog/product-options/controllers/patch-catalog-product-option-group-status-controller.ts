@@ -1,6 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { PatchCatalogProductOptionGroupStatusService } from '../services/patch-catalog-product-option-group-status-service.js'
 import { getTenantOrganizationId } from '../../../auth/middlewares/request-context.js'
+import { logCatalogTenantContext } from '../../shared/tenant-guard.js'
 
 export async function patchCatalogProductOptionGroupStatusController(
   request: FastifyRequest,
@@ -11,6 +12,11 @@ export async function patchCatalogProductOptionGroupStatusController(
 
   const userId = request.user.sub
   const organizationId = getTenantOrganizationId(request)
+  logCatalogTenantContext(
+    request,
+    'PATCH /catalog/option-groups/:groupId/status',
+    organizationId
+  )
   const service = new PatchCatalogProductOptionGroupStatusService()
 
   const { optionGroup } = await service.execute({
