@@ -1,5 +1,6 @@
 import { AuditAction } from '@prisma/client'
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
+import { isAbsolute } from 'node:path'
 
 import { prisma } from '../src/lib/prisma.js'
 
@@ -56,6 +57,18 @@ type EvidenceClassification = {
   warnings: string[]
 }
 
+type BackupConfirmation =
+  | {
+      mode: 'LOCAL_FILE'
+      backupFile: string
+      backupReference: null
+    }
+  | {
+      mode: 'EXTERNAL_CONFIRMED'
+      backupFile: null
+      backupReference: string
+    }
+
 function isApplyMode() {
   return process.env.APPLY_ZE_GUELLOS_REPAIR === 'true'
 }
@@ -73,15 +86,70 @@ function requireEnv(name: string, expected?: string) {
   return value
 }
 
-function validateApplyConfirmations(expectedCategoryCount: number, expectedProductCount: number) {
+function validateBackupConfirmation(): BackupConfirmation {
+  const backupFile = process.env.BACKUP_FILE?.trim()
+  const externalConfirmed = process.env.BACKUP_CONFIRMED_EXTERNAL === 'true'
+  const backupReference = process.env.BACKUP_REFERENCE?.trim()
+
+  if (!backupFile && !externalConfirmed) {
+    throw new Error(
+      'One backup mode is required for APPLY_ZE_GUELLOS_REPAIR=true: BACKUP_FILE or BACKUP_CONFIRMED_EXTERNAL=true'
+    )
+  }
+
+  if (backupFile && externalConfirmed) {
+    throw new Error(
+      'Only one backup mode is allowed: use BACKUP_FILE or BACKUP_CONFIRMED_EXTERNAL=true, not both'
+    )
+  }
+
+  if (backupFile) {
+    if (!isAbsolute(backupFile)) {
+      throw new Error(`BACKUP_FILE must be an absolute path: ${backupFile}`)
+    }
+
+    if (!existsSync(backupFile)) {
+      throw new Error(`BACKUP_FILE does not exist: ${backupFile}`)
+    }
+
+    const stats = statSync(backupFile)
+    if (!stats.isFile()) {
+      throw new Error(`BACKUP_FILE must be a file: ${backupFile}`)
+    }
+
+    if (stats.size <= 0) {
+      throw new Error(`BACKUP_FILE must not be empty: ${backupFile}`)
+    }
+
+    return {
+      mode: 'LOCAL_FILE',
+      backupFile,
+      backupReference: null
+    }
+  }
+
+  if (!backupReference) {
+    throw new Error(
+      'BACKUP_REFERENCE is required when BACKUP_CONFIRMED_EXTERNAL=true'
+    )
+  }
+
+  return {
+    mode: 'EXTERNAL_CONFIRMED',
+    backupFile: null,
+    backupReference
+  }
+}
+
+function validateApplyConfirmations(
+  expectedCategoryCount: number,
+  expectedProductCount: number
+) {
   requireEnv('CONFIRM_USER_EMAIL', HIGOR_EMAIL)
   requireEnv('CONFIRM_SOURCE_ORG_SLUG', GUELLOS_SLUG)
   requireEnv('CONFIRM_TARGET_ORG_SLUG', ZE_SLUG)
 
-  const backupFile = requireEnv('BACKUP_FILE')
-  if (!existsSync(backupFile)) {
-    throw new Error(`BACKUP_FILE does not exist: ${backupFile}`)
-  }
+  const backupConfirmation = validateBackupConfirmation()
 
   const categoryCount = Number(requireEnv('EXPECTED_CATEGORY_COUNT'))
   const productCount = Number(requireEnv('EXPECTED_PRODUCT_COUNT'))
@@ -97,6 +165,8 @@ function validateApplyConfirmations(expectedCategoryCount: number, expectedProdu
       `EXPECTED_PRODUCT_COUNT mismatch. Expected approved ${expectedProductCount}, got ${productCount}`
     )
   }
+
+  return backupConfirmation
 }
 
 function normalizeName(value: string | null | undefined) {
@@ -651,7 +721,7 @@ async function main() {
   let applyResult: unknown = null
 
   if (isApplyMode()) {
-    validateApplyConfirmations(
+    const backupConfirmation = validateApplyConfirmations(
       categoriesCandidateToMove.length,
       productsCandidateToMove.length
     )
@@ -811,7 +881,7 @@ async function main() {
             movedCategoryCount: categoriesCandidateToMove.length,
             movedProductCount: productsCandidateToMove.length,
             removedGuellosEventProductLinks: guellosEventLinks.length,
-            backupFile: process.env.BACKUP_FILE
+            backup: backupConfirmation
           }
         }
       })
@@ -888,14 +958,25 @@ async function main() {
         'Validate every product catalogCategory.organizationId matches product.organizationId after repair.'
       ],
       unsafeLinkedOptions,
-      realCommand: [
+      realCommandWithLocalBackup: [
         'APPLY_ZE_GUELLOS_REPAIR=true',
         `CONFIRM_USER_EMAIL=${HIGOR_EMAIL}`,
         `CONFIRM_SOURCE_ORG_SLUG=${GUELLOS_SLUG}`,
         `CONFIRM_TARGET_ORG_SLUG=${ZE_SLUG}`,
         `EXPECTED_CATEGORY_COUNT=${categoriesCandidateToMove.length}`,
         `EXPECTED_PRODUCT_COUNT=${productsCandidateToMove.length}`,
-        'BACKUP_FILE=/path/to/approved-backup.sql',
+        'BACKUP_FILE=/absolute/path/to/approved-backup.sql',
+        'node dist/scripts/repair-ze-products-created-under-guellos.js'
+      ].join(' '),
+      realCommandWithExternalBackup: [
+        'APPLY_ZE_GUELLOS_REPAIR=true',
+        `CONFIRM_USER_EMAIL=${HIGOR_EMAIL}`,
+        `CONFIRM_SOURCE_ORG_SLUG=${GUELLOS_SLUG}`,
+        `CONFIRM_TARGET_ORG_SLUG=${ZE_SLUG}`,
+        `EXPECTED_CATEGORY_COUNT=${categoriesCandidateToMove.length}`,
+        `EXPECTED_PRODUCT_COUNT=${productsCandidateToMove.length}`,
+        'BACKUP_CONFIRMED_EXTERNAL=true',
+        'BACKUP_REFERENCE=production-snapshot-or-provider-backup-id',
         'node dist/scripts/repair-ze-products-created-under-guellos.js'
       ].join(' ')
     },
