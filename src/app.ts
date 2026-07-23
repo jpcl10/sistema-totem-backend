@@ -116,6 +116,29 @@ app.register(multipart, {
 })
 
 app.setErrorHandler((error, request, reply) => {
+  const typedError = error as Error & { code?: string }
+  if (
+    typedError.code === 'TENANT_DATA_LEAK_DETECTED'
+  ) {
+    request.log.error(
+      {
+        code: typedError.code,
+        path: request.url,
+        userId: request.user?.sub ?? null,
+        role: request.user?.role ?? null,
+        userOrganizationId: request.user?.organizationId ?? null,
+        tenantContextOrganizationId:
+          request.tenantContext?.organizationId ?? null
+      },
+      'TENANT_DATA_LEAK_DETECTED'
+    )
+
+    return reply.status(500).send({
+      code: 'TENANT_DATA_LEAK_DETECTED',
+      message: 'Tenant data isolation violation detected'
+    })
+  }
+
   if (isFileTooLargeError(error)) {
     const uploadError =
       error as {

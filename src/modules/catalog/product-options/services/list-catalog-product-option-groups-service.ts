@@ -1,5 +1,6 @@
 import { prisma } from '../../../../lib/prisma.js'
 import { UserRole } from '@prisma/client'
+import { tenantDataLeakError } from '../../shared/tenant-guard.js'
 
 interface ListCatalogProductOptionGroupsServiceRequest {
   organizationId: string
@@ -40,6 +41,18 @@ export class ListCatalogProductOptionGroupsService {
         sortOrder: 'asc'
       }
     })
+
+    const leakedGroup = optionGroups.find(
+      group =>
+        group.organizationId !== organizationId ||
+        group.options.some(option => option.organizationId !== organizationId)
+    )
+
+    if (leakedGroup) {
+      throw tenantDataLeakError(
+        `CatalogProductOptionGroup ${leakedGroup.id} has tenant mismatch for ${organizationId}`
+      )
+    }
 
     return {
       optionGroups
