@@ -165,6 +165,20 @@ app.setErrorHandler((error, request, reply) => {
     })
   }
 
+  const operationalError = error as Error & {
+    code?: string
+    statusCode?: number
+    details?: Record<string, unknown>
+  }
+
+  if (operationalError.code && operationalError.statusCode) {
+    return reply.status(operationalError.statusCode).send({
+      code: operationalError.code,
+      message: operationalError.message,
+      ...(operationalError.details ?? {})
+    })
+  }
+
   return reply.send(error)
 })
 

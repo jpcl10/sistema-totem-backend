@@ -14,6 +14,7 @@ import { getEventController } from '../controllers/get-event-controller.js'
 import { updateEventController } from '../controllers/update-event-controller.js'
 import { getPublicEventMenuController } from '../controllers/get-public-event-menu-controller.js'
 import { closeEventController } from '../controllers/close-event-controller.js'
+import { getTotemReadinessController } from '../controllers/get-totem-readiness-controller.js'
 export async function eventsRoutes(app: FastifyInstance) 
  
  
@@ -123,6 +124,20 @@ export async function eventsRoutes(app: FastifyInstance)
     }
   },
   getPublicEventCatalogMenuController
+  )
+
+  app.get(
+  '/events/:eventId/totem-readiness',
+  {
+    preHandler: [verifyJWT, requireTenantContext],
+    config: {
+      rateLimit: {
+        max: 300,
+        timeWindow: '1 minute'
+      }
+    }
+  },
+  getTotemReadinessController
   )
 
   app.get(

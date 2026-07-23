@@ -6,6 +6,7 @@ import { requireTenantContext } from '../../auth/middlewares/request-context.js'
 
 import { listPrintJobsController } from '../controllers/list-print-jobs-controller.js'
 import { markPrintJobPrintedController } from '../controllers/mark-print-job-printed-controller.js'
+import { createTestPrintJobController } from '../controllers/create-test-print-job-controller.js'
 
 export async function printJobsRoutes(
   app: FastifyInstance
@@ -23,6 +24,19 @@ export async function printJobsRoutes(
       }
     },
     listPrintJobsController
+  )
+  app.post(
+    '/events/:eventId/print-jobs/test',
+    {
+      preHandler: [verifyJWT, requireTenantContext],
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    createTestPrintJobController
   )
   app.patch(
   '/print-jobs/:printJobId/cancel',

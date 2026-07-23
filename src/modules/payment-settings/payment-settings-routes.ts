@@ -18,6 +18,7 @@ import {
 import { CreateAuditLogService } from '../audit-logs/services/create-audit-log-service.js'
 import { encryptPaymentCredentials } from './payment-credentials-crypto.js'
 import { PaymentSettingsResolver } from './payment-settings-resolver.js'
+import { GetMercadoPagoStatusService } from './services/get-mercado-pago-status-service.js'
 
 function assertCanEdit(request: FastifyRequest) {
   const role = request.tenantContext?.actingUserRole ?? request.user.role
@@ -258,6 +259,21 @@ async function getEffectivePaymentSettings(
   }
 }
 
+async function getMercadoPagoStatus(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  try {
+    const organizationId = getTenantOrganizationId(request)
+    const status = await new GetMercadoPagoStatusService().execute({
+      organizationId
+    })
+    return reply.send(status)
+  } catch (error) {
+    return mapError(reply, error)
+  }
+}
+
 async function upsertEventContextSettings(
   request: FastifyRequest,
   reply: FastifyReply
@@ -472,6 +488,10 @@ export async function paymentSettingsRoutes(app: FastifyInstance) {
   app.get('/payment-settings/effective', {
     preHandler: [verifyJWT, requireTenantContext]
   }, getEffectivePaymentSettings)
+
+  app.get('/payment-settings/mercado-pago/status', {
+    preHandler: [verifyJWT, requireTenantContext]
+  }, getMercadoPagoStatus)
 
   app.patch('/payment-settings/events/:eventId', {
     preHandler: [verifyJWT, requireTenantContext]
