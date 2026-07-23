@@ -1,6 +1,7 @@
 import { AuditAction } from '@prisma/client'
 import { existsSync, statSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import { prisma } from '../src/lib/prisma.js'
 
@@ -68,6 +69,202 @@ type BackupConfirmation =
       backupFile: null
       backupReference: string
     }
+
+type PlanCategory = {
+  id: string
+  name: string
+  slug: string
+  sector: 'BAR' | 'KITCHEN'
+  active: boolean
+  sortOrder: number
+  classification: EvidenceClassification
+}
+
+type PlanProduct = {
+  id: string
+  name: string
+  slug: string
+  categoryId: string
+}
+
+type ExistingTargetCategory = {
+  id: string
+  name: string
+  slug: string
+}
+
+type ExistingTargetProduct = {
+  id: string
+  name: string
+  slug: string
+  catalogCategoryId: string
+}
+
+type SourceCategoryRelation = {
+  sourceCategoryId: string
+  productCount: number
+  candidateProductCount: number
+  halfAndHalfProductCount: number
+}
+
+type CategoryPlanEntry = {
+  sourceCategoryId: string
+  sourceCategoryName: string
+  slug: string
+  productCount: number
+  targetCategoryId: string | null
+  targetCategoryName: string | null
+}
+
+type CategoryCreatePlanEntry = CategoryPlanEntry & {
+  sourceCategory: PlanCategory
+}
+
+type ProductSlugConflict = {
+  code: 'PRODUCT_SLUG_CONFLICT'
+  slug: string
+  sourceProduct: {
+    id: string
+    name: string
+    categoryId: string
+  }
+  targetProduct: {
+    id: string
+    name: string
+    categoryId: string
+  }
+}
+
+export type CatalogRepairPlan = {
+  candidateCategories: number
+  candidateProducts: number
+  categoryMoves: CategoryPlanEntry[]
+  categoryMerges: CategoryPlanEntry[]
+  categoryCreates: CategoryCreatePlanEntry[]
+  targetCategoriesCreated: number
+  productSlugConflicts: ProductSlugConflict[]
+  optionGroupConflicts: unknown[]
+  blockingRelations: unknown[]
+  sourceCategoriesDeletedAfterMerge: CategoryPlanEntry[]
+  productsMoved: number
+  hasBlockingConflicts: boolean
+}
+
+export function buildCatalogRepairPlan(input: {
+  categoriesCandidateToMove: PlanCategory[]
+  productsCandidateToMove: PlanProduct[]
+  existingTargetCategories: ExistingTargetCategory[]
+  existingTargetProducts: ExistingTargetProduct[]
+  sourceCategoryRelations: SourceCategoryRelation[]
+}): CatalogRepairPlan {
+  const productsBySourceCategoryId = new Map<string, PlanProduct[]>()
+  for (const product of input.productsCandidateToMove) {
+    const products = productsBySourceCategoryId.get(product.categoryId) ?? []
+    products.push(product)
+    productsBySourceCategoryId.set(product.categoryId, products)
+  }
+
+  const targetCategoryBySlug = new Map(
+    input.existingTargetCategories.map(category => [category.slug, category])
+  )
+  const targetProductBySlug = new Map(
+    input.existingTargetProducts.map(product => [product.slug, product])
+  )
+  const sourceRelationsByCategoryId = new Map(
+    input.sourceCategoryRelations.map(relation => [relation.sourceCategoryId, relation])
+  )
+
+  const categoryMoves: CategoryPlanEntry[] = []
+  const categoryMerges: CategoryPlanEntry[] = []
+  const categoryCreates: CategoryCreatePlanEntry[] = []
+  const sourceCategoriesDeletedAfterMerge: CategoryPlanEntry[] = []
+
+  for (const category of input.categoriesCandidateToMove) {
+    const categoryProducts = productsBySourceCategoryId.get(category.id) ?? []
+    const relation = sourceRelationsByCategoryId.get(category.id)
+    const existingTargetCategory = targetCategoryBySlug.get(category.slug)
+    const entry = {
+      sourceCategoryId: category.id,
+      sourceCategoryName: category.name,
+      slug: category.slug,
+      productCount: categoryProducts.length,
+      targetCategoryId: existingTargetCategory?.id ?? null,
+      targetCategoryName: existingTargetCategory?.name ?? null
+    }
+
+    if (existingTargetCategory) {
+      categoryMerges.push(entry)
+
+      if (
+        relation &&
+        relation.productCount === relation.candidateProductCount &&
+        relation.halfAndHalfProductCount === 0
+      ) {
+        sourceCategoriesDeletedAfterMerge.push(entry)
+      }
+
+      continue
+    }
+
+    const canMoveSourceCategory =
+      category.classification.group === 'B_ZE_UNDER_GUELLOS' &&
+      relation &&
+      relation.productCount === relation.candidateProductCount &&
+      relation.halfAndHalfProductCount === 0
+
+    if (canMoveSourceCategory) {
+      categoryMoves.push({
+        ...entry,
+        targetCategoryId: category.id,
+        targetCategoryName: category.name
+      })
+      continue
+    }
+
+    categoryCreates.push({
+      ...entry,
+      sourceCategory: category
+    })
+  }
+
+  const productSlugConflicts = input.productsCandidateToMove.flatMap(product => {
+    const existingTargetProduct = targetProductBySlug.get(product.slug)
+
+    if (!existingTargetProduct) {
+      return []
+    }
+
+    return [{
+      code: 'PRODUCT_SLUG_CONFLICT' as const,
+      slug: product.slug,
+      sourceProduct: {
+        id: product.id,
+        name: product.name,
+        categoryId: product.categoryId
+      },
+      targetProduct: {
+        id: existingTargetProduct.id,
+        name: existingTargetProduct.name,
+        categoryId: existingTargetProduct.catalogCategoryId
+      }
+    }]
+  })
+
+  return {
+    candidateCategories: input.categoriesCandidateToMove.length,
+    candidateProducts: input.productsCandidateToMove.length,
+    categoryMoves,
+    categoryMerges,
+    categoryCreates,
+    targetCategoriesCreated: categoryCreates.length,
+    productSlugConflicts,
+    optionGroupConflicts: [],
+    blockingRelations: [],
+    sourceCategoriesDeletedAfterMerge,
+    productsMoved: input.productsCandidateToMove.length,
+    hasBlockingConflicts: productSlugConflicts.length > 0
+  }
+}
 
 function isApplyMode() {
   return process.env.APPLY_ZE_GUELLOS_REPAIR === 'true'
@@ -376,7 +573,7 @@ async function main() {
       sortOrder: true,
       createdAt: true,
       updatedAt: true,
-      _count: { select: { products: true } }
+      _count: { select: { products: true, halfAndHalfProducts: true } }
     }
   })
 
@@ -624,6 +821,7 @@ async function main() {
       sector: category.sector,
       sortOrder: category.sortOrder,
       productCount: category._count.products,
+      halfAndHalfProductCount: category._count.halfAndHalfProducts,
       contextOrChannel: null,
       createdBy: createdByUsers,
       auditLogs: relatedAudits,
@@ -704,6 +902,50 @@ async function main() {
   const categoriesCandidateToMove = categoryReport.filter(category =>
     sourceCategoryIdsForMovedProducts.includes(category.id)
   )
+  const [existingTargetCategories, existingTargetProducts] = await Promise.all([
+    categoriesCandidateToMove.length > 0
+      ? prisma.catalogCategory.findMany({
+          where: {
+            organizationId: ze.id,
+            slug: { in: categoriesCandidateToMove.map(category => category.slug) }
+          },
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        })
+      : [],
+    productsCandidateToMove.length > 0
+      ? prisma.catalogProduct.findMany({
+          where: {
+            organizationId: ze.id,
+            slug: { in: productsCandidateToMove.map(product => product.slug) }
+          },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            catalogCategoryId: true
+          }
+        })
+      : []
+  ])
+  const sourceCategoryRelations = categoriesCandidateToMove.map(category => ({
+    sourceCategoryId: category.id,
+    productCount: category.productCount,
+    candidateProductCount: productsCandidateToMove.filter(
+      product => product.categoryId === category.id
+    ).length,
+    halfAndHalfProductCount: category.halfAndHalfProductCount
+  }))
+  const preflightPlan = buildCatalogRepairPlan({
+    categoriesCandidateToMove,
+    productsCandidateToMove,
+    existingTargetCategories,
+    existingTargetProducts,
+    sourceCategoryRelations
+  })
   const unsafeLinkedOptions = productsCandidateToMove.flatMap(product =>
     product.optionGroups.flatMap(group =>
       group.options
@@ -738,57 +980,52 @@ async function main() {
       )
     }
 
+    if (preflightPlan.hasBlockingConflicts) {
+      const error = new Error(
+        `PRODUCT_SLUG_CONFLICT: ${preflightPlan.productSlugConflicts.length} product slug conflict(s) found`
+      )
+      Object.assign(error, {
+        code: 'PRODUCT_SLUG_CONFLICT',
+        productSlugConflicts: preflightPlan.productSlugConflicts
+      })
+      throw error
+    }
+
     applyResult = await prisma.$transaction(async tx => {
       const categoryTargetBySourceId = new Map<string, string>()
 
-      for (const category of categoriesCandidateToMove) {
-        const allProductsInCategory = productReport.filter(
-          product => product.categoryId === category.id
-        )
-        const canMoveCategoryId =
-          category.classification.group === 'B_ZE_UNDER_GUELLOS' &&
-          allProductsInCategory.length > 0 &&
-          allProductsInCategory.every(
-            product => product.classification.group === 'B_ZE_UNDER_GUELLOS'
-          )
-
-        if (canMoveCategoryId) {
-          await tx.catalogCategory.update({
-            where: { id: category.id },
-            data: { organizationId: ze.id }
-          })
-          categoryTargetBySourceId.set(category.id, category.id)
-          continue
-        }
-
-        const existingTargetCategory = await tx.catalogCategory.findUnique({
-          where: {
-            organizationId_slug: {
-              organizationId: ze.id,
-              slug: category.slug
-            }
-          },
-          select: { id: true }
+      for (const categoryMove of preflightPlan.categoryMoves) {
+        await tx.catalogCategory.update({
+          where: { id: categoryMove.sourceCategoryId },
+          data: { organizationId: ze.id }
         })
+        categoryTargetBySourceId.set(categoryMove.sourceCategoryId, categoryMove.sourceCategoryId)
+      }
 
-        if (existingTargetCategory) {
-          categoryTargetBySourceId.set(category.id, existingTargetCategory.id)
-          continue
+      for (const categoryMerge of preflightPlan.categoryMerges) {
+        if (!categoryMerge.targetCategoryId) {
+          throw new Error(`No merge target category for ${categoryMerge.sourceCategoryId}`)
         }
+        categoryTargetBySourceId.set(
+          categoryMerge.sourceCategoryId,
+          categoryMerge.targetCategoryId
+        )
+      }
 
+      for (const categoryCreate of preflightPlan.categoryCreates) {
         const createdTargetCategory = await tx.catalogCategory.create({
           data: {
             organizationId: ze.id,
-            name: category.name,
-            slug: category.slug,
-            sector: category.sector,
-            active: category.active,
-            sortOrder: category.sortOrder
+            name: categoryCreate.sourceCategory.name,
+            slug: categoryCreate.sourceCategory.slug,
+            sector: categoryCreate.sourceCategory.sector,
+            active: categoryCreate.sourceCategory.active,
+            sortOrder: categoryCreate.sourceCategory.sortOrder
           },
           select: { id: true }
         })
 
-        categoryTargetBySourceId.set(category.id, createdTargetCategory.id)
+        categoryTargetBySourceId.set(categoryCreate.sourceCategoryId, createdTargetCategory.id)
       }
 
       for (const product of productsCandidateToMove) {
@@ -824,11 +1061,13 @@ async function main() {
         product.optionGroups.flatMap(group => group.options.map(option => option.id))
       )
       const movedCategoryIds = Array.from(categoryTargetBySourceId.values())
+      const sourceCategoryIds = categoriesCandidateToMove.map(category => category.id)
       const movedEntityIds = [
         ...movedProductIds,
         ...movedOptionGroupIds,
         ...movedOptionIds,
-        ...movedCategoryIds
+        ...movedCategoryIds,
+        ...sourceCategoryIds
       ]
 
       const guellosEventLinks = await tx.eventProduct.findMany({
@@ -843,6 +1082,25 @@ async function main() {
         await tx.eventProduct.deleteMany({
           where: { id: { in: guellosEventLinks.map(link => link.id) } }
         })
+      }
+
+      const deletedSourceCategoryIds: string[] = []
+      for (const sourceCategory of preflightPlan.sourceCategoriesDeletedAfterMerge) {
+        const [remainingProducts, remainingHalfAndHalfProducts] = await Promise.all([
+          tx.catalogProduct.count({
+            where: { catalogCategoryId: sourceCategory.sourceCategoryId }
+          }),
+          tx.catalogProduct.count({
+            where: { halfAndHalfFlavorCategoryId: sourceCategory.sourceCategoryId }
+          })
+        ])
+
+        if (remainingProducts === 0 && remainingHalfAndHalfProducts === 0) {
+          await tx.catalogCategory.delete({
+            where: { id: sourceCategory.sourceCategoryId }
+          })
+          deletedSourceCategoryIds.push(sourceCategory.sourceCategoryId)
+        }
       }
 
       await tx.auditLog.updateMany({
@@ -878,7 +1136,11 @@ async function main() {
           metadata: {
             previousOrganizationId: guellos.id,
             newOrganizationId: ze.id,
-            movedCategoryCount: categoriesCandidateToMove.length,
+            candidateCategories: preflightPlan.candidateCategories,
+            categoriesMoved: preflightPlan.categoryMoves.length,
+            categoriesMerged: preflightPlan.categoryMerges.length,
+            sourceCategoriesDeletedAfterMerge: deletedSourceCategoryIds.length,
+            targetCategoriesCreated: preflightPlan.targetCategoriesCreated,
             movedProductCount: productsCandidateToMove.length,
             removedGuellosEventProductLinks: guellosEventLinks.length,
             backup: backupConfirmation
@@ -888,7 +1150,11 @@ async function main() {
 
       return {
         updatedUser,
-        movedCategoryCount: categoriesCandidateToMove.length,
+        candidateCategories: preflightPlan.candidateCategories,
+        categoriesMoved: preflightPlan.categoryMoves.length,
+        categoriesMerged: preflightPlan.categoryMerges.length,
+        sourceCategoriesDeletedAfterMerge: deletedSourceCategoryIds,
+        targetCategoriesCreated: preflightPlan.targetCategoriesCreated,
         movedProductCount: productsCandidateToMove.length,
         removedGuellosEventProductLinks: guellosEventLinks.length
       }
@@ -932,7 +1198,17 @@ async function main() {
       products: productGroups
     },
     repairPlan: {
-      status: 'not_executed',
+      status: preflightPlan.hasBlockingConflicts
+        ? 'blocked_by_preflight_conflict'
+        : 'not_executed',
+      preflightPlan,
+      candidateCategories: preflightPlan.candidateCategories,
+      categoriesMoved: preflightPlan.categoryMoves.length,
+      categoriesMerged: preflightPlan.categoryMerges.length,
+      targetCategoriesCreated: preflightPlan.targetCategoriesCreated,
+      sourceCategoriesDeletedAfterMerge: preflightPlan.sourceCategoriesDeletedAfterMerge,
+      productsMoved: preflightPlan.productsMoved,
+      productSlugConflicts: preflightPlan.productSlugConflicts,
       categoriesToKeepInGuellos: categoryReport
         .filter(category => category.classification.group === 'A_LEGIT_GUELLOS')
         .map(category => ({ id: category.id, name: category.name })),
@@ -989,11 +1265,13 @@ async function main() {
   console.log(JSON.stringify(safeJson(report), null, 2))
 }
 
-main()
-  .catch(error => {
-    console.error(error)
-    process.exitCode = 1
-  })
-  .finally(async () => {
-    await prisma.$disconnect()
-  })
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main()
+    .catch(error => {
+      console.error(error)
+      process.exitCode = 1
+    })
+    .finally(async () => {
+      await prisma.$disconnect()
+    })
+}
