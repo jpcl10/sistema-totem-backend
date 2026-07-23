@@ -1,5 +1,6 @@
 import {
   AuditAction,
+  OrderSource,
   PaymentContextType,
   PaymentMethod,
   PaymentProvider,
@@ -8,6 +9,7 @@ import {
 } from '@prisma/client'
 import { prisma } from '../../../lib/prisma.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
+import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
 
 export type CardPaymentResult =
   | 'APPROVED'
@@ -42,6 +44,12 @@ interface ConfirmCardPaymentIntentRequest {
   gatewayMessage?: string | null
 }
 
+interface CreatePublicTotemCardPaymentIntentRequest {
+  organizationSlug: string
+  eventSlug: string
+  orderId: string
+}
+
 function isFinalStatus(status: PaymentTransactionStatus) {
   const finalStatuses: PaymentTransactionStatus[] = [
     PaymentTransactionStatus.APPROVED,
@@ -70,6 +78,163 @@ function mapResult(result: CardPaymentResult) {
 }
 
 export class CardPaymentIntentService {
+  async createPublicTotemIntent({
+    organizationSlug,
+    eventSlug,
+    orderId
+  }: CreatePublicTotemCardPaymentIntentRequest) {
+    const order = await prisma.order.findFirst({
+      where: {
+        id: orderId,
+        event: {
+          slug: eventSlug,
+          organization: {
+            slug: organizationSlug
+          }
+        }
+      },
+      include: {
+        event: {
+          select: {
+            id: true,
+            organizationId: true
+          }
+        }
+      }
+    })
+
+    if (!order) {
+      throw new Error('Order not found')
+    }
+
+    if (order.source !== OrderSource.TOTEM) {
+      throw new Error('Order is not a totem order')
+    }
+
+    if (order.paymentMethod !== PaymentMethod.CREDIT_CARD) {
+      throw new Error('Order is not configured for card payment')
+    }
+
+    if (order.paymentStatus !== PaymentStatus.PENDING) {
+      throw new Error('Order is not pending payment')
+    }
+
+    const terminals = await prisma.paymentTerminal.findMany({
+      where: {
+        organizationId: order.event.organizationId,
+        active: true,
+        status: 'ACTIVE',
+        provider: PaymentProvider.MERCADO_PAGO,
+        OR: [
+          { eventId: order.eventId },
+          {
+            eventId: null,
+            onlineStoreId: null
+          }
+        ]
+      },
+      include: {
+        device: {
+          select: {
+            id: true,
+            organizationId: true,
+            eventId: true,
+            status: true,
+            type: true
+          }
+        }
+      }
+    })
+
+    if (terminals.length === 0) {
+      throw new Error('No active card terminal configured for this totem')
+    }
+
+    const eligibleTerminals = terminals.filter(terminal => {
+      if (!terminal.deviceId) {
+        return false
+      }
+
+      return (
+        terminal.device?.organizationId === order.event.organizationId &&
+        terminal.device.status === 'ACTIVE' &&
+        (
+          terminal.device.eventId === order.eventId ||
+          terminal.device.eventId === null
+        )
+      )
+    })
+
+    if (eligibleTerminals.length === 0) {
+      throw new Error('No active device linked to the card terminal')
+    }
+
+    if (eligibleTerminals.length > 1) {
+      throw new Error('Multiple card terminals are eligible for this totem')
+    }
+
+    const terminal = eligibleTerminals[0]
+    const idempotencyKey = `totem-card:${order.id}`
+
+    const existing = await prisma.paymentTransaction.findUnique({
+      where: {
+        idempotencyKey
+      }
+    })
+
+    if (existing) {
+      return {
+        paymentTransaction: existing
+      }
+    }
+
+    const paymentTransaction = await prisma.paymentTransaction.create({
+      data: {
+        organizationId: order.event.organizationId,
+        orderId: order.id,
+        terminalId: terminal.id,
+        deviceId: terminal.deviceId,
+        contextType: PaymentContextType.EVENT,
+        eventId: order.eventId,
+        provider: terminal.provider,
+        status: PaymentTransactionStatus.WAITING_PAYMENT,
+        method: PaymentMethod.CREDIT_CARD,
+        amountInCents: order.totalInCents,
+        idempotencyKey,
+        gatewayStatus: 'pending_pinpad_confirmation',
+        metadata: {
+          source: 'public-totem-card-intent',
+          orderId: order.id,
+          eventId: order.eventId,
+          terminalId: terminal.id,
+          deviceId: terminal.deviceId
+        }
+      }
+    })
+
+    await new CreateAuditLogService().execute({
+      organizationId: order.event.organizationId,
+      eventId: order.eventId,
+      deviceId: terminal.deviceId,
+      entity: 'PaymentTransaction',
+      entityId: paymentTransaction.id,
+      action: AuditAction.PAYMENT_CREATED,
+      description: 'Intencao publica de pagamento por cartao do totem criada',
+      metadata: {
+        orderId: order.id,
+        paymentTransactionId: paymentTransaction.id,
+        amountInCents: order.totalInCents,
+        method: PaymentMethod.CREDIT_CARD,
+        provider: terminal.provider,
+        terminalId: terminal.id,
+        deviceId: terminal.deviceId,
+        source: OrderSource.TOTEM
+      }
+    })
+
+    return { paymentTransaction }
+  }
+
   async create({
     organizationId,
     orderId,
@@ -324,6 +489,16 @@ export class CardPaymentIntentService {
 
       return updated
     })
+
+    if (
+      nextStatus === PaymentTransactionStatus.APPROVED &&
+      transaction.orderId &&
+      transaction.order?.paymentStatus !== PaymentStatus.PAID
+    ) {
+      await new CreatePrintJobsForOrderService().execute({
+        orderId: transaction.orderId
+      })
+    }
 
     await new CreateAuditLogService().execute({
       organizationId,

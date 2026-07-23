@@ -429,6 +429,7 @@ model Order {
 
   deviceId   String?
   customerId String?
+  source     OrderSource @default(EVENT)
 
   customerName String?
   orderNumber  Int
@@ -1259,6 +1260,8 @@ enum OnlineOrderStatus {
 }
 
 enum OrderSource {
+  EVENT
+  TOTEM
   DIGITAL_MENU
   WHATSAPP
   ADMIN

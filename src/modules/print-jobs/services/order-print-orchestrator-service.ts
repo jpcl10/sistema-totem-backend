@@ -2,15 +2,18 @@ import {
   AuditAction,
   CategorySector,
   DeviceType,
+  OrderSource,
   PaymentStatus,
   Prisma
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { logger } from '../../../lib/logger.js'
 import { enqueuePrintJob } from '../../../infra/queues/index.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 import {
   EffectivePrintingSettings,
+  PrintingSectorKey,
   PrintingSourceKey
 } from '../../settings/services/printing-settings-service.js'
 import { SettingsResolverService } from '../../settings/services/settings-resolver-service.js'
@@ -50,6 +53,12 @@ type JobToCreate = {
   deviceId: string | null
   sector: JobSector
   payload: Prisma.InputJsonObject
+}
+
+type PrintPlanningAlert = {
+  reason: string
+  sector?: string
+  source?: string
 }
 
 interface OrderPrintOrchestratorRequest {
@@ -131,6 +140,80 @@ function shouldPrintBySettings({
     sourceSettings?.enabled &&
     sourceSettings?.autoPrint
   )
+}
+
+function mapOrderSourceToPrintingSource(
+  source: OrderSource | null | undefined,
+  fallbackManualSale: boolean
+): PrintingSourceKey {
+  if (source === OrderSource.TOTEM) {
+    return 'TOTEM'
+  }
+
+  if (source === OrderSource.POS) {
+    return 'POS'
+  }
+
+  if (source === OrderSource.API) {
+    return 'API'
+  }
+
+  if (source === OrderSource.ADMIN || fallbackManualSale) {
+    return 'MANUAL_EVENT'
+  }
+
+  return 'EVENT'
+}
+
+async function recordPrintPlanningAlert({
+  organizationId,
+  eventId,
+  orderId,
+  source,
+  reason,
+  paymentMethod,
+  paymentStatus,
+  alert
+}: {
+  organizationId: string
+  eventId: string | null
+  orderId: string
+  source: PrintingSourceKey
+  reason: string
+  paymentMethod?: string | null
+  paymentStatus?: string | null
+  alert?: PrintPlanningAlert
+}) {
+  logger.warn(
+    {
+      orderId,
+      organizationId,
+      eventId,
+      source,
+      reason,
+      paymentMethod,
+      paymentStatus,
+      alert
+    },
+    'Print job was not created'
+  )
+
+  await new CreateAuditLogService().execute({
+    organizationId,
+    eventId,
+    entity: 'Order',
+    entityId: orderId,
+    action: AuditAction.PRINT_JOB_ERROR,
+    description: `Impressao nao criada: ${reason}`,
+    metadata: {
+      orderId,
+      source,
+      reason,
+      paymentMethod,
+      paymentStatus,
+      alert: alert ?? null
+    }
+  })
 }
 
 function resolvePaperSize({
@@ -274,12 +357,11 @@ export class OrderPrintOrchestratorService {
       throw new Error('Order not found')
     }
 
-    const sourceKey: PrintingSourceKey =
-      order.device?.type === DeviceType.TOTEM
-        ? 'TOTEM'
-        : order.paymentNotes === 'Venda manual criada pelo painel'
-          ? 'MANUAL_EVENT'
-          : 'EVENT'
+    const sourceKey =
+      mapOrderSourceToPrintingSource(
+        order.source,
+        order.paymentNotes === 'Venda manual criada pelo painel'
+      )
 
     const effective =
       await new SettingsResolverService().execute({
@@ -290,22 +372,35 @@ export class OrderPrintOrchestratorService {
 
     const printingSettings = effective.printing as EffectivePrintingSettings
 
-    if (
-      !shouldPrintBySettings({
-        settings: printingSettings,
-        source: sourceKey
-      }) ||
-      !isPrintablePaymentStatus(order.paymentStatus) ||
-      order.items.length === 0
-    ) {
+    if (!isPrintablePaymentStatus(order.paymentStatus) || order.items.length === 0) {
       return {
-        printJobs: []
+        printJobs: [],
+        alerts: []
       }
     }
 
-    if (order.printJobs.length > 0) {
+    if (!shouldPrintBySettings({
+      settings: printingSettings,
+      source: sourceKey
+    })) {
+      if (sourceKey === 'TOTEM') {
+        await recordPrintPlanningAlert({
+          organizationId: order.event.organizationId,
+          eventId: order.eventId,
+          orderId: order.id,
+          source: sourceKey,
+          reason: 'auto_print_disabled_for_totem',
+          paymentMethod: order.paymentMethod,
+          paymentStatus: order.paymentStatus
+        })
+      }
+
       return {
-        printJobs: order.printJobs
+        printJobs: [],
+        alerts: [{
+          reason: 'auto_print_disabled_for_source',
+          source: sourceKey
+        }]
       }
     }
 
@@ -382,7 +477,7 @@ export class OrderPrintOrchestratorService {
       }
     }
 
-    const jobsToCreate = this.buildJobs({
+    const { jobsToCreate, alerts } = this.buildJobs({
       domain: 'EVENT_ORDER',
       orderId: order.id,
       eventId: order.eventId,
@@ -394,8 +489,22 @@ export class OrderPrintOrchestratorService {
       }),
       targets,
       basePayload,
-      items
+      items,
+      enabledSectors: printingSettings.sectors
     })
+
+    if (jobsToCreate.length === 0 && sourceKey === 'TOTEM') {
+      await recordPrintPlanningAlert({
+        organizationId: order.event.organizationId,
+        eventId: order.eventId,
+        orderId: order.id,
+        source: sourceKey,
+        reason: alerts[0]?.reason ?? 'no_print_targets_for_totem',
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus,
+        alert: alerts[0]
+      })
+    }
 
     const printJobs = await createJobsIdempotently({
       jobsToCreate,
@@ -404,7 +513,8 @@ export class OrderPrintOrchestratorService {
     })
 
     return {
-      printJobs
+      printJobs,
+      alerts
     }
   }
 
@@ -533,7 +643,7 @@ export class OrderPrintOrchestratorService {
       }
     }
 
-    const jobsToCreate = this.buildJobs({
+    const { jobsToCreate } = this.buildJobs({
       domain: 'ONLINE_ORDER',
       orderId: null,
       eventId: null,
@@ -545,7 +655,8 @@ export class OrderPrintOrchestratorService {
       }),
       targets,
       basePayload,
-      items
+      items,
+      enabledSectors: printingSettings.sectors
     })
 
     const printJobs = await createJobsIdempotently({
@@ -683,7 +794,8 @@ export class OrderPrintOrchestratorService {
     printMode,
     targets,
     basePayload,
-    items
+    items,
+    enabledSectors
   }: {
     domain: OrderPrintDomain
     orderId: string | null
@@ -694,15 +806,26 @@ export class OrderPrintOrchestratorService {
     targets: PrintTarget[]
     basePayload: Prisma.InputJsonObject
     items: PrintableItem[]
+    enabledSectors?: Partial<Record<PrintingSectorKey, { enabled: boolean }>>
   }) {
     const jobsToCreate: JobToCreate[] = []
+    const alerts: PrintPlanningAlert[] = []
     const domainOrderId = orderId ?? onlineOrderId
 
     if (!domainOrderId) {
-      return jobsToCreate
+      return { jobsToCreate, alerts }
     }
 
     const fullOrderTargets = findTargetsBySector(targets, 'FULL_ORDER')
+
+    if (printMode === 'FULL_ORDER' || printMode === 'BOTH') {
+      if (fullOrderTargets.length === 0) {
+        alerts.push({
+          reason: 'missing_full_order_target',
+          sector: 'FULL_ORDER'
+        })
+      }
+    }
 
     for (const target of fullOrderTargets) {
       jobsToCreate.push({
@@ -739,6 +862,15 @@ export class OrderPrintOrchestratorService {
       const sectors: JobSector[] = ['BAR', 'KITCHEN']
 
       for (const sector of sectors) {
+        const settingsSector = sector === 'KITCHEN' ? 'COOK' : 'BAR'
+        if (enabledSectors?.[settingsSector]?.enabled === false) {
+          alerts.push({
+            reason: 'sector_disabled',
+            sector
+          })
+          continue
+        }
+
         const sectorItems = items.filter(item => item.sector === sector)
 
         if (sectorItems.length === 0) {
@@ -746,6 +878,13 @@ export class OrderPrintOrchestratorService {
         }
 
         const sectorTargets = findTargetsBySector(targets, sector)
+
+        if (sectorTargets.length === 0) {
+          alerts.push({
+            reason: 'missing_sector_target',
+            sector
+          })
+        }
 
         for (const target of sectorTargets) {
           jobsToCreate.push({
@@ -781,6 +920,6 @@ export class OrderPrintOrchestratorService {
       }
     }
 
-    return jobsToCreate
+    return { jobsToCreate, alerts }
   }
 }

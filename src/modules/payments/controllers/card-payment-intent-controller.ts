@@ -29,6 +29,12 @@ const confirmCardPaymentIntentParamsSchema = z.object({
   paymentTransactionId: z.string()
 })
 
+const createPublicTotemCardPaymentIntentParamsSchema = z.object({
+  organizationSlug: z.string().trim().min(1),
+  eventSlug: z.string().trim().min(1),
+  orderId: z.string().trim().min(1)
+})
+
 const forbiddenCardDataSchema = z.object({
   pan: z.never().optional(),
   cardNumber: z.never().optional(),
@@ -98,6 +104,27 @@ export async function createCardPaymentIntentController(
       amountInCents: body.amountInCents,
       installments: body.installments,
       idempotencyKey: body.idempotencyKey
+    })
+
+    return reply.status(201).send(result)
+  } catch (error) {
+    return mapControllerError(reply, error)
+  }
+}
+
+export async function createPublicTotemCardPaymentIntentController(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  try {
+    const { organizationSlug, eventSlug, orderId } =
+      createPublicTotemCardPaymentIntentParamsSchema.parse(request.params)
+    const service = new CardPaymentIntentService()
+
+    const result = await service.createPublicTotemIntent({
+      organizationSlug,
+      eventSlug,
+      orderId
     })
 
     return reply.status(201).send(result)

@@ -11,7 +11,8 @@ import { createPublicPixAutomaticPaymentController } from '../controllers/create
 import { getCheckoutPaymentSettingsController } from '../controllers/get-checkout-payment-settings-controller.js'
 import {
   confirmCardPaymentIntentController,
-  createCardPaymentIntentController
+  createCardPaymentIntentController,
+  createPublicTotemCardPaymentIntentController
 } from '../controllers/card-payment-intent-controller.js'
 import { verifyDeviceJWT } from '../../devices/middlewares/verify-device-jwt.js'
 
@@ -72,6 +73,19 @@ export async function paymentsRoutes(
       }
     },
     createCardPaymentIntentController
+  )
+
+  app.post(
+    '/public/organizations/:organizationSlug/events/:eventSlug/orders/:orderId/card-payment-intent',
+    {
+      config: {
+        rateLimit: {
+          max: 60,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    createPublicTotemCardPaymentIntentController
   )
 
   app.post(

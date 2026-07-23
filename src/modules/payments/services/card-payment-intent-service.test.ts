@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  OrderSource,
   PaymentContextType,
   PaymentMethod,
   PaymentProvider,
@@ -9,6 +10,8 @@ import {
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
+import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
 import { CardPaymentIntentService } from './card-payment-intent-service.js'
 
 const organizationId = 'org-1'
@@ -17,6 +20,7 @@ function installPrismaMocks(overrides: {
   orderFindFirst?: (args: any) => Promise<any>
   onlineOrderFindFirst?: (args: any) => Promise<any>
   paymentTerminalFindFirst?: (args: any) => Promise<any>
+  paymentTerminalFindMany?: (args: any) => Promise<any>
   paymentTransactionFindUnique?: (args: any) => Promise<any>
   paymentTransactionFindFirst?: (args: any) => Promise<any>
   paymentTransactionCreate?: (args: any) => Promise<any>
@@ -26,6 +30,7 @@ function installPrismaMocks(overrides: {
     orderFindFirst: prisma.order.findFirst,
     onlineOrderFindFirst: prisma.onlineOrder.findFirst,
     paymentTerminalFindFirst: prisma.paymentTerminal.findFirst,
+    paymentTerminalFindMany: prisma.paymentTerminal.findMany,
     paymentTransactionFindUnique: prisma.paymentTransaction.findUnique,
     paymentTransactionFindFirst: prisma.paymentTransaction.findFirst,
     paymentTransactionCreate: prisma.paymentTransaction.create,
@@ -38,6 +43,8 @@ function installPrismaMocks(overrides: {
     overrides.onlineOrderFindFirst ?? (async () => null)
   ;(prisma.paymentTerminal.findFirst as any) =
     overrides.paymentTerminalFindFirst ?? (async () => null)
+  ;(prisma.paymentTerminal.findMany as any) =
+    overrides.paymentTerminalFindMany ?? (async () => [])
   ;(prisma.paymentTransaction.findUnique as any) =
     overrides.paymentTransactionFindUnique ?? (async () => null)
   ;(prisma.paymentTransaction.findFirst as any) =
@@ -52,6 +59,8 @@ function installPrismaMocks(overrides: {
     ;(prisma.onlineOrder.findFirst as any) = originals.onlineOrderFindFirst
     ;(prisma.paymentTerminal.findFirst as any) =
       originals.paymentTerminalFindFirst
+    ;(prisma.paymentTerminal.findMany as any) =
+      originals.paymentTerminalFindMany
     ;(prisma.paymentTransaction.findUnique as any) =
       originals.paymentTransactionFindUnique
     ;(prisma.paymentTransaction.findFirst as any) =
@@ -185,5 +194,191 @@ test('card confirmation is idempotent for duplicate approved result', async () =
     assert.equal(result.paymentTransaction, transaction)
   } finally {
     restore()
+  }
+})
+
+test('public totem card intent requires a TOTEM order source', async () => {
+  const restore = installPrismaMocks({
+    orderFindFirst: async () => ({
+      id: 'order-1',
+      eventId: 'event-1',
+      totalInCents: 1000,
+      source: OrderSource.EVENT,
+      paymentMethod: PaymentMethod.CREDIT_CARD,
+      paymentStatus: PaymentStatus.PENDING,
+      event: {
+        id: 'event-1',
+        organizationId
+      }
+    })
+  })
+
+  try {
+    await assert.rejects(
+      () => new CardPaymentIntentService().createPublicTotemIntent({
+        organizationSlug: 'org',
+        eventSlug: 'event',
+        orderId: 'order-1'
+      }),
+      /Order is not a totem order/
+    )
+  } finally {
+    restore()
+  }
+})
+
+test('public totem card intent refuses ambiguous eligible terminals', async () => {
+  const restore = installPrismaMocks({
+    orderFindFirst: async () => ({
+      id: 'order-1',
+      eventId: 'event-1',
+      totalInCents: 1000,
+      source: OrderSource.TOTEM,
+      paymentMethod: PaymentMethod.CREDIT_CARD,
+      paymentStatus: PaymentStatus.PENDING,
+      event: {
+        id: 'event-1',
+        organizationId
+      }
+    }),
+    paymentTerminalFindMany: async () => [
+      {
+        id: 'terminal-1',
+        organizationId,
+        eventId: 'event-1',
+        deviceId: 'device-1',
+        onlineStoreId: null,
+        provider: PaymentProvider.MERCADO_PAGO,
+        device: {
+          id: 'device-1',
+          organizationId,
+          eventId: 'event-1',
+          status: 'ACTIVE',
+          type: 'TOTEM'
+        }
+      },
+      {
+        id: 'terminal-2',
+        organizationId,
+        eventId: 'event-1',
+        deviceId: 'device-2',
+        onlineStoreId: null,
+        provider: PaymentProvider.MERCADO_PAGO,
+        device: {
+          id: 'device-2',
+          organizationId,
+          eventId: 'event-1',
+          status: 'ACTIVE',
+          type: 'TOTEM'
+        }
+      }
+    ]
+  })
+
+  try {
+    await assert.rejects(
+      () => new CardPaymentIntentService().createPublicTotemIntent({
+        organizationSlug: 'org',
+        eventSlug: 'event',
+        orderId: 'order-1'
+      }),
+      /Multiple card terminals are eligible/
+    )
+  } finally {
+    restore()
+  }
+})
+
+test('approved card confirmation creates print jobs exactly once on PENDING to PAID transition', async () => {
+  let printCalls = 0
+  const originalPrintExecute = CreatePrintJobsForOrderService.prototype.execute
+  const originalAuditExecute = CreateAuditLogService.prototype.execute
+  ;(CreatePrintJobsForOrderService.prototype.execute as any) =
+    async (request: { orderId: string }) => {
+      printCalls += 1
+      assert.equal(request.orderId, 'order-1')
+      return { printJobs: [] }
+    }
+  ;(CreateAuditLogService.prototype.execute as any) = async () => ({})
+
+  const updatedTransaction = baseTransaction({
+    status: PaymentTransactionStatus.APPROVED
+  })
+  const restore = installPrismaMocks({
+    paymentTransactionFindFirst: async () => baseTransaction(),
+    transaction: async (callback: any) =>
+      callback({
+        paymentTransaction: {
+          update: async () => updatedTransaction
+        },
+        order: {
+          update: async () => ({ id: 'order-1' })
+        },
+        onlineOrder: {
+          update: async () => null
+        }
+      })
+  })
+
+  try {
+    const result = await new CardPaymentIntentService().confirm({
+      organizationId,
+      deviceId: 'device-1',
+      paymentTransactionId: 'payment-1',
+      result: 'APPROVED',
+      amountInCents: 1000
+    })
+
+    assert.equal(result.paymentTransaction, updatedTransaction)
+    assert.equal(printCalls, 1)
+  } finally {
+    restore()
+    CreatePrintJobsForOrderService.prototype.execute = originalPrintExecute
+    CreateAuditLogService.prototype.execute = originalAuditExecute
+  }
+})
+
+test('rejected card confirmation does not create print jobs', async () => {
+  let printCalls = 0
+  const originalPrintExecute = CreatePrintJobsForOrderService.prototype.execute
+  const originalAuditExecute = CreateAuditLogService.prototype.execute
+  ;(CreatePrintJobsForOrderService.prototype.execute as any) =
+    async () => {
+      printCalls += 1
+      return { printJobs: [] }
+    }
+  ;(CreateAuditLogService.prototype.execute as any) = async () => ({})
+
+  const restore = installPrismaMocks({
+    paymentTransactionFindFirst: async () => baseTransaction(),
+    transaction: async (callback: any) =>
+      callback({
+        paymentTransaction: {
+          update: async () =>
+            baseTransaction({ status: PaymentTransactionStatus.REJECTED })
+        },
+        order: {
+          update: async () => ({ id: 'order-1' })
+        },
+        onlineOrder: {
+          update: async () => null
+        }
+      })
+  })
+
+  try {
+    await new CardPaymentIntentService().confirm({
+      organizationId,
+      deviceId: 'device-1',
+      paymentTransactionId: 'payment-1',
+      result: 'DECLINED',
+      amountInCents: 1000
+    })
+
+    assert.equal(printCalls, 0)
+  } finally {
+    restore()
+    CreatePrintJobsForOrderService.prototype.execute = originalPrintExecute
+    CreateAuditLogService.prototype.execute = originalAuditExecute
   }
 })

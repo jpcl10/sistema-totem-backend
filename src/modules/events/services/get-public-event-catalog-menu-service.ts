@@ -27,6 +27,15 @@ export class GetPublicEventCatalogMenuService {
         active: true
       },
       include: {
+        organization: {
+          select: {
+            branding: {
+              select: {
+                updatedAt: true
+              }
+            }
+          }
+        },
         eventProducts: {
           where: {
             active: true,
@@ -143,6 +152,9 @@ export class GetPublicEventCatalogMenuService {
       effective.branding.logoUrl.value ?? event.logoUrl
     const bannerUrl =
       effective.branding.bannerUrl.value ?? event.bannerUrl
+    const brandingVersion = (
+      event.organization.branding?.updatedAt ?? event.updatedAt
+    ).toISOString()
 
     return {
       event: {
@@ -164,7 +176,9 @@ export class GetPublicEventCatalogMenuService {
           primaryColor: effective.branding.primaryColor.value ?? event.primaryColor,
           secondaryColor: effective.branding.secondaryColor.value ?? event.secondaryColor,
           backgroundColor: effective.branding.backgroundColor.value,
-          theme: effective.branding.theme.value
+          theme: effective.branding.theme.value,
+          defaultProductImageUrl: effective.branding.defaultProductImageUrl.value,
+          updatedAt: brandingVersion
         },
         categories: Array.from(categoriesMap.values())
       }

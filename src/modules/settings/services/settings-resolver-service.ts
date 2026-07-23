@@ -258,7 +258,7 @@ export class SettingsResolverService {
         currency: sourceValue(settings?.currency ?? defaultGeneralSettings.currency, settings?.currency ? 'ORGANIZATION' : 'DEFAULT')
       },
       branding: {
-        logoUrl: sourceValue(event?.logoUrl ?? store?.logoUrl ?? branding?.logoUrl ?? null, event?.logoUrl ? 'EVENT_LEGACY' : store?.logoUrl ? 'STORE' : branding?.logoUrl ? 'ORGANIZATION' : 'DEFAULT'),
+        logoUrl: sourceValue(event?.logoUrl ?? store?.logoUrl ?? branding?.logoUrl ?? branding?.lightLogoUrl ?? branding?.darkLogoUrl ?? null, event?.logoUrl ? 'EVENT_LEGACY' : store?.logoUrl ? 'STORE' : branding?.logoUrl || branding?.lightLogoUrl || branding?.darkLogoUrl ? 'ORGANIZATION' : 'DEFAULT'),
         bannerUrl: sourceValue(event?.bannerUrl ?? store?.bannerUrl ?? branding?.bannerDesktopUrl ?? null, event?.bannerUrl ? 'EVENT_LEGACY' : store?.bannerUrl ? 'STORE' : branding?.bannerDesktopUrl ? 'ORGANIZATION' : 'DEFAULT'),
         bannerMobileUrl: sourceValue(branding?.bannerMobileUrl ?? null, branding?.bannerMobileUrl ? 'ORGANIZATION' : 'DEFAULT'),
         faviconUrl: sourceValue(branding?.faviconUrl ?? null, branding?.faviconUrl ? 'ORGANIZATION' : 'DEFAULT'),

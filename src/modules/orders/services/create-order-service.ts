@@ -1,6 +1,7 @@
 import {
   AuditAction,
   CustomerSource,
+  OrderSource,
   PaymentMethod,
   PaymentStatus
 } from '@prisma/client'
@@ -90,6 +91,11 @@ export class CreateOrderService {
           : checkoutContext !== 'TOTEM' && paymentMethod === 'DEBIT_CARD'
             ? PaymentMethod.DEBIT_CARD
             : null
+
+    const orderSource =
+      checkoutContext === 'TOTEM'
+        ? OrderSource.TOTEM
+        : OrderSource.EVENT
 
     const resolvedEvent = organizationSlug
       ? await resolveCanonicalPublicEvent({
@@ -274,6 +280,7 @@ export class CreateOrderService {
           eventId: event.id,
           deviceId: deviceId ?? null,
           customerId: customerId ?? null,
+          source: orderSource,
           customerName,
           orderNumber: nextOrderNumber,
           paymentStatus:
@@ -415,7 +422,8 @@ export class CreateOrderService {
         customerName: order.customerName,
         totalAmount: order.totalInCents,
         checkoutContext: checkoutContext ?? null,
-        paymentMethod: effectivePaymentMethod
+        paymentMethod: effectivePaymentMethod,
+        source: orderSource
       }
     })
 
