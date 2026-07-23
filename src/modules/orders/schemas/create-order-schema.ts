@@ -48,6 +48,14 @@ const orderItemSchema = z.object({
 export const createOrderSchema = z.object({
   customerName: z.string().optional(),
   customerId: z.string().cuid().optional(),
+  checkoutContext: z.enum(['TOTEM', 'PUBLIC_EVENT']).optional(),
+  paymentMethod: z.enum([
+    'PIX',
+    'CARD',
+    'PIX_AUTOMATIC',
+    'CREDIT_CARD',
+    'DEBIT_CARD'
+  ]).optional(),
 
   paymentStatus: z.enum([
     'NOT_REQUIRED',
@@ -59,4 +67,25 @@ export const createOrderSchema = z.object({
   items: z.array(
     orderItemSchema
   ).min(1)
+}).superRefine((order, ctx) => {
+  if (order.checkoutContext !== 'TOTEM') {
+    return
+  }
+
+  const method = order.paymentMethod
+  if (method && !['PIX', 'CARD'].includes(method)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['paymentMethod'],
+      message: 'Totem orders only allow PIX or CARD payment methods'
+    })
+  }
+
+  if (order.paymentStatus === 'PAID' || order.paymentStatus === 'NOT_REQUIRED') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['paymentStatus'],
+      message: 'Totem orders cannot be created as paid'
+    })
+  }
 })

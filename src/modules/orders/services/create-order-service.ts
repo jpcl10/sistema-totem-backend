@@ -1,4 +1,9 @@
-import { AuditAction, CustomerSource, PaymentStatus } from '@prisma/client'
+import {
+  AuditAction,
+  CustomerSource,
+  PaymentMethod,
+  PaymentStatus
+} from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
@@ -13,6 +18,7 @@ import {
   resolveCanonicalPublicEvent,
   resolveLegacyPublicEventSlug
 } from '../../events/services/public-event-resolver.js'
+import { PaymentSettingsResolver } from '../../payment-settings/payment-settings-resolver.js'
 import { mapEventOrderToUnifiedOrder } from '../presenters/unified-order-presenter.js'
 import { buildConfigurableCatalogOrderItems } from './configurable-order-item-builder.js'
 
@@ -24,6 +30,8 @@ interface CreateOrderServiceRequest {
 
   customerName?: string
   customerId?: string
+  checkoutContext?: 'TOTEM' | 'PUBLIC_EVENT'
+  paymentMethod?: 'PIX' | 'CARD' | 'PIX_AUTOMATIC' | 'CREDIT_CARD' | 'DEBIT_CARD'
 
   paymentStatus?: PaymentStatus
 
@@ -45,9 +53,44 @@ export class CreateOrderService {
     deviceId,
     customerName,
     customerId,
+    checkoutContext,
+    paymentMethod,
     paymentStatus,
     items
   }: CreateOrderServiceRequest) {
+    if (
+      checkoutContext === 'TOTEM' &&
+      paymentMethod &&
+      !['PIX', 'CARD'].includes(paymentMethod)
+    ) {
+      throw new Error('Totem orders only allow PIX or CARD payment methods')
+    }
+
+    if (
+      checkoutContext === 'TOTEM' &&
+      (
+        paymentStatus === PaymentStatus.PAID ||
+        paymentStatus === PaymentStatus.NOT_REQUIRED
+      )
+    ) {
+      throw new Error('Totem orders cannot be created as paid')
+    }
+
+    const effectivePaymentMethod =
+      paymentMethod === 'PIX' || (
+        checkoutContext !== 'TOTEM' &&
+        paymentMethod === 'PIX_AUTOMATIC'
+      )
+        ? PaymentMethod.PIX_AUTOMATIC
+        : paymentMethod === 'CARD' || (
+          checkoutContext !== 'TOTEM' &&
+          paymentMethod === 'CREDIT_CARD'
+        )
+          ? PaymentMethod.CREDIT_CARD
+          : checkoutContext !== 'TOTEM' && paymentMethod === 'DEBIT_CARD'
+            ? PaymentMethod.DEBIT_CARD
+            : null
+
     const resolvedEvent = organizationSlug
       ? await resolveCanonicalPublicEvent({
           organizationSlug,
@@ -65,6 +108,27 @@ export class CreateOrderService {
 
     if (!event) {
       throw new Error('Event not found')
+    }
+
+    if (checkoutContext === 'TOTEM') {
+      const paymentSettings =
+        await new PaymentSettingsResolver().resolve({
+          organizationId: event.organizationId,
+          contextType: 'EVENT',
+          eventId: event.id
+        })
+
+      if (paymentMethod === 'PIX' && !paymentSettings.methods.pix) {
+        throw new Error('PIX is disabled for this event')
+      }
+
+      if (
+        paymentMethod === 'CARD' &&
+        !paymentSettings.methods.credit &&
+        !paymentSettings.methods.debit
+      ) {
+        throw new Error('Card payment is disabled for this event')
+      }
     }
 
     if (deviceId) {
@@ -212,7 +276,11 @@ export class CreateOrderService {
           customerId: customerId ?? null,
           customerName,
           orderNumber: nextOrderNumber,
-          paymentStatus: paymentStatus ?? PaymentStatus.PENDING,
+          paymentStatus:
+            checkoutContext === 'TOTEM'
+              ? PaymentStatus.PENDING
+              : paymentStatus ?? PaymentStatus.PENDING,
+          paymentMethod: effectivePaymentMethod,
           totalInCents,
           items: {
             create: orderItemsData
@@ -345,7 +413,9 @@ export class CreateOrderService {
         orderId: order.id,
         orderNumber: order.orderNumber,
         customerName: order.customerName,
-        totalAmount: order.totalInCents
+        totalAmount: order.totalInCents,
+        checkoutContext: checkoutContext ?? null,
+        paymentMethod: effectivePaymentMethod
       }
     })
 

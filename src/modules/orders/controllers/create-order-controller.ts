@@ -22,6 +22,8 @@ export async function createOrderController(
     const {
       customerName,
       customerId,
+      checkoutContext,
+      paymentMethod,
       paymentStatus,
       items
     } = createOrderSchema.parse(request.body)
@@ -34,6 +36,8 @@ export async function createOrderController(
       deviceId: request.device?.deviceId ?? null,
       customerName,
       customerId,
+      checkoutContext,
+      paymentMethod,
       paymentStatus,
       items
     })

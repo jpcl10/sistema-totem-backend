@@ -1,14 +1,17 @@
 import { PaymentProvider } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { PaymentSettingsResolver } from '../../payment-settings/payment-settings-resolver.js'
 
 interface GetCheckoutPaymentSettingsServiceRequest {
   eventId: string
+  context?: 'TOTEM' | 'PUBLIC_CHECKOUT'
 }
 
 export class GetCheckoutPaymentSettingsService {
   async execute({
-    eventId
+    eventId,
+    context = 'PUBLIC_CHECKOUT'
   }: GetCheckoutPaymentSettingsServiceRequest) {
     const event = await prisma.event.findUnique({
       where: {
@@ -51,28 +54,75 @@ export class GetCheckoutPaymentSettingsService {
         }
       })
 
+    const effectiveSettings =
+      await new PaymentSettingsResolver().resolve({
+        organizationId: event.organizationId,
+        contextType: 'EVENT',
+        eventId: event.id
+      })
+
     const mercadoPagoEnabled =
-      mercadoPagoSettings?.enabled ?? false
+      Boolean(mercadoPagoSettings?.enabled)
 
     const mercadoPagoPixEnabled =
-      mercadoPagoSettings?.pixEnabled ?? false
+      Boolean(
+        mercadoPagoSettings?.pixEnabled &&
+          effectiveSettings.methods.pix
+      )
 
     const mercadoPagoAccessTokenConfigured =
       Boolean(mercadoPagoSettings?.accessToken)
 
+    const activePaymentTerminals =
+      await prisma.paymentTerminal.count({
+        where: {
+          organizationId: event.organizationId,
+          active: true,
+          status: 'ACTIVE',
+          OR: [
+            {
+              eventId: event.id
+            },
+            {
+              eventId: null,
+              onlineStoreId: null
+            }
+          ]
+        }
+      })
+
+    const cardAvailable =
+      Boolean(
+        (effectiveSettings.methods.credit || effectiveSettings.methods.debit) &&
+          (
+            mercadoPagoSettings?.cardEnabled === true ||
+            mercadoPagoSettings?.terminalEnabled === true ||
+            activePaymentTerminals > 0
+          )
+      )
+
     return {
       checkoutPaymentSettings: {
+        context,
         event: {
           id: event.id,
           name: event.name
         },
 
         manualPix: {
-          enabled: event.pixEnabled,
-          pixKey: event.pixEnabled ? event.pixKey : null,
-          receiverName: event.pixEnabled ? event.pixReceiverName : null,
-          city: event.pixEnabled ? event.pixCity : null,
-          instructions: event.pixEnabled ? event.pixInstructions : null
+          enabled: context === 'TOTEM' ? false : event.pixEnabled,
+          pixKey: context === 'TOTEM'
+            ? null
+            : event.pixEnabled ? event.pixKey : null,
+          receiverName: context === 'TOTEM'
+            ? null
+            : event.pixEnabled ? event.pixReceiverName : null,
+          city: context === 'TOTEM'
+            ? null
+            : event.pixEnabled ? event.pixCity : null,
+          instructions: context === 'TOTEM'
+            ? null
+            : event.pixEnabled ? event.pixInstructions : null
         },
 
         mercadoPago: {
@@ -90,6 +140,21 @@ export class GetCheckoutPaymentSettingsService {
             mercadoPagoEnabled &&
             mercadoPagoPixEnabled &&
             mercadoPagoAccessTokenConfigured
+        },
+
+        totem: {
+          allowedPaymentMethods: ['PIX', 'CARD'],
+          pixAvailable:
+            mercadoPagoEnabled &&
+            mercadoPagoPixEnabled &&
+            mercadoPagoAccessTokenConfigured,
+          cardAvailable,
+          unavailablePixReason:
+            mercadoPagoEnabled &&
+            mercadoPagoPixEnabled &&
+            mercadoPagoAccessTokenConfigured
+              ? null
+              : 'PIX automático indisponível. Configure Mercado Pago com PIX e token de acesso para usar PIX no totem.'
         }
       }
     }
