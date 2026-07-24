@@ -1,7 +1,8 @@
 import {
   DeviceStatus,
   DeviceType,
-  UserRole
+  UserRole,
+  Prisma
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
@@ -14,7 +15,9 @@ interface UpdateDeviceServiceRequest {
 
   name?: string
   eventId?: string | null
+  storeId?: string | null
   locationName?: string | null
+  metadata?: Prisma.InputJsonValue | null
 
   status?: DeviceStatus
   type?: DeviceType
@@ -26,7 +29,9 @@ export class UpdateDeviceService {
     deviceId,
     name,
     eventId,
+    storeId,
     locationName,
+    metadata,
     status,
     type
   }: UpdateDeviceServiceRequest) {
@@ -54,6 +59,19 @@ export class UpdateDeviceService {
       }
     }
 
+    if (storeId) {
+      const store = await prisma.onlineStore.findFirst({
+        where: {
+          id: storeId,
+          organizationId
+        }
+      })
+
+      if (!store) {
+        throw new Error('Store not found')
+      }
+    }
+
     const updatedDevice =
       await prisma.device.update({
         where: {
@@ -62,7 +80,9 @@ export class UpdateDeviceService {
         data: {
           name: name?.trim(),
           eventId,
+          storeId: eventId ? null : storeId,
           locationName,
+          metadata: metadata ?? undefined,
           status,
           type
         }

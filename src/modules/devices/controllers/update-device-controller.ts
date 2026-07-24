@@ -1,4 +1,5 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
+import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { UpdateDeviceService } from '../services/update-device-service.js'
 import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
@@ -20,7 +21,14 @@ export async function updateDeviceController(
       .nullable()
       .optional(),
 
+    storeId: z
+      .string()
+      .cuid()
+      .nullable()
+      .optional(),
+
     locationName: z.string().nullable().optional(),
+    metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 
     status: z
       .enum([
@@ -35,6 +43,7 @@ export async function updateDeviceController(
       .enum([
         'TOTEM',
         'PRINTER',
+        'PRINT_AGENT',
         'CALL_SCREEN',
         'SK210'
       ])
@@ -56,7 +65,8 @@ export async function updateDeviceController(
       organizationId,
       userRole: request.user.role,
       deviceId: id,
-      ...body
+      ...body,
+      metadata: body.metadata as Prisma.InputJsonValue | null | undefined
     })
 
   return reply.send(result)

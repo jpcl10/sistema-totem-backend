@@ -1,4 +1,5 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
+import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import { CreateDeviceService } from '../services/create-device-service.js'
 import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
@@ -14,12 +15,15 @@ export async function createDeviceController(
     type: z.enum([
       'TOTEM',
       'PRINTER',
+      'PRINT_AGENT',
       'CALL_SCREEN',
       'SK210'
     ]),
 
     eventId: z.string().cuid().optional(),
-    locationName: z.string().optional()
+    storeId: z.string().cuid().optional(),
+    locationName: z.string().optional(),
+    metadata: z.record(z.string(), z.unknown()).nullable().optional()
   })
 
   const {
@@ -27,7 +31,9 @@ export async function createDeviceController(
     code,
     type,
     eventId,
-    locationName
+    storeId,
+    locationName,
+    metadata
   } = bodySchema.parse(request.body)
   const organizationId = getTenantOrganizationId(request)
 
@@ -42,7 +48,9 @@ export async function createDeviceController(
     code,
     type,
     eventId,
-    locationName
+    storeId,
+    locationName,
+    metadata: metadata as Prisma.InputJsonValue | null | undefined
   })
 
   return reply.status(201).send(result)

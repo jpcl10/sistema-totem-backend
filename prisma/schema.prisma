@@ -139,6 +139,7 @@ enum PrinterConnectionType {
 enum DeviceType {
   TOTEM
   PRINTER
+  PRINT_AGENT
   CALL_SCREEN
   SK210
 }

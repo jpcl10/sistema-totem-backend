@@ -2,7 +2,8 @@ import {
   DeviceStatus,
   DeviceType,
   AuditAction,
-  UserRole
+  UserRole,
+  Prisma
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
@@ -14,10 +15,12 @@ interface CreateDeviceServiceRequest {
   selectedOrganizationId?: string
   userId: string
   eventId?: string | null
+  storeId?: string | null
   name: string
   code: string
   type: DeviceType
   locationName?: string | null
+  metadata?: Prisma.InputJsonValue | null
 }
 
 export class CreateDeviceService {
@@ -25,10 +28,12 @@ export class CreateDeviceService {
     organizationId,
     userId,
     eventId,
+    storeId,
     name,
     code,
     type,
-    locationName
+    locationName,
+    metadata
   }: CreateDeviceServiceRequest) {
     const normalizedCode =
       code.trim().toUpperCase()
@@ -60,15 +65,33 @@ export class CreateDeviceService {
       }
     }
 
+    if (storeId) {
+      const store = await prisma.onlineStore.findFirst({
+        where: {
+          id: storeId,
+          organizationId
+        },
+        select: {
+          id: true
+        }
+      })
+
+      if (!store) {
+        throw new Error('Store not found')
+      }
+    }
+
     const device = await prisma.device.create({
       data: {
         organizationId,
         eventId: eventId ?? null,
+        storeId: eventId ? null : storeId ?? null,
         name: name.trim(),
         code: normalizedCode,
         type,
         status: DeviceStatus.ACTIVE,
-        locationName: locationName?.trim() || null
+        locationName: locationName?.trim() || null,
+        metadata: metadata ?? undefined
       }
     })
 

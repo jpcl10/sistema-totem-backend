@@ -711,7 +711,11 @@ export class OrderPrintOrchestratorService {
           organizationId,
           status: 'ACTIVE',
           type: {
-            in: [DeviceType.PRINTER, DeviceType.SK210]
+            in: [
+              DeviceType.PRINTER,
+              DeviceType.PRINT_AGENT,
+              DeviceType.SK210
+            ]
           }
         }
       })
@@ -757,7 +761,11 @@ export class OrderPrintOrchestratorService {
         ...(storeId ? { storeId } : {}),
         status: 'ACTIVE',
         type: {
-          in: [DeviceType.PRINTER, DeviceType.SK210]
+          in: [
+            DeviceType.PRINTER,
+            DeviceType.PRINT_AGENT,
+            DeviceType.SK210
+          ]
         }
       }
     })

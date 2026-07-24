@@ -51,6 +51,8 @@ export class ActivateDeviceService {
           },
           organization: {
             select: {
+              id: true,
+              name: true,
               slug: true
             }
           }
@@ -135,6 +137,8 @@ export class ActivateDeviceService {
           },
           organization: {
             select: {
+              id: true,
+              name: true,
               slug: true
             }
           },
@@ -187,6 +191,8 @@ export class ActivateDeviceService {
         apiBaseUrl: null,
         eventId: updatedDevice.eventId,
         eventSlug: updatedDevice.event?.slug ?? null,
+        organizationId: updatedDevice.organizationId,
+        organizationName: updatedDevice.organization.name,
         organizationSlug: updatedDevice.organization.slug,
         canonicalPublicUrl,
         eventName: updatedDevice.event?.name ?? null,

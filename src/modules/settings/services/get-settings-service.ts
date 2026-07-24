@@ -280,6 +280,7 @@ export class GetSettingsService {
         printers.length > 0 ||
         devices.some(device =>
           device.type === 'PRINTER' ||
+          device.type === 'PRINT_AGENT' ||
           device.type === 'SK210'
         ),
       hasTotem:

@@ -81,7 +81,12 @@ export class GetTotemReadinessService {
             { eventId: null }
           ],
           type: {
-            in: [DeviceType.TOTEM, DeviceType.PRINTER, DeviceType.SK210]
+            in: [
+              DeviceType.TOTEM,
+              DeviceType.PRINTER,
+              DeviceType.PRINT_AGENT,
+              DeviceType.SK210
+            ]
           }
         },
         select: {
@@ -101,7 +106,10 @@ export class GetTotemReadinessService {
     const printing = effective.printing
     const totemDevices = devices.filter(device => device.type === DeviceType.TOTEM)
     const printerDevices = devices.filter(
-      device => device.type === DeviceType.PRINTER || device.type === DeviceType.SK210
+      device =>
+        device.type === DeviceType.PRINTER ||
+        device.type === DeviceType.PRINT_AGENT ||
+        device.type === DeviceType.SK210
     )
     const onlineDevices = devices.filter(isDeviceOnline)
     const source = printing.sources.TOTEM

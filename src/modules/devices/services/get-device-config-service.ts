@@ -30,6 +30,8 @@ export class GetDeviceConfigService {
           },
           organization: {
             select: {
+              id: true,
+              name: true,
               slug: true
             }
           },
@@ -70,6 +72,8 @@ export class GetDeviceConfigService {
       config: {
         eventId: device.eventId,
         eventSlug: device.event?.slug ?? null,
+        organizationId: device.organizationId,
+        organizationName: device.organization.name,
         organizationSlug: device.organization.slug,
         canonicalPublicUrl,
         eventName: device.event?.name ?? null,
