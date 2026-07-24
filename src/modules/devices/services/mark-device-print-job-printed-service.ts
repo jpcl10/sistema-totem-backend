@@ -1,5 +1,15 @@
 import { prisma } from '../../../lib/prisma.js'
 
+function printJobNotFoundError() {
+  const error = new Error('Print job not found') as Error & {
+    code: string
+    statusCode: number
+  }
+  error.code = 'PRINT_JOB_NOT_FOUND'
+  error.statusCode = 404
+  return error
+}
+
 interface MarkDevicePrintJobPrintedServiceRequest {
   printJobId: string
   deviceId: string
@@ -14,12 +24,15 @@ export class MarkDevicePrintJobPrintedService {
       await prisma.eventPrintJob.findFirst({
         where: {
           id: printJobId,
-          deviceId
+          deviceId,
+          status: {
+            in: ['PENDING', 'PROCESSING']
+          }
         }
       })
 
     if (!printJob) {
-      throw new Error('Print job not found')
+      throw printJobNotFoundError()
     }
 
     const updatedPrintJob =
@@ -29,7 +42,9 @@ export class MarkDevicePrintJobPrintedService {
         },
         data: {
           status: 'PRINTED',
-          printedAt: new Date()
+          printedAt: new Date(),
+          lockedAt: null,
+          lockedBy: null
         }
       })
 

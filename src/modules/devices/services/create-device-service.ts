@@ -1,4 +1,9 @@
 import {
+  randomBytes,
+  createHash
+} from 'node:crypto'
+
+import {
   DeviceStatus,
   DeviceType,
   AuditAction,
@@ -21,6 +26,16 @@ interface CreateDeviceServiceRequest {
   type: DeviceType
   locationName?: string | null
   metadata?: Prisma.InputJsonValue | null
+}
+
+function generateDeviceSecret() {
+  return `dvs_${randomBytes(32).toString('hex')}`
+}
+
+function hashSecret(secret: string) {
+  return createHash('sha256')
+    .update(secret)
+    .digest('hex')
 }
 
 export class CreateDeviceService {
@@ -81,6 +96,9 @@ export class CreateDeviceService {
       }
     }
 
+    const deviceSecret = generateDeviceSecret()
+    const deviceSecretHash = hashSecret(deviceSecret)
+
     const device = await prisma.device.create({
       data: {
         organizationId,
@@ -90,6 +108,7 @@ export class CreateDeviceService {
         code: normalizedCode,
         type,
         status: DeviceStatus.ACTIVE,
+        deviceSecretHash,
         locationName: locationName?.trim() || null,
         metadata: metadata ?? undefined
       }
@@ -114,7 +133,8 @@ export class CreateDeviceService {
     })
 
     return {
-      device
+      device,
+      deviceSecret
     }
   }
 }
