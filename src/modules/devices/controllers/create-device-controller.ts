@@ -4,6 +4,16 @@ import { z } from 'zod'
 import { CreateDeviceService } from '../services/create-device-service.js'
 import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
+const optionalCuid = z.preprocess(
+  value => value === null || value === '' ? undefined : value,
+  z.string().cuid().optional()
+)
+
+const optionalString = z.preprocess(
+  value => value === null || value === '' ? undefined : value,
+  z.string().optional()
+)
+
 export async function createDeviceController(
   request: FastifyRequest,
   reply: FastifyReply
@@ -20,9 +30,9 @@ export async function createDeviceController(
       'SK210'
     ]),
 
-    eventId: z.string().cuid().optional(),
-    storeId: z.string().cuid().optional(),
-    locationName: z.string().optional(),
+    eventId: optionalCuid,
+    storeId: optionalCuid,
+    locationName: optionalString,
     metadata: z.record(z.string(), z.unknown()).nullable().optional()
   })
 

@@ -4,6 +4,16 @@ import { z } from 'zod'
 import { UpdateDeviceService } from '../services/update-device-service.js'
 import { getTenantOrganizationId } from '../../auth/middlewares/request-context.js'
 
+const optionalCuid = z.preprocess(
+  value => value === null || value === '' ? undefined : value,
+  z.string().cuid().optional()
+)
+
+const optionalString = z.preprocess(
+  value => value === null || value === '' ? undefined : value,
+  z.string().optional()
+)
+
 export async function updateDeviceController(
   request: FastifyRequest,
   reply: FastifyReply
@@ -15,19 +25,11 @@ export async function updateDeviceController(
   const bodySchema = z.object({
     name: z.string().optional(),
 
-    eventId: z
-      .string()
-      .cuid()
-      .nullable()
-      .optional(),
+    eventId: optionalCuid,
 
-    storeId: z
-      .string()
-      .cuid()
-      .nullable()
-      .optional(),
+    storeId: optionalCuid,
 
-    locationName: z.string().nullable().optional(),
+    locationName: optionalString,
     metadata: z.record(z.string(), z.unknown()).nullable().optional(),
 
     status: z

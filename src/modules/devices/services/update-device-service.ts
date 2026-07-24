@@ -14,9 +14,9 @@ interface UpdateDeviceServiceRequest {
   deviceId: string
 
   name?: string
-  eventId?: string | null
-  storeId?: string | null
-  locationName?: string | null
+  eventId?: string
+  storeId?: string
+  locationName?: string
   metadata?: Prisma.InputJsonValue | null
 
   status?: DeviceStatus
@@ -79,8 +79,8 @@ export class UpdateDeviceService {
         },
         data: {
           name: name?.trim(),
-          eventId,
-          storeId: eventId ? null : storeId,
+          eventId: eventId ? eventId : storeId ? null : undefined,
+          storeId: storeId ? storeId : eventId ? null : undefined,
           locationName,
           metadata: metadata ?? undefined,
           status,

@@ -19,12 +19,12 @@ interface CreateDeviceServiceRequest {
   userRole: UserRole
   selectedOrganizationId?: string
   userId: string
-  eventId?: string | null
-  storeId?: string | null
+  eventId?: string
+  storeId?: string
   name: string
   code: string
   type: DeviceType
-  locationName?: string | null
+  locationName?: string
   metadata?: Prisma.InputJsonValue | null
 }
 
