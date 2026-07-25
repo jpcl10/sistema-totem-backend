@@ -19,6 +19,7 @@ declare module 'fastify' {
       deviceId: string
       organizationId: string
       eventId: string | null
+      storeId: string | null
       deviceType: DeviceType
     }
 

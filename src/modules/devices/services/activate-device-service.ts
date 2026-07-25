@@ -67,8 +67,8 @@ export class ActivateDeviceService {
       throw new Error('Device credentials revoked')
     }
 
-    if (device.status === DeviceStatus.MAINTENANCE) {
-      throw new Error('Device is under maintenance')
+    if (device.status !== DeviceStatus.ACTIVE) {
+      throw new Error('Device is not active')
     }
 
     if (!device.deviceSecretHash) {
@@ -99,6 +99,7 @@ export class ActivateDeviceService {
           deviceId: device.id,
           organizationId: device.organizationId,
           eventId: device.eventId,
+          storeId: device.storeId,
           deviceType: device.type
         },
         jwtSecret,
@@ -186,7 +187,21 @@ export class ActivateDeviceService {
 
     return {
       deviceToken,
-      device: updatedDevice,
+      device: {
+        id: updatedDevice.id,
+        name: updatedDevice.name,
+        code: updatedDevice.code,
+        type: updatedDevice.type,
+        status: updatedDevice.status,
+        authStatus: updatedDevice.authStatus,
+        organizationId: updatedDevice.organizationId,
+        organizationName: updatedDevice.organization.name,
+        eventId: updatedDevice.eventId,
+        eventName: updatedDevice.event?.name ?? null,
+        storeId: updatedDevice.storeId,
+        storeName: updatedDevice.store?.name ?? null,
+        locationName: updatedDevice.locationName
+      },
       config: {
         apiBaseUrl: null,
         eventId: updatedDevice.eventId,

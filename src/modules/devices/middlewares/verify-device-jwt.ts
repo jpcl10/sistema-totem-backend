@@ -10,6 +10,7 @@ interface DeviceTokenPayload {
   deviceId: string
   organizationId: string
   eventId: string | null
+  storeId: string | null
   deviceType: DeviceType
   sub: string
 }
@@ -91,6 +92,7 @@ export async function verifyDeviceJWT(
       deviceId: device.id,
       organizationId: device.organizationId,
       eventId: device.eventId,
+      storeId: device.storeId,
       deviceType: device.type
     }
 
