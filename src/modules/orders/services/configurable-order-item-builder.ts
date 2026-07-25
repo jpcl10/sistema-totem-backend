@@ -14,6 +14,7 @@ export type ConfigurableCatalogItemInput = {
   selectedOptions?: SelectedOptionInput[]
   selectedFlavorProductIds?: string[]
   basePriceInCents?: number
+  trustedBasePriceInCents?: number
 }
 
 type BuildConfigurableCatalogItemsRequest = {
@@ -154,8 +155,10 @@ export async function buildConfigurableCatalogOrderItems({
     const optionSnapshots = []
     let optionsTotalDeltaInCents = 0
     const sizeResolution = resolveSizeOptionData(product, selectedOptionsMap)
+    const configuredBasePriceInCents =
+      item.trustedBasePriceInCents ?? product.priceInCents
     const primaryFullPriceInCents =
-      product.priceInCents + sizeResolution.sizeDeltaInCents
+      configuredBasePriceInCents + sizeResolution.sizeDeltaInCents
 
     for (const group of product.optionGroups) {
       const selectedOptionIds = selectedOptionsMap.get(group.id) || []

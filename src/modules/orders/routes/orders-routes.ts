@@ -22,6 +22,7 @@ import { listUnifiedOrdersController } from '../controllers/list-unified-orders-
 import { updateOrderPaymentStatusController } from '../controllers/update-order-payment-status-controller.js'
 import { updateOrderStatusController } from '../controllers/update-order-status-controller.js'
 import { createManualSaleController } from '../controllers/create-manual-sale-controller.js'
+import { listEventManualSaleCatalogController } from '../controllers/list-event-manual-sale-catalog-controller.js'
 
 export async function ordersRoutes(
   app: FastifyInstance
@@ -321,5 +322,19 @@ export async function ordersRoutes(
       }
     },
     createManualSaleController
+  )
+
+  app.get(
+    '/events/:eventId/orders/manual-sale/catalog',
+    {
+      preHandler: [verifyJWT, requireTenantContext],
+      config: {
+        rateLimit: {
+          max: 120,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    listEventManualSaleCatalogController
   )
 }

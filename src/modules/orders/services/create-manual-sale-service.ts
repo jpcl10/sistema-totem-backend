@@ -272,7 +272,7 @@ export class CreateManualSaleService {
               notes: item.notes,
               selectedOptions: item.selectedOptions,
               selectedFlavorProductIds: item.selectedFlavorProductIds,
-              basePriceInCents:
+              trustedBasePriceInCents:
                 eventProduct?.priceInCents ??
                 eventProduct?.catalogProduct.priceInCents
             }
