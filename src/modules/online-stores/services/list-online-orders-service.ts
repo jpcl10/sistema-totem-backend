@@ -21,7 +21,12 @@ export class ListOnlineOrdersService {
     }
 
     const orders = await prisma.onlineOrder.findMany({
-      where: { storeId },
+      where: {
+        storeId,
+        store: {
+          organizationId
+        }
+      },
       include: {
         store: {
           select: {

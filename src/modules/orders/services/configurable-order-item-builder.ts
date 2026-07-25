@@ -96,7 +96,11 @@ export async function buildConfigurableCatalogOrderItems({
     where: {
       id: { in: productIds },
       organizationId,
-      active: true
+      active: true,
+      catalogCategory: {
+        organizationId,
+        active: true
+      }
     },
     include: {
       optionGroups: {
@@ -121,7 +125,11 @@ export async function buildConfigurableCatalogOrderItems({
         where: {
           id: { in: allFlavorIds },
           organizationId,
-          active: true
+          active: true,
+          catalogCategory: {
+            organizationId,
+            active: true
+          }
         },
         include: {
           optionGroups: {

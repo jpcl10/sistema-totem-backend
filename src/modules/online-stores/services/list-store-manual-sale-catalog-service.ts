@@ -3,6 +3,7 @@ import {
   catalogProductInclude,
   formatOptionGroups
 } from '../../catalog/event-products/services/event-product-presenter.js'
+import { shouldIncludeCatalogCategory } from '../../catalog/shared/catalog-visibility.js'
 
 interface ListStoreManualSaleCatalogServiceRequest {
   organizationId: string
@@ -98,10 +99,15 @@ export class ListStoreManualSaleCatalogService {
       })
     ])
 
+    const visibleCategories = categories.filter(shouldIncludeCatalogCategory).map(formatCategory)
+    const visibleProducts = products
+      .filter(product => shouldIncludeCatalogCategory(product.catalogCategory))
+      .map(formatManualSaleProduct)
+
     return {
       store,
-      categories: categories.map(formatCategory),
-      products: products.map(formatManualSaleProduct)
+      categories: visibleCategories,
+      products: visibleProducts
     }
   }
 }

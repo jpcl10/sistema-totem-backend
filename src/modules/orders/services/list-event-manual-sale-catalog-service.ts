@@ -3,6 +3,7 @@ import {
   catalogProductInclude,
   formatOptionGroups
 } from '../../catalog/event-products/services/event-product-presenter.js'
+import { shouldIncludeCatalogCategory } from '../../catalog/shared/catalog-visibility.js'
 
 interface ListEventManualSaleCatalogServiceRequest {
   organizationId: string
@@ -118,6 +119,7 @@ export class ListEventManualSaleCatalogService {
     )
 
     const visibleProducts = products
+      .filter(product => shouldIncludeCatalogCategory(product.catalogCategory))
       .map(product => ({
         product,
         eventProduct:
@@ -133,7 +135,7 @@ export class ListEventManualSaleCatalogService {
 
     return {
       event,
-      categories: categories.map(formatCategory),
+      categories: categories.filter(shouldIncludeCatalogCategory).map(formatCategory),
       products: visibleProducts
     }
   }

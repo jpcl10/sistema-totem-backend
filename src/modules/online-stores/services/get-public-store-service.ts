@@ -1,6 +1,7 @@
 import { SettingsChannel } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { shouldIncludeCatalogCategory } from '../../catalog/shared/catalog-visibility.js'
 import { OnlineStoreSettingsService } from '../../settings/services/online-store-settings-service.js'
 import { SettingsResolverService } from '../../settings/services/settings-resolver-service.js'
 
@@ -21,15 +22,11 @@ export class GetPublicStoreService {
       throw new Error('Store not found')
     }
 
-    // Get catalog categories and products from the organization!
     const [categories, products, operation, effective] = await Promise.all([
       prisma.catalogCategory.findMany({
         where: {
           organizationId: store.organizationId,
-          active: true,
-          NOT: {
-          name: 'Itens do Combo'
-        }
+          active: true
         },
         orderBy: [
           { sortOrder: 'asc' },
@@ -39,7 +36,11 @@ export class GetPublicStoreService {
       prisma.catalogProduct.findMany({
         where: {
           organizationId: store.organizationId,
-          active: true
+          active: true,
+          catalogCategory: {
+            organizationId: store.organizationId,
+            active: true
+          }
         },
         include: {
           catalogCategory: true,
@@ -77,6 +78,10 @@ export class GetPublicStoreService {
     // Build categories with nested products, excluding products from "Itens do Combo"
     const categoriesMap = new Map()
     for (const category of categories) {
+      if (!shouldIncludeCatalogCategory(category)) {
+        continue
+      }
+
       categoriesMap.set(category.id, {
         id: category.id,
         name: category.name,
@@ -87,11 +92,7 @@ export class GetPublicStoreService {
     }
 
     for (const product of products) {
-      // Skip products from "Itens do Combo"
-      if (product.catalogCategory.name === 'Itens do Combo') {
-        continue
-      }
-      if (product.pricingRule === 'MAX_SELECTED_FLAVOR') {
+      if (!shouldIncludeCatalogCategory(product.catalogCategory)) {
         continue
       }
       if (categoriesMap.has(product.catalogCategoryId)) {
