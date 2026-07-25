@@ -100,8 +100,8 @@ export class GetCheckoutPaymentSettingsService {
       Boolean(
         (effectiveSettings.methods.credit || effectiveSettings.methods.debit) &&
           (
-            mercadoPagoSettings?.cardEnabled === true ||
-            mercadoPagoSettings?.terminalEnabled === true ||
+            mercadoPagoProviderSettings?.cardEnabled === true ||
+            mercadoPagoProviderSettings?.terminalEnabled === true ||
             activePaymentTerminals > 0
           )
       )
