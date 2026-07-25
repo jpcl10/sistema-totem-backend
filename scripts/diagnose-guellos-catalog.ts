@@ -133,7 +133,7 @@ async function main() {
   const publicStore = await new GetPublicStoreService().execute({ slug })
   const publicCategories = publicStore.categories
   const publicProducts = publicCategories.flatMap(category =>
-    (category.products ?? []).map(product => ({
+    (category.products ?? []).map((product: { id: string; name: string }) => ({
       id: product.id,
       name: product.name,
       categoryId: category.id,
