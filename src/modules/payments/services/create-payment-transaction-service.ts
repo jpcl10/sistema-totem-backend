@@ -4,7 +4,7 @@ import {
   Prisma,
   AuditAction
 } from '@prisma/client'
-
+import { logger } from '../../../lib/logger.js'
 import { prisma } from '../../../lib/prisma.js'
 import { makePaymentProvider } from '../providers/payment-provider-factory.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
@@ -169,6 +169,20 @@ export class CreatePaymentTransactionService {
     // Use orderId or onlineOrderId depending on which one was provided
     const referenceOrderId = orderId || onlineOrderId || ''
 
+    logger.info(
+      {
+        organizationId,
+        referenceOrderId,
+        finalMethod,
+        amountInCents: finalAmountInCents,
+        expiresAt: expiresAt?.toISOString() ?? null,
+        metadata: {
+          source: metadata,
+        }
+      },
+      'Creating payment transaction',
+    )
+
     const providerResponse =
       await paymentProvider.createPayment({
         organizationId,
@@ -180,6 +194,24 @@ export class CreatePaymentTransactionService {
         expiresAt,
         metadata
       })
+
+    logger.info(
+      {
+        organizationId,
+        referenceOrderId,
+        provider: providerResponse.provider,
+        status: providerResponse.status,
+        method: providerResponse.method,
+        amountInCents: providerResponse.amountInCents,
+        externalId: providerResponse.externalId,
+        gatewayStatus: providerResponse.gatewayStatus,
+        gatewayMessage: providerResponse.gatewayMessage,
+        hasQrCode: Boolean(providerResponse.qrCode),
+        hasQrCodeBase64: Boolean(providerResponse.qrCodeBase64),
+        hasPixCopyPaste: Boolean(providerResponse.pixCopyPaste)
+      },
+      'Payment provider responded',
+    )
 
     const paymentTransaction =
       await prisma.paymentTransaction.create({
