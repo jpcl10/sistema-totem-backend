@@ -40,13 +40,62 @@ export async function getPublicOrderController(
     }
   })
 
-  if (!order) {
+  if (order) {
+    return reply.send({
+      order
+    })
+  }
+
+  const onlineOrder = await prisma.onlineOrder.findUnique({
+    where: {
+      id: orderId
+    },
+    select: {
+      id: true,
+      storeId: true,
+      orderNumber: true,
+      customerName: true,
+      customerPhone: true,
+      deliveryAddress: true,
+      deliveryNumber: true,
+      deliveryNeighborhood: true,
+      deliveryCity: true,
+      deliveryState: true,
+      deliveryPostalCode: true,
+      deliveryComplement: true,
+      deliveryReference: true,
+      paymentMethod: true,
+      paymentStatus: true,
+      source: true,
+      fulfillmentType: true,
+      subtotalInCents: true,
+      deliveryFeeInCents: true,
+      totalInCents: true,
+      status: true,
+      paidAt: true,
+      createdAt: true,
+      updatedAt: true,
+      notes: true,
+      items: {
+        select: {
+          id: true,
+          quantity: true,
+          unitPriceInCents: true,
+          totalInCents: true,
+          productName: true,
+          notes: true
+        }
+      }
+    }
+  })
+
+  if (!onlineOrder) {
     return reply.status(404).send({
       message: 'Order not found'
     })
   }
 
   return reply.send({
-    order
+    order: onlineOrder
   })
 }

@@ -12,7 +12,8 @@ import { PaymentSettingsResolver } from '../../payment-settings/payment-settings
 
 interface CreatePaymentTransactionServiceRequest {
   organizationId: string
-  orderId: string
+  orderId?: string | null
+  onlineOrderId?: string | null
   provider: PaymentProvider
   method?: PaymentMethod | null
   amountInCents?: number | null
@@ -26,6 +27,7 @@ export class CreatePaymentTransactionService {
   async execute({
     organizationId,
     orderId,
+    onlineOrderId,
     provider,
     method,
     amountInCents,
@@ -34,34 +36,90 @@ export class CreatePaymentTransactionService {
     gatewayMessage,
     metadata
   }: CreatePaymentTransactionServiceRequest) {
-    const order = await prisma.order.findFirst({
-      where: {
-        id: orderId,
-        event: {
-          organizationId
-        }
-      },
-      select: {
-        id: true,
-        totalInCents: true,
-        paymentStatus: true,
-        eventId: true,
-        orderNumber: true,
-        customerName: true,
-        event: {
-          select: {
-            pixPaymentExpirationMinutes: true
+    // Validate that exactly one order type is provided
+    if (!orderId && !onlineOrderId) {
+      throw new Error('Either orderId or onlineOrderId must be provided')
+    }
+
+    if (orderId && onlineOrderId) {
+      throw new Error('Only one of orderId or onlineOrderId can be provided')
+    }
+
+    let orderData: any
+    let contextType: 'EVENT' | 'ONLINE_STORE'
+    let contextId: string
+    let pixExpirationMinutes = 5
+
+    if (orderId) {
+      // Fetch Totem Order
+      const order = await prisma.order.findFirst({
+        where: {
+          id: orderId,
+          event: {
+            organizationId
+          }
+        },
+        select: {
+          id: true,
+          totalInCents: true,
+          paymentStatus: true,
+          eventId: true,
+          orderNumber: true,
+          customerName: true,
+          event: {
+            select: {
+              pixPaymentExpirationMinutes: true
+            }
           }
         }
-      }
-    })
+      })
 
-    if (!order) {
-      throw new Error('Order not found')
+      if (!order) {
+        throw new Error('Order not found')
+      }
+
+      orderData = order
+      contextType = 'EVENT'
+      contextId = order.eventId
+      pixExpirationMinutes =
+        order.event.pixPaymentExpirationMinutes ?? 5
+    } else {
+      // Fetch Online Store Order
+      const onlineOrder = await prisma.onlineOrder.findFirst({
+        where: {
+          id: onlineOrderId as string,
+          store: {
+            organizationId
+          }
+        },
+        select: {
+          id: true,
+          totalInCents: true,
+          paymentStatus: true,
+          storeId: true,
+          orderNumber: true,
+          customerName: true,
+          store: {
+            select: {
+              id: true
+            }
+          }
+        }
+      })
+
+      if (!onlineOrder) {
+        throw new Error('Online order not found')
+      }
+
+      orderData = onlineOrder
+      contextType = 'ONLINE_STORE'
+      contextId = (onlineOrder as any).store.id
+      // Use org default for online orders
+      pixExpirationMinutes = 5
     }
 
     const finalAmountInCents =
-      amountInCents ?? order.totalInCents
+      amountInCents ?? orderData.totalInCents
 
     if (finalAmountInCents <= 0) {
       throw new Error('Amount must be greater than zero')
@@ -73,8 +131,9 @@ export class CreatePaymentTransactionService {
     const paymentSettings =
       await new PaymentSettingsResolver().resolve({
         organizationId,
-        contextType: 'EVENT',
-        eventId: order.eventId
+        contextType,
+        eventId: contextType === 'EVENT' ? contextId : undefined,
+        onlineStoreId: contextType === 'ONLINE_STORE' ? contextId : undefined
       })
 
     if (
@@ -86,7 +145,7 @@ export class CreatePaymentTransactionService {
 
     const expirationMinutes =
       paymentSettings.pixExpirationMinutes ??
-      order.event.pixPaymentExpirationMinutes ??
+      pixExpirationMinutes ??
       5
 
     const safeExpirationMinutes =
@@ -107,14 +166,17 @@ export class CreatePaymentTransactionService {
     const paymentProvider =
       makePaymentProvider(provider)
 
+    // Use orderId or onlineOrderId depending on which one was provided
+    const referenceOrderId = orderId || onlineOrderId || ''
+
     const providerResponse =
       await paymentProvider.createPayment({
         organizationId,
-        orderId: order.id,
+        orderId: referenceOrderId,
         amountInCents: finalAmountInCents,
         method: finalMethod,
-        description: `Pedido #${order.orderNumber}`,
-        payerName: order.customerName,
+        description: `Pedido #${orderData.orderNumber}`,
+        payerName: orderData.customerName,
         expiresAt,
         metadata
       })
@@ -123,9 +185,11 @@ export class CreatePaymentTransactionService {
       await prisma.paymentTransaction.create({
         data: {
           organizationId,
-          orderId: order.id,
-          contextType: 'EVENT',
-          eventId: order.eventId,
+          orderId: orderId ?? null,
+          onlineOrderId: onlineOrderId ?? null,
+          contextType,
+          eventId: contextType === 'EVENT' ? contextId : null,
+          storeId: contextType === 'ONLINE_STORE' ? contextId : null,
           provider: providerResponse.provider,
           status: providerResponse.status,
           method: providerResponse.method,
@@ -164,14 +228,15 @@ export class CreatePaymentTransactionService {
     const createAuditLogService = new CreateAuditLogService()
     await createAuditLogService.execute({
       organizationId,
-      eventId: order.eventId,
+      eventId: contextType === 'EVENT' ? contextId : undefined,
       entity: 'PaymentTransaction',
       entityId: paymentTransaction.id,
       action: AuditAction.PAYMENT_CREATED,
       description: 'Cobrança PIX criada',
       metadata: {
         paymentId: paymentTransaction.id,
-        orderId: order.id,
+        orderId: orderId || null,
+        onlineOrderId: onlineOrderId || null,
         amountInCents: paymentTransaction.amountInCents
       }
     })

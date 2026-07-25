@@ -8,6 +8,7 @@ import {
 
 import { prisma } from '../../../lib/prisma.js'
 import { CreatePaymentTransactionService } from './create-payment-transaction-service.js'
+import { PrepareOnlineCheckoutPaymentService } from './prepare-online-checkout-payment-service.js'
 import { GetMercadoPagoStatusService } from '../../payment-settings/services/get-mercado-pago-status-service.js'
 import { PaymentSettingsResolver } from '../../payment-settings/payment-settings-resolver.js'
 
@@ -48,94 +49,178 @@ export class PreparePublicCheckoutPaymentService {
       }
     })
 
-    if (!order) {
-      throw new Error('Order not found')
-    }
+    if (order) {
+      const isPaymentConfirmed =
+        order.paymentStatus === PaymentStatus.PAID ||
+        order.paymentStatus === PaymentStatus.NOT_REQUIRED
 
-    const isPaymentConfirmed =
-      order.paymentStatus === PaymentStatus.PAID ||
-      order.paymentStatus === PaymentStatus.NOT_REQUIRED
-
-    const manualPix = {
-      enabled: context === 'TOTEM' ? false : order.event.pixEnabled,
-      pixKey: context === 'TOTEM'
-        ? null
-        : order.event.pixEnabled ? order.event.pixKey : null,
-      receiverName: context === 'TOTEM'
-        ? null
-        : order.event.pixEnabled ? order.event.pixReceiverName : null,
-      city: context === 'TOTEM'
-        ? null
-        : order.event.pixEnabled ? order.event.pixCity : null,
-      instructions: context === 'TOTEM'
-        ? null
-        : order.event.pixEnabled ? order.event.pixInstructions : null
-    }
-
-    if (isPaymentConfirmed) {
-      return {
-        paymentStep: 'paid',
-        isPaymentConfirmed: true,
-        order,
-        manualPix,
-        paymentTransaction: null,
-        message: 'Pedido já está pago'
+      const manualPix = {
+        enabled: context === 'TOTEM' ? false : order.event.pixEnabled,
+        pixKey: context === 'TOTEM'
+          ? null
+          : order.event.pixEnabled ? order.event.pixKey : null,
+        receiverName: context === 'TOTEM'
+          ? null
+          : order.event.pixEnabled ? order.event.pixReceiverName : null,
+        city: context === 'TOTEM'
+          ? null
+          : order.event.pixEnabled ? order.event.pixCity : null,
+        instructions: context === 'TOTEM'
+          ? null
+          : order.event.pixEnabled ? order.event.pixInstructions : null
       }
-    }
 
-    if (
-      order.paymentStatus === PaymentStatus.CANCELLED ||
-      order.status === OrderStatus.CANCELLED
-    ) {
-      return {
-        paymentStep: 'operator',
-        isPaymentConfirmed: false,
-        order,
-        manualPix,
-        paymentTransaction: null,
-        message: 'Pedido cancelado'
-      }
-    }
-
-    const mercadoPagoStatus =
-      await new GetMercadoPagoStatusService().execute({
-        organizationId: order.event.organizationId
-      })
-
-    const effectiveSettings =
-      await new PaymentSettingsResolver().resolve({
-        organizationId: order.event.organizationId,
-        contextType: 'EVENT',
-        eventId: order.eventId
-      })
-
-    const pixAutomaticAvailable =
-      Boolean(
-        mercadoPagoStatus.configured &&
-          mercadoPagoStatus.pixEnabled &&
-          effectiveSettings.methods.pix
-      )
-
-    if (!pixAutomaticAvailable) {
-      if (context === 'TOTEM') {
+      if (isPaymentConfirmed) {
         return {
-          paymentStep: 'pix_unavailable',
+          paymentStep: 'paid',
+          isPaymentConfirmed: true,
+          order,
+          manualPix,
+          paymentTransaction: null,
+          message: 'Pedido já está pago'
+        }
+      }
+
+      if (
+        order.paymentStatus === PaymentStatus.CANCELLED ||
+        order.status === OrderStatus.CANCELLED
+      ) {
+        return {
+          paymentStep: 'operator',
           isPaymentConfirmed: false,
           order,
           manualPix,
           paymentTransaction: null,
-          message: 'PIX automático indisponível no totem. Configure Mercado Pago com PIX habilitado e token de acesso.'
+          message: 'Pedido cancelado'
         }
       }
 
-      if (manualPix.enabled) {
+      const mercadoPagoStatus =
+        await new GetMercadoPagoStatusService().execute({
+          organizationId: order.event.organizationId
+        })
+
+      const effectiveSettings =
+        await new PaymentSettingsResolver().resolve({
+          organizationId: order.event.organizationId,
+          contextType: 'EVENT',
+          eventId: order.eventId
+        })
+
+      const pixAutomaticAvailable =
+        Boolean(
+          mercadoPagoStatus.configured &&
+            mercadoPagoStatus.pixEnabled &&
+            effectiveSettings.methods.pix
+        )
+
+      if (!pixAutomaticAvailable) {
+        if (context === 'TOTEM') {
+          return {
+            paymentStep: 'pix_unavailable',
+            isPaymentConfirmed: false,
+            order,
+            manualPix,
+            paymentTransaction: null,
+            message: 'PIX automático indisponível no totem. Configure Mercado Pago com PIX habilitado e token de acesso.'
+          }
+        }
+
+        if (manualPix.enabled) {
+          return {
+            paymentStep: 'pix_manual',
+            isPaymentConfirmed: false,
+            order,
+            manualPix,
+            paymentTransaction: null,
+            message: 'PIX manual disponível'
+          }
+        }
+
+        return {
+          paymentStep: 'operator',
+          isPaymentConfirmed: false,
+          order,
+          manualPix,
+          paymentTransaction: null,
+          message: 'Nenhum método automático disponível'
+        }
+      }
+
+      const existingWaitingTransaction =
+        await prisma.paymentTransaction.findFirst({
+          where: {
+            orderId: order.id,
+            provider: PaymentProvider.MERCADO_PAGO,
+            method: PaymentMethod.PIX_AUTOMATIC,
+            status: PaymentTransactionStatus.WAITING_PAYMENT
+          },
+          orderBy: {
+            createdAt: 'desc'
+          }
+        })
+
+      if (
+        existingWaitingTransaction &&
+        (
+          existingWaitingTransaction.qrCode ||
+          existingWaitingTransaction.qrCodeBase64 ||
+          existingWaitingTransaction.pixCopyPaste
+        )
+      ) {
+        return {
+          paymentStep: 'pix_automatic',
+          isPaymentConfirmed: false,
+          order,
+          manualPix,
+          paymentTransaction: existingWaitingTransaction,
+          message: 'PIX automático aguardando pagamento'
+        }
+      }
+
+      const createPaymentTransactionService =
+        new CreatePaymentTransactionService()
+
+      const { paymentTransaction } =
+        await createPaymentTransactionService.execute({
+          organizationId: order.event.organizationId,
+          orderId: order.id,
+          provider: PaymentProvider.MERCADO_PAGO,
+          method: PaymentMethod.PIX_AUTOMATIC,
+          amountInCents: order.totalInCents,
+          metadata: {
+            source: 'public-totem-checkout',
+            eventId: order.eventId,
+            orderId: order.id
+          }
+        })
+
+      if (
+        paymentTransaction.status === PaymentTransactionStatus.WAITING_PAYMENT &&
+        (
+          paymentTransaction.qrCode ||
+          paymentTransaction.qrCodeBase64 ||
+          paymentTransaction.pixCopyPaste
+        )
+      ) {
+        return {
+          paymentStep: 'pix_automatic',
+          isPaymentConfirmed: false,
+          order,
+          manualPix,
+          paymentTransaction,
+          message: 'PIX automático criado'
+        }
+      }
+
+      if (context !== 'TOTEM' && manualPix.enabled) {
         return {
           paymentStep: 'pix_manual',
           isPaymentConfirmed: false,
           order,
           manualPix,
-          paymentTransaction: null,
-          message: 'PIX manual disponível'
+          paymentTransaction,
+          message: 'PIX automático indisponível, usando PIX manual'
         }
       }
 
@@ -144,95 +229,24 @@ export class PreparePublicCheckoutPaymentService {
         isPaymentConfirmed: false,
         order,
         manualPix,
-        paymentTransaction: null,
-        message: 'Nenhum método automático disponível'
-      }
-    }
-
-    const existingWaitingTransaction =
-      await prisma.paymentTransaction.findFirst({
-        where: {
-          orderId: order.id,
-          provider: PaymentProvider.MERCADO_PAGO,
-          method: PaymentMethod.PIX_AUTOMATIC,
-          status: PaymentTransactionStatus.WAITING_PAYMENT
-        },
-        orderBy: {
-          createdAt: 'desc'
-        }
-      })
-
-    if (
-      existingWaitingTransaction &&
-      (
-        existingWaitingTransaction.qrCode ||
-        existingWaitingTransaction.qrCodeBase64 ||
-        existingWaitingTransaction.pixCopyPaste
-      )
-    ) {
-      return {
-        paymentStep: 'pix_automatic',
-        isPaymentConfirmed: false,
-        order,
-        manualPix,
-        paymentTransaction: existingWaitingTransaction,
-        message: 'PIX automático aguardando pagamento'
-      }
-    }
-
-    const createPaymentTransactionService =
-      new CreatePaymentTransactionService()
-
-    const { paymentTransaction } =
-      await createPaymentTransactionService.execute({
-        organizationId: order.event.organizationId,
-        orderId: order.id,
-        provider: PaymentProvider.MERCADO_PAGO,
-        method: PaymentMethod.PIX_AUTOMATIC,
-        amountInCents: order.totalInCents,
-        metadata: {
-          source: 'public-totem-checkout',
-          eventId: order.eventId,
-          orderId: order.id
-        }
-      })
-
-    if (
-      paymentTransaction.status === PaymentTransactionStatus.WAITING_PAYMENT &&
-      (
-        paymentTransaction.qrCode ||
-        paymentTransaction.qrCodeBase64 ||
-        paymentTransaction.pixCopyPaste
-      )
-    ) {
-      return {
-        paymentStep: 'pix_automatic',
-        isPaymentConfirmed: false,
-        order,
-        manualPix,
         paymentTransaction,
-        message: 'PIX automático criado'
+        message: 'Pagamento pendente. Procure um operador.'
       }
     }
 
-    if (context !== 'TOTEM' && manualPix.enabled) {
-      return {
-        paymentStep: 'pix_manual',
-        isPaymentConfirmed: false,
-        order,
-        manualPix,
-        paymentTransaction,
-        message: 'PIX automático indisponível, usando PIX manual'
+    const onlineOrder = await prisma.onlineOrder.findUnique({
+      where: {
+        id: orderId
       }
+    })
+
+    if (!onlineOrder) {
+      throw new Error('Order not found')
     }
 
-    return {
-      paymentStep: 'operator',
-      isPaymentConfirmed: false,
-      order,
-      manualPix,
-      paymentTransaction,
-      message: 'Pagamento pendente. Procure um operador.'
-    }
+    return new PrepareOnlineCheckoutPaymentService().execute({
+      onlineOrderId: onlineOrder.id,
+      paymentMethod
+    })
   }
 }

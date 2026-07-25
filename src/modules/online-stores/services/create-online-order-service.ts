@@ -13,6 +13,7 @@ import { OnlineStoreSettingsService } from '../../settings/services/online-store
 import { touchCustomerInteraction } from '../../customers/services/customer-interaction-service.js'
 import { ResolveOrderCustomerIdentityService } from '../../customers/services/order-customer-identity-service.js'
 import { OrderPrintOrchestratorService } from '../../print-jobs/services/order-print-orchestrator-service.js'
+import { PrepareOnlineCheckoutPaymentService } from '../../payments/services/prepare-online-checkout-payment-service.js'
 import {
   OrderNotificationService,
   orderNotificationEvents
@@ -294,10 +295,22 @@ export class CreateOnlineOrderService {
       return createdOrder
     })
 
-    await new OrderPrintOrchestratorService().execute({
-      domain: 'ONLINE_ORDER',
-      orderId: order.id
-    })
+    let paymentPreparationResult: { paymentStep?: string; isPaymentConfirmed?: boolean; paymentTransaction?: unknown; message?: string } | null = null
+
+    if (order.paymentMethod === 'PIX') {
+      paymentPreparationResult =
+        await new PrepareOnlineCheckoutPaymentService().execute({
+          onlineOrderId: order.id,
+          paymentMethod: 'PIX'
+        })
+    }
+
+    if (order.paymentMethod !== 'PIX') {
+      await new OrderPrintOrchestratorService().execute({
+        domain: 'ONLINE_ORDER',
+        orderId: order.id
+      })
+    }
 
     await new OrderNotificationService().publishOrderEvent(
       orderNotificationEvents.ORDER_CREATED,
@@ -324,7 +337,8 @@ export class CreateOnlineOrderService {
     }
 
     return {
-      order
+      order,
+      paymentPreparation: paymentPreparationResult
     }
   }
 }

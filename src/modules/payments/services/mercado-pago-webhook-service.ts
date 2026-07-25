@@ -243,51 +243,80 @@ export class MercadoPagoWebhookService {
               },
               items: true
             }
+          },
+          onlineOrder: {
+            include: {
+              store: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  organizationId: true
+                }
+              },
+              items: true
+            }
           }
         }
       })
 
-    if (!paymentTransaction) {
+    if (!paymentTransaction || (!paymentTransaction.orderId && !paymentTransaction.onlineOrderId)) {
       await createWebhookEvent({
         paymentId,
         body,
         headers,
         ignored: true,
-        reason: 'payment_transaction_not_found'
+        reason: 'payment_transaction_without_order'
       })
 
       return {
         received: true,
         ignored: true,
-        reason: 'payment_transaction_not_found',
+        reason: 'payment_transaction_without_order',
         paymentId
       }
     }
 
-    if (!paymentTransaction.order || !paymentTransaction.orderId) {
-      await createWebhookEvent({
-        organizationId: paymentTransaction.organizationId,
-        paymentId,
-        body,
-        headers,
-        ignored: true,
-        reason: 'payment_transaction_without_event_order'
-      })
-
-      return {
-        received: true,
-        ignored: true,
-        reason: 'payment_transaction_without_event_order',
-        paymentId
-      }
-    }
-
+    // Determine if this is an event order (Totem) or online order (Digital Menu)
+    const isEventOrder = !!paymentTransaction.orderId
     const eventOrder = paymentTransaction.order
+    const onlineOrder = paymentTransaction.onlineOrder
     const orderId = paymentTransaction.orderId
-    const eventId = eventOrder.eventId
-    const organizationId = paymentTransaction.organizationId
+    const onlineOrderId = paymentTransaction.onlineOrderId
 
-    if (organizationId !== eventOrder.event.organizationId) {
+    // Get organization and context from whichever order type exists
+    const organizationId = paymentTransaction.organizationId
+    let eventId: string | undefined
+    let storeId: string | undefined
+    let contextOrganizationId: string | undefined
+
+    if (isEventOrder && eventOrder) {
+      eventId = eventOrder.eventId
+      contextOrganizationId = eventOrder.event.organizationId
+    } else if (!isEventOrder && onlineOrder) {
+      storeId = onlineOrder.storeId
+      contextOrganizationId = onlineOrder.store.organizationId
+    }
+
+    if (!contextOrganizationId) {
+      await createWebhookEvent({
+        organizationId,
+        paymentId,
+        body,
+        headers,
+        ignored: true,
+        reason: 'missing_context_organization'
+      })
+
+      return {
+        received: true,
+        ignored: true,
+        reason: 'missing_context_organization',
+        paymentId
+      }
+    }
+
+    if (organizationId !== contextOrganizationId) {
       await createWebhookEvent({
         organizationId,
         paymentId,
@@ -527,36 +556,63 @@ export class MercadoPagoWebhookService {
           updatedPaymentTransaction.status !==
           PaymentTransactionStatus.APPROVED
         ) {
-          return eventOrder
+          return isEventOrder ? eventOrder : onlineOrder
         }
 
-        const updated = await tx.order.update({
-          where: {
-            id: orderId
-          },
-          data: {
-            paymentStatus: PaymentStatus.PAID,
-            paymentMethod: paymentTransaction.method,
-            amountPaidInCents:
-              updatedPaymentTransaction.amountInCents,
-            paidAt: now,
-            paymentNotes:
-              'Pagamento aprovado automaticamente pelo Mercado Pago'
-          },
-          include: {
-            items: true,
-            event: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                organizationId: true
+        let updatedOrderData: any
+
+        if (isEventOrder && orderId) {
+          // Update Totem/Event Order
+          updatedOrderData = await tx.order.update({
+            where: {
+              id: orderId
+            },
+            data: {
+              paymentStatus: PaymentStatus.PAID,
+              paymentMethod: paymentTransaction.method,
+              amountPaidInCents:
+                updatedPaymentTransaction.amountInCents,
+              paidAt: now,
+              paymentNotes:
+                'Pagamento aprovado automaticamente pelo Mercado Pago'
+            },
+            include: {
+              items: true,
+              event: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  organizationId: true
+                }
               }
             }
-          }
-        })
+          })
+        } else if (!isEventOrder && onlineOrderId) {
+          // Update Online Store Order
+          updatedOrderData = await tx.onlineOrder.update({
+            where: {
+              id: onlineOrderId
+            },
+            data: {
+              paymentStatus: PaymentStatus.PAID,
+              paidAt: now
+            },
+            include: {
+              items: true,
+              store: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  organizationId: true
+                }
+              }
+            }
+          })
+        }
 
-        return updated
+        return updatedOrderData
       })
 
     await createWebhookEvent({
@@ -577,10 +633,11 @@ export class MercadoPagoWebhookService {
         entity: 'PaymentTransaction',
         entityId: paymentTransaction.id,
         action: AuditAction.PAYMENT_APPROVED,
-        description: 'Pagamento aprovado via PIX',
+        description: isEventOrder ? 'Pagamento aprovado via PIX' : 'Pagamento aprovado via PIX (Online)',
         metadata: {
           paymentId: paymentTransaction.id,
-          orderId: updatedOrder.id,
+          orderId: orderId || null,
+          onlineOrderId: onlineOrderId || null,
           amountInCents: paymentTransaction.amountInCents,
           provider: PaymentProvider.MERCADO_PAGO,
           gatewayStatus: mercadoPagoStatus
@@ -590,8 +647,12 @@ export class MercadoPagoWebhookService {
       const createPrintJobsForOrderService =
         new CreatePrintJobsForOrderService()
 
+      // CreatePrintJobsForOrderService handles both orderId and onlineOrderId
+      // At this point, exactly one of orderId or onlineOrderId is defined
+      const printOrderId = orderId || onlineOrderId
       await createPrintJobsForOrderService.execute({
-        orderId: updatedOrder.id
+        orderId: printOrderId as string,
+        domain: isEventOrder ? 'EVENT_ORDER' : 'ONLINE_ORDER'
       })
     } else if (transactionStatus === PaymentTransactionStatus.REJECTED) {
       await createAuditLogService.execute({
@@ -603,7 +664,8 @@ export class MercadoPagoWebhookService {
         description: 'Pagamento rejeitado',
         metadata: {
           paymentId: paymentTransaction.id,
-          orderId,
+          orderId: orderId || null,
+          onlineOrderId: onlineOrderId || null,
           amountInCents: paymentTransaction.amountInCents,
           provider: PaymentProvider.MERCADO_PAGO,
           gatewayStatus: mercadoPagoStatus,
@@ -620,7 +682,8 @@ export class MercadoPagoWebhookService {
         description: 'Pagamento reembolsado',
         metadata: {
           paymentId: paymentTransaction.id,
-          orderId,
+          orderId: orderId || null,
+          onlineOrderId: onlineOrderId || null,
           amountInCents: paymentTransaction.amountInCents,
           provider: PaymentProvider.MERCADO_PAGO,
           gatewayStatus: mercadoPagoStatus,
@@ -629,77 +692,88 @@ export class MercadoPagoWebhookService {
       })
     }
 
-    io.to(`event:${updatedOrder.eventId}`).emit('order-updated', {
-      order: updatedOrder
-    })
+    // Emit Socket.IO update - handle both event and online store contexts
+    if (isEventOrder && eventId) {
+      io.to(`event:${eventId}`).emit('order-updated', {
+        order: updatedOrder
+      })
+    } else if (!isEventOrder && storeId) {
+      io.to(`organization:${organizationId}`).emit('online-order-updated', {
+        storeId,
+        order: updatedOrder
+      })
+    }
 
-    const unifiedOrder = await prisma.order.findUnique({
-      where: {
-        id: updatedOrder.id
-      },
-      include: {
-        event: {
-          select: {
-            id: true,
-            name: true,
-            organizationId: true,
-            printingEnabled: true
-          }
+    // For event orders, emit unified-order events
+    if (isEventOrder && updatedOrder?.eventId) {
+      const unifiedOrder = await prisma.order.findUnique({
+        where: {
+          id: updatedOrder.id
         },
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            phone: true
-          }
-        },
-        device: {
-          select: {
-            id: true,
-            type: true,
-            name: true
-          }
-        },
-        items: {
-          include: {
-            options: true
-          }
-        },
-        printJobs: {
-          select: {
-            id: true,
-            status: true
-          }
-        },
-        paymentTransactions: {
-          select: {
-            id: true
+        include: {
+          event: {
+            select: {
+              id: true,
+              name: true,
+              organizationId: true,
+              printingEnabled: true
+            }
+          },
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true
+            }
+          },
+          device: {
+            select: {
+              id: true,
+              type: true,
+              name: true
+            }
+          },
+          items: {
+            include: {
+              options: true
+            }
+          },
+          printJobs: {
+            select: {
+              id: true,
+              status: true
+            }
+          },
+          paymentTransactions: {
+            select: {
+              id: true
+            }
           }
         }
+      })
+
+      if (unifiedOrder) {
+        const unifiedPayload = {
+          order: mapEventOrderToUnifiedOrder(unifiedOrder)
+        }
+
+        io.to(`event:${updatedOrder.eventId}`).emit(
+          'unified-order-updated',
+          unifiedPayload
+        )
+
+        io.to(`organization:${organizationId}`).emit(
+          'unified-order-updated',
+          unifiedPayload
+        )
       }
-    })
-
-    if (unifiedOrder) {
-      const unifiedPayload = {
-        order: mapEventOrderToUnifiedOrder(unifiedOrder)
-      }
-
-      io.to(`event:${updatedOrder.eventId}`).emit(
-        'unified-order-updated',
-        unifiedPayload
-      )
-
-      io.to(`organization:${organizationId}`).emit(
-        'unified-order-updated',
-        unifiedPayload
-      )
     }
 
     return {
       received: true,
       paymentId,
       transactionStatus,
-      orderId: updatedOrder.id,
+      orderId: orderId || onlineOrderId || updatedOrder.id,
       paymentStatus: updatedOrder.paymentStatus
     }
   }
