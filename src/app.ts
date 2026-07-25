@@ -37,6 +37,7 @@ import { metricsRoutes } from './modules/metrics/routes/metrics-routes.js'
 
 import { printersRoutes } from './modules/printers/routes/printers-routes.js'
 import { printJobsRoutes } from './modules/print-jobs/routes/print-jobs-routes.js'
+import { printTemplateRoutes } from './modules/print-templates/print-template-routes.js'
 import { devicePrintJobsRoutes } from './modules/device-print-jobs/routes/device-print-jobs-routes.js'
 
 import { devicesRoutes } from './modules/devices/routes/devices-routes.js'
@@ -231,6 +232,7 @@ app.register(metricsRoutes)
 // Printing
 app.register(printersRoutes)
 app.register(printJobsRoutes)
+app.register(printTemplateRoutes)
 app.register(devicePrintJobsRoutes)
 
 // Uploads

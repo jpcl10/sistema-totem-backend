@@ -23,6 +23,7 @@ function installDeviceMocks(overrides: {
   printJobFindMany?: (args: any) => Promise<any>
   printJobFindFirst?: (args: any) => Promise<any>
   printJobUpdate?: (args: any) => Promise<any>
+  printTemplateFindMany?: (args: any) => Promise<any>
 }) {
   const originals = {
     deviceFindUnique: prisma.device.findUnique,
@@ -34,6 +35,7 @@ function installDeviceMocks(overrides: {
     printJobFindMany: prisma.eventPrintJob.findMany,
     printJobFindFirst: prisma.eventPrintJob.findFirst,
     printJobUpdate: prisma.eventPrintJob.update,
+    printTemplateFindMany: prisma.printTemplate.findMany,
     audit: CreateAuditLogService.prototype.execute
     ,
     settingsResolver: SettingsResolverService.prototype.execute
@@ -57,6 +59,8 @@ function installDeviceMocks(overrides: {
     overrides.printJobFindFirst ?? (async () => null)
   ;(prisma.eventPrintJob.update as any) =
     overrides.printJobUpdate ?? (async () => null)
+  ;(prisma.printTemplate.findMany as any) =
+    overrides.printTemplateFindMany ?? (async () => [])
   ;(CreateAuditLogService.prototype.execute as any) =
     async () => ({ auditLog: { id: 'audit-1' } })
   ;(SettingsResolverService.prototype.execute as any) =
@@ -78,6 +82,7 @@ function installDeviceMocks(overrides: {
     ;(prisma.eventPrintJob.findMany as any) = originals.printJobFindMany
     ;(prisma.eventPrintJob.findFirst as any) = originals.printJobFindFirst
     ;(prisma.eventPrintJob.update as any) = originals.printJobUpdate
+    ;(prisma.printTemplate.findMany as any) = originals.printTemplateFindMany
     CreateAuditLogService.prototype.execute = originals.audit
     SettingsResolverService.prototype.execute = originals.settingsResolver
   }

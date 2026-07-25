@@ -106,6 +106,15 @@ enum PrintMode {
   FULL_ORDER
   BY_SECTOR
   BOTH
+  ONE_TICKET_PER_ITEM
+}
+
+enum PrintTemplateType {
+  PRODUCTION
+  CUSTOMER
+  DELIVERY
+  CASHIER
+  TEST
 }
 
 enum PrinterSector {
@@ -251,6 +260,7 @@ model Organization {
   settings                          OrganizationSettings?
   branding                          OrganizationBranding?
   printingSettings                  OrganizationPrintingSettings?
+  printTemplates                    PrintTemplate[]
   businessHours                     BusinessHour[]
   businessHourExceptions            BusinessHourException[]
 }
@@ -413,6 +423,7 @@ model Event {
   eventProducts          EventProduct[]
   printJobs              EventPrintJob[]
   printers               EventPrinter[]
+  printTemplates         PrintTemplate[]
   contextPaymentSettings ContextPaymentSettings[]
   paymentTerminals       PaymentTerminal[]
   nfcCards               NfcCard[]
@@ -701,6 +712,62 @@ model EventPrinter {
 
   event     Event           @relation(fields: [eventId], references: [id])
   printJobs EventPrintJob[]
+  printTemplates PrintTemplate[]
+}
+
+model PrintTemplate {
+  id             String  @id @default(cuid())
+  organizationId String?
+  eventId        String?
+  printerId      String?
+
+  name         String
+  templateType PrintTemplateType
+  paperWidthMm Int
+
+  logoUrl     String?
+  logoEnabled Boolean @default(false)
+  logoWidthPx Int     @default(240)
+
+  title    String?
+  subtitle String?
+
+  showOrderNumber  Boolean @default(true)
+  showDate         Boolean @default(true)
+  showTime         Boolean @default(true)
+  showOrigin       Boolean @default(true)
+  showOperator     Boolean @default(true)
+  showCustomer     Boolean @default(true)
+  showSector       Boolean @default(true)
+  showObservations Boolean @default(true)
+
+  itemFontSize  Int     @default(2)
+  titleFontSize Int     @default(2)
+  quantityBold  Boolean @default(true)
+
+  footerText String?
+
+  copies    Int       @default(1)
+  feedLines Int       @default(4)
+  autoCut   Boolean   @default(true)
+  printMode PrintMode @default(FULL_ORDER)
+
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  event        Event?        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  printer      EventPrinter? @relation(fields: [printerId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([eventId])
+  @@index([printerId])
+  @@index([templateType])
+  @@index([isDefault])
+  @@index([isActive])
 }
 
 model PaymentProviderSettings {
@@ -1071,6 +1138,10 @@ enum AuditAction {
   PRINT_JOB_CREATED
   PRINT_JOB_PRINTED
   PRINT_JOB_ERROR
+  PRINT_TEMPLATE_CREATED
+  PRINT_TEMPLATE_UPDATED
+  PRINT_TEMPLATE_DELETED
+  PRINT_TEMPLATE_DEFAULT_SET
 
   USER_LOGGED_IN
   USER_CREATED
