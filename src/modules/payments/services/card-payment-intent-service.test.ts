@@ -12,6 +12,7 @@ import {
 import { prisma } from '../../../lib/prisma.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
+import { OrderPrintOrchestratorService } from '../../print-jobs/services/order-print-orchestrator-service.js'
 import { CardPaymentIntentService } from './card-payment-intent-service.js'
 
 const organizationId = 'org-1'
@@ -334,6 +335,77 @@ test('approved card confirmation creates print jobs exactly once on PENDING to P
   } finally {
     restore()
     CreatePrintJobsForOrderService.prototype.execute = originalPrintExecute
+    CreateAuditLogService.prototype.execute = originalAuditExecute
+  }
+})
+
+test('approved online card confirmation creates online order print jobs after payment approval', async () => {
+  const calls: any[] = []
+  const originalPrintExecute = OrderPrintOrchestratorService.prototype.execute
+  const originalAuditExecute = CreateAuditLogService.prototype.execute
+  ;(OrderPrintOrchestratorService.prototype.execute as any) =
+    async (request: any) => {
+      calls.push(request)
+      return { printJobs: [], alerts: [] }
+    }
+  ;(CreateAuditLogService.prototype.execute as any) = async () => ({})
+
+  const updatedTransaction = baseTransaction({
+    status: PaymentTransactionStatus.APPROVED,
+    orderId: null,
+    onlineOrderId: 'online-order-1',
+    eventId: null,
+    storeId: 'store-1',
+    order: null,
+    onlineOrder: {
+      id: 'online-order-1',
+      paymentStatus: PaymentStatus.PENDING
+    }
+  })
+  const restore = installPrismaMocks({
+    paymentTransactionFindFirst: async () => baseTransaction({
+      orderId: null,
+      onlineOrderId: 'online-order-1',
+      eventId: null,
+      storeId: 'store-1',
+      order: null,
+      onlineOrder: {
+        id: 'online-order-1',
+        paymentStatus: PaymentStatus.PENDING
+      }
+    }),
+    transaction: async (callback: any) =>
+      callback({
+        paymentTransaction: {
+          update: async () => updatedTransaction
+        },
+        order: {
+          update: async () => null
+        },
+        onlineOrder: {
+          update: async () => ({ id: 'online-order-1' })
+        }
+      })
+  })
+
+  try {
+    await new CardPaymentIntentService().confirm({
+      organizationId,
+      deviceId: 'device-1',
+      paymentTransactionId: 'payment-1',
+      result: 'APPROVED',
+      amountInCents: 1000
+    })
+
+    assert.deepEqual(calls, [
+      {
+        domain: 'ONLINE_ORDER',
+        orderId: 'online-order-1'
+      }
+    ])
+  } finally {
+    restore()
+    OrderPrintOrchestratorService.prototype.execute = originalPrintExecute
     CreateAuditLogService.prototype.execute = originalAuditExecute
   }
 })

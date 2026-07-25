@@ -53,6 +53,9 @@ type ResolvedAddress = {
   street: string
   number: string | null
   neighborhood: string | null
+  city: string | null
+  state: string | null
+  postalCode: string | null
   complement: string | null
   reference: string | null
 }
@@ -188,6 +191,9 @@ export class ResolveOrderCustomerIdentityService {
           street: true,
           number: true,
           neighborhood: true,
+          city: true,
+          state: true,
+          postalCode: true,
           complement: true,
           reference: true
         }
@@ -215,6 +221,9 @@ export class ResolveOrderCustomerIdentityService {
           street: true,
           number: true,
           neighborhood: true,
+          city: true,
+          state: true,
+          postalCode: true,
           complement: true,
           reference: true
         }
@@ -242,6 +251,9 @@ export class ResolveOrderCustomerIdentityService {
             street: true,
             number: true,
             neighborhood: true,
+            city: true,
+            state: true,
+            postalCode: true,
             complement: true,
             reference: true
           }

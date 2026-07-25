@@ -1,8 +1,24 @@
 import { prisma } from '../../../lib/prisma.js'
 import { PrintTemplateService } from '../../print-templates/print-template-service.js'
 
+const templateTypes = new Set([
+  'PRODUCTION',
+  'CUSTOMER',
+  'DELIVERY',
+  'CASHIER',
+  'TEST'
+])
+
 interface ListDevicePendingPrintJobsServiceRequest {
   deviceId: string
+}
+
+function resolvePayloadTemplateType(payload: Record<string, unknown>) {
+  const templateType = payload.templateType
+
+  return typeof templateType === 'string' && templateTypes.has(templateType)
+    ? templateType as 'PRODUCTION' | 'CUSTOMER' | 'DELIVERY' | 'CASHIER' | 'TEST'
+    : 'PRODUCTION'
 }
 
 export class ListDevicePendingPrintJobsService {
@@ -70,7 +86,7 @@ export class ListDevicePendingPrintJobsService {
             printJob.device?.organizationId,
           eventId: printJob.eventId ?? undefined,
           printerId: printJob.printerId ?? undefined,
-          templateType: 'PRODUCTION'
+          templateType: resolvePayloadTemplateType(payload)
         })
 
         return {

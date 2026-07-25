@@ -10,6 +10,7 @@ import {
 import { prisma } from '../../../lib/prisma.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
+import { OrderPrintOrchestratorService } from '../../print-jobs/services/order-print-orchestrator-service.js'
 
 export type CardPaymentResult =
   | 'APPROVED'
@@ -497,6 +498,17 @@ export class CardPaymentIntentService {
     ) {
       await new CreatePrintJobsForOrderService().execute({
         orderId: transaction.orderId
+      })
+    }
+
+    if (
+      nextStatus === PaymentTransactionStatus.APPROVED &&
+      transaction.onlineOrderId &&
+      transaction.onlineOrder?.paymentStatus !== PaymentStatus.PAID
+    ) {
+      await new OrderPrintOrchestratorService().execute({
+        domain: 'ONLINE_ORDER',
+        orderId: transaction.onlineOrderId
       })
     }
 

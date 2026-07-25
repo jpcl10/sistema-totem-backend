@@ -1607,6 +1607,9 @@ model OnlineOrder {
   deliveryAddress      String
   deliveryNumber       String
   deliveryNeighborhood String
+  deliveryCity         String?
+  deliveryState        String?
+  deliveryPostalCode   String?
   deliveryComplement   String?
   deliveryReference    String?
   paymentMethod        OnlineOrderPaymentMethod

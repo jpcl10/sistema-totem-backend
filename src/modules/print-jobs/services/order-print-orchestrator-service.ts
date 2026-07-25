@@ -61,6 +61,17 @@ type PrintPlanningAlert = {
   source?: string
 }
 
+type OnlineDeliveryAddress = {
+  addressStreet: string
+  addressNumber: string
+  addressNeighborhood: string
+  addressComplement: string | null
+  addressReference: string | null
+  city: string | null
+  state: string | null
+  postalCode: string | null
+}
+
 interface OrderPrintOrchestratorRequest {
   domain: OrderPrintDomain
   orderId: string
@@ -92,6 +103,23 @@ function isPrintablePaymentStatus(paymentStatus: PaymentStatus) {
   return (
     paymentStatus === PaymentStatus.PAID ||
     paymentStatus === PaymentStatus.NOT_REQUIRED
+  )
+}
+
+function isPrintableOnlineOrderPayment({
+  paymentMethod,
+  paymentStatus
+}: {
+  paymentMethod: string | null | undefined
+  paymentStatus: PaymentStatus
+}) {
+  if (isPrintablePaymentStatus(paymentStatus)) return true
+  return (
+    paymentStatus === PaymentStatus.PENDING &&
+    (
+      paymentMethod === 'CASH' ||
+      paymentMethod === 'CARD_ON_DELIVERY'
+    )
   )
 }
 
@@ -224,6 +252,64 @@ function resolvePaperSize({
   settingsPaperSize: string
 }) {
   return targetPaperSize ?? settingsPaperSize
+}
+
+function optionalText(value: string | null | undefined) {
+  const normalized = value?.trim()
+  return normalized ? normalized : null
+}
+
+function paymentMethodLabel(value: string | null | undefined) {
+  const labels: Record<string, string> = {
+    PIX: 'PIX',
+    CARD_ON_DELIVERY: 'Cartao na entrega',
+    CASH: 'Dinheiro',
+    PIX_MANUAL: 'PIX manual',
+    PIX_AUTOMATIC: 'PIX automatico',
+    CREDIT_CARD: 'Cartao de credito',
+    DEBIT_CARD: 'Cartao de debito',
+    COURTESY: 'Cortesia',
+    NFC_BALANCE: 'Saldo NFC',
+    OTHER: 'Outro'
+  }
+
+  return value ? labels[value] ?? value : null
+}
+
+function paymentStatusLabel(value: string | null | undefined) {
+  const labels: Record<string, string> = {
+    PAID: 'Pago',
+    PENDING: 'Pendente',
+    FAILED: 'Falhou',
+    CANCELLED: 'Cancelado',
+    REFUNDED: 'Estornado',
+    NOT_REQUIRED: 'Nao requerido'
+  }
+
+  return value ? labels[value] ?? value : null
+}
+
+function fulfillmentLabel(value: string | null | undefined) {
+  if (value === 'DELIVERY') return 'Entrega'
+  if (value === 'PICKUP') return 'Retirada'
+  if (value === 'COUNTER') return 'Balcao'
+  if (value === 'DINE_IN') return 'No local'
+  return value ?? null
+}
+
+function formatDeliveryAddress(address: OnlineDeliveryAddress | null) {
+  if (!address) return ['RETIRADA NO LOCAL']
+
+  const lines = [
+    [address.addressStreet, address.addressNumber].filter(Boolean).join(', '),
+    address.addressNeighborhood ? `Bairro ${address.addressNeighborhood}` : null,
+    address.addressComplement ? `Complemento: ${address.addressComplement}` : null,
+    address.addressReference ? `Referencia: ${address.addressReference}` : null,
+    [address.city, address.state].filter(Boolean).join('/'),
+    address.postalCode ? `CEP ${address.postalCode}` : null
+  ].filter((line): line is string => Boolean(line))
+
+  return lines.length > 0 ? lines : ['Endereco nao informado']
 }
 
 async function createJobsIdempotently({
@@ -526,6 +612,7 @@ export class OrderPrintOrchestratorService {
       include: {
         store: true,
         printJobs: true,
+        customerAddress: true,
         items: {
           include: {
             catalogProduct: {
@@ -562,17 +649,15 @@ export class OrderPrintOrchestratorService {
         settings: printingSettings,
         source: sourceKey
       }) ||
-      !isPrintablePaymentStatus(order.paymentStatus) ||
+      !isPrintableOnlineOrderPayment({
+        paymentMethod: order.paymentMethod,
+        paymentStatus: order.paymentStatus
+      }) ||
+      order.status === 'CANCELLED' ||
       order.items.length === 0
     ) {
       return {
         printJobs: []
-      }
-    }
-
-    if (order.printJobs.length > 0) {
-      return {
-        printJobs: order.printJobs
       }
     }
 
@@ -587,7 +672,7 @@ export class OrderPrintOrchestratorService {
     const items: PrintableItem[] = order.items.map(item => ({
       name: item.productName,
       quantity: item.quantity,
-      sector: item.catalogProduct?.catalogCategory?.sector ?? null,
+      sector: item.catalogProduct?.catalogCategory?.sector ?? CategorySector.KITCHEN,
       notes: item.notes,
       options: [
         ...item.flavors
@@ -604,9 +689,44 @@ export class OrderPrintOrchestratorService {
     }))
 
     const isDelivery = order.fulfillmentType === 'DELIVERY'
+    const deliveryAddress: OnlineDeliveryAddress | null = isDelivery
+      ? {
+          addressStreet:
+            optionalText(order.deliveryAddress) ??
+            optionalText(order.customerAddress?.street) ??
+            '',
+          addressNumber:
+            optionalText(order.deliveryNumber) ??
+            optionalText(order.customerAddress?.number) ??
+            '',
+          addressNeighborhood:
+            optionalText(order.deliveryNeighborhood) ??
+            optionalText(order.customerAddress?.neighborhood) ??
+            '',
+          addressComplement:
+            optionalText(order.deliveryComplement) ??
+            optionalText(order.customerAddress?.complement),
+          addressReference:
+            optionalText(order.deliveryReference) ??
+            optionalText(order.customerAddress?.reference),
+          city:
+            optionalText(order.deliveryCity) ??
+            optionalText(order.customerAddress?.city) ??
+            optionalText(order.store.city),
+          state:
+            optionalText(order.deliveryState) ??
+            optionalText(order.customerAddress?.state),
+          postalCode:
+            optionalText(order.deliveryPostalCode) ??
+            optionalText(order.customerAddress?.postalCode)
+        }
+      : null
+
     const basePayload: Prisma.InputJsonObject = {
       domain: 'ONLINE_ORDER',
       storeName: order.store.name,
+      organizationId: order.store.organizationId,
+      storeId: order.storeId,
       onlineOrderId: order.id,
       orderNumber: order.orderNumber,
       source: order.source,
@@ -615,17 +735,24 @@ export class OrderPrintOrchestratorService {
       customerPhone: order.customerPhone,
       createdAt: order.createdAt.toISOString(),
       fulfillment: order.fulfillmentType,
-      deliveryAddress: isDelivery
-        ? {
-            address: order.deliveryAddress,
-            number: order.deliveryNumber,
-            neighborhood: order.deliveryNeighborhood,
-            complement: order.deliveryComplement,
-            reference: order.deliveryReference
-          }
-        : null,
+      deliveryType: order.fulfillmentType,
+      deliveryTypeLabel: fulfillmentLabel(order.fulfillmentType),
+      addressStreet: deliveryAddress?.addressStreet ?? null,
+      addressNumber: deliveryAddress?.addressNumber ?? null,
+      addressNeighborhood: deliveryAddress?.addressNeighborhood ?? null,
+      addressComplement: deliveryAddress?.addressComplement ?? null,
+      addressReference: deliveryAddress?.addressReference ?? null,
+      city: deliveryAddress?.city ?? null,
+      state: deliveryAddress?.state ?? null,
+      postalCode: deliveryAddress?.postalCode ?? null,
+      deliveryNotes: order.notes,
+      deliveryAddress,
+      formattedDeliveryAddress: formatDeliveryAddress(deliveryAddress),
       paymentStatus: order.paymentStatus,
+      paymentStatusLabel: paymentStatusLabel(order.paymentStatus),
       paymentMethod: order.paymentMethod,
+      paymentMethodLabel: paymentMethodLabel(order.paymentMethod),
+      changeForInCents: order.changeForInCents,
       subtotalInCents: order.subtotalInCents,
       deliveryFeeInCents: order.deliveryFeeInCents,
       totalInCents: order.totalInCents,
@@ -643,16 +770,10 @@ export class OrderPrintOrchestratorService {
       }
     }
 
-    const { jobsToCreate } = this.buildJobs({
-      domain: 'ONLINE_ORDER',
-      orderId: null,
-      eventId: null,
-      onlineOrderId: order.id,
+    const { jobsToCreate } = this.buildOnlineOrderJobs({
+      orderId: order.id,
       storeId: order.storeId,
-      printMode: normalizePrintMode({
-        sourcePrintMode: printingSettings.sources[sourceKey].printMode,
-        splitBySector: printingSettings.splitBySector
-      }),
+      isDelivery,
       targets,
       basePayload,
       items,
@@ -925,6 +1046,135 @@ export class OrderPrintOrchestratorService {
             }
           })
         }
+      }
+    }
+
+    return { jobsToCreate, alerts }
+  }
+
+  private buildOnlineOrderJobs({
+    orderId,
+    storeId,
+    isDelivery,
+    targets,
+    basePayload,
+    items,
+    enabledSectors
+  }: {
+    orderId: string
+    storeId: string
+    isDelivery: boolean
+    targets: PrintTarget[]
+    basePayload: Prisma.InputJsonObject
+    items: PrintableItem[]
+    enabledSectors?: Partial<Record<PrintingSectorKey, { enabled: boolean }>>
+  }) {
+    const jobsToCreate: JobToCreate[] = []
+    const alerts: PrintPlanningAlert[] = []
+    const fullOrderTargets = findTargetsBySector(targets, 'FULL_ORDER')
+
+    const sectors: JobSector[] = ['KITCHEN', 'BAR']
+
+    for (const sector of sectors) {
+      const settingsSector = sector === 'KITCHEN' ? 'COOK' : 'BAR'
+      if (enabledSectors?.[settingsSector]?.enabled === false) {
+        alerts.push({
+          reason: 'sector_disabled',
+          sector
+        })
+        continue
+      }
+
+      const sectorItems = items.filter(item => item.sector === sector)
+      if (sectorItems.length === 0) continue
+
+      const sectorTargets = findTargetsBySector(targets, sector)
+      const targetsForSector =
+        sectorTargets.length > 0
+          ? sectorTargets
+          : fullOrderTargets
+
+      if (targetsForSector.length === 0) {
+        alerts.push({
+          reason: 'missing_online_production_target',
+          sector
+        })
+      }
+
+      for (const target of targetsForSector) {
+        jobsToCreate.push({
+          eventId: null,
+          orderId: null,
+          storeId,
+          onlineOrderId: orderId,
+          idempotencyKey: [
+            'auto',
+            'ONLINE_ORDER',
+            orderId,
+            target.source,
+            target.id,
+            'PRODUCTION',
+            sector
+          ].join(':'),
+          printerId: target.printerId,
+          deviceId: target.deviceId,
+          sector,
+          payload: {
+            ...basePayload,
+            type: 'SECTOR',
+            templateType: 'PRODUCTION',
+            title: sector === 'BAR' ? 'FICHA BAR' : 'FICHA DE PRODUCAO',
+            sector,
+            printerSector: sector,
+            connectionType: target.connectionType,
+            printTargetSource: target.source,
+            printTargetId: target.id,
+            paperSize: target.paperSize,
+            items: sectorItems
+          }
+        })
+      }
+    }
+
+    if (isDelivery) {
+      if (fullOrderTargets.length === 0) {
+        alerts.push({
+          reason: 'missing_delivery_target',
+          sector: 'GENERAL'
+        })
+      }
+
+      for (const target of fullOrderTargets) {
+        jobsToCreate.push({
+          eventId: null,
+          orderId: null,
+          storeId,
+          onlineOrderId: orderId,
+          idempotencyKey: [
+            'auto',
+            'ONLINE_ORDER',
+            orderId,
+            target.source,
+            target.id,
+            'DELIVERY'
+          ].join(':'),
+          printerId: target.printerId,
+          deviceId: target.deviceId,
+          sector: 'KITCHEN',
+          payload: {
+            ...basePayload,
+            type: 'DELIVERY',
+            templateType: 'DELIVERY',
+            title: 'PEDIDO PARA ENTREGA',
+            sector: 'DELIVERY',
+            printerSector: 'FULL_ORDER',
+            connectionType: target.connectionType,
+            printTargetSource: target.source,
+            printTargetId: target.id,
+            paperSize: target.paperSize,
+            items
+          }
+        })
       }
     }
 

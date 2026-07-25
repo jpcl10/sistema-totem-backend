@@ -71,6 +71,9 @@ const pickupDeliverySnapshot = {
   address: 'Retirada no balc\u00e3o',
   number: 'S/N',
   neighborhood: 'Loja',
+  city: null,
+  state: null,
+  postalCode: null,
   complement: null,
   reference: null
 }
@@ -104,6 +107,9 @@ export class CreateManualOnlineOrderService {
               address: request.delivery.address,
               number: request.delivery.number,
               neighborhood: request.delivery.neighborhood,
+              city: request.delivery.city ?? null,
+              state: request.delivery.state ?? null,
+              postalCode: request.delivery.postalCode ?? null,
               complement: request.delivery.complement ?? null,
               reference: request.delivery.reference ?? null
             }
@@ -151,6 +157,10 @@ export class CreateManualOnlineOrderService {
               number: customerAddress?.number ?? deliverySnapshot.number,
               neighborhood:
                 customerAddress?.neighborhood ?? deliverySnapshot.neighborhood,
+              city: customerAddress?.city ?? deliverySnapshot.city,
+              state: customerAddress?.state ?? deliverySnapshot.state,
+              postalCode:
+                customerAddress?.postalCode ?? deliverySnapshot.postalCode,
               complement:
                 customerAddress?.complement ?? deliverySnapshot.complement,
               reference:
@@ -213,6 +223,9 @@ export class CreateManualOnlineOrderService {
           deliveryAddress: finalDeliverySnapshot.address,
           deliveryNumber: finalDeliverySnapshot.number,
           deliveryNeighborhood: finalDeliverySnapshot.neighborhood,
+          deliveryCity: finalDeliverySnapshot.city,
+          deliveryState: finalDeliverySnapshot.state,
+          deliveryPostalCode: finalDeliverySnapshot.postalCode,
           deliveryComplement: finalDeliverySnapshot.complement,
           deliveryReference: finalDeliverySnapshot.reference,
           paymentMethod: request.paymentMethod,
