@@ -1,6 +1,7 @@
 import { PaymentProvider } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { GetMercadoPagoStatusService } from '../../payment-settings/services/get-mercado-pago-status-service.js'
 import { PaymentSettingsResolver } from '../../payment-settings/payment-settings-resolver.js'
 
 interface GetCheckoutPaymentSettingsServiceRequest {
@@ -34,7 +35,7 @@ export class GetCheckoutPaymentSettingsService {
       throw new Error('Event not found')
     }
 
-    const mercadoPagoSettings =
+    const mercadoPagoProviderSettings =
       await prisma.paymentProviderSettings.findUnique({
         where: {
           organizationId_provider: {
@@ -54,6 +55,11 @@ export class GetCheckoutPaymentSettingsService {
         }
       })
 
+    const mercadoPagoStatus =
+      await new GetMercadoPagoStatusService().execute({
+        organizationId: event.organizationId
+      })
+
     const effectiveSettings =
       await new PaymentSettingsResolver().resolve({
         organizationId: event.organizationId,
@@ -61,17 +67,16 @@ export class GetCheckoutPaymentSettingsService {
         eventId: event.id
       })
 
-    const mercadoPagoEnabled =
-      Boolean(mercadoPagoSettings?.enabled)
+    const mercadoPagoEnabled = mercadoPagoStatus.configured
 
     const mercadoPagoPixEnabled =
       Boolean(
-        mercadoPagoSettings?.pixEnabled &&
+        mercadoPagoStatus.pixEnabled &&
           effectiveSettings.methods.pix
       )
 
     const mercadoPagoAccessTokenConfigured =
-      Boolean(mercadoPagoSettings?.accessToken)
+      mercadoPagoStatus.configured
 
     const activePaymentTerminals =
       await prisma.paymentTerminal.count({
@@ -128,13 +133,13 @@ export class GetCheckoutPaymentSettingsService {
         mercadoPago: {
           enabled: mercadoPagoEnabled,
           pixEnabled: mercadoPagoPixEnabled,
-          cardEnabled: mercadoPagoSettings?.cardEnabled ?? false,
-          terminalEnabled: mercadoPagoSettings?.terminalEnabled ?? false,
+          cardEnabled: mercadoPagoProviderSettings?.cardEnabled ?? false,
+          terminalEnabled: mercadoPagoProviderSettings?.terminalEnabled ?? false,
 
           accessTokenConfigured: mercadoPagoAccessTokenConfigured,
-          publicKeyConfigured: Boolean(mercadoPagoSettings?.publicKey),
-          webhookSecretConfigured: Boolean(mercadoPagoSettings?.webhookSecret),
-          webhookUrlConfigured: Boolean(mercadoPagoSettings?.webhookUrl),
+          publicKeyConfigured: Boolean(mercadoPagoProviderSettings?.publicKey),
+          webhookSecretConfigured: Boolean(mercadoPagoProviderSettings?.webhookSecret),
+          webhookUrlConfigured: Boolean(mercadoPagoProviderSettings?.webhookUrl),
 
           pixAutomaticAvailable:
             mercadoPagoEnabled &&

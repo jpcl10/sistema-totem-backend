@@ -8,6 +8,7 @@ import {
 
 import { prisma } from '../../../lib/prisma.js'
 import { CreatePaymentTransactionService } from './create-payment-transaction-service.js'
+import { GetMercadoPagoStatusService } from '../../payment-settings/services/get-mercado-pago-status-service.js'
 import { PaymentSettingsResolver } from '../../payment-settings/payment-settings-resolver.js'
 
 interface PreparePublicCheckoutPaymentServiceRequest {
@@ -96,27 +97,10 @@ export class PreparePublicCheckoutPaymentService {
       }
     }
 
-    const mercadoPagoSettings =
-      await prisma.paymentProviderSettings.findUnique({
-        where: {
-          organizationId_provider: {
-            organizationId: order.event.organizationId,
-            provider: PaymentProvider.MERCADO_PAGO
-          }
-        },
-        select: {
-          enabled: true,
-          pixEnabled: true,
-          accessToken: true
-        }
+    const mercadoPagoStatus =
+      await new GetMercadoPagoStatusService().execute({
+        organizationId: order.event.organizationId
       })
-
-    const pixAutomaticAvailable =
-      Boolean(
-        mercadoPagoSettings?.enabled &&
-          mercadoPagoSettings?.pixEnabled &&
-          mercadoPagoSettings?.accessToken
-      )
 
     const effectiveSettings =
       await new PaymentSettingsResolver().resolve({
@@ -125,7 +109,14 @@ export class PreparePublicCheckoutPaymentService {
         eventId: order.eventId
       })
 
-    if (!pixAutomaticAvailable || !effectiveSettings.methods.pix) {
+    const pixAutomaticAvailable =
+      Boolean(
+        mercadoPagoStatus.configured &&
+          mercadoPagoStatus.pixEnabled &&
+          effectiveSettings.methods.pix
+      )
+
+    if (!pixAutomaticAvailable) {
       if (context === 'TOTEM') {
         return {
           paymentStep: 'pix_unavailable',

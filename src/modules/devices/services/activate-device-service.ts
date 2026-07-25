@@ -7,7 +7,12 @@ import {
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
-import { buildPublicEventUrl } from '../../../lib/public-urls.js'
+import {
+  buildPublicEventUrl,
+  getApiPublicUrl,
+  getFrontendUrl,
+  getSocketPublicUrl
+} from '../../../lib/public-urls.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 import { SettingsResolverService } from '../../settings/services/settings-resolver-service.js'
 
@@ -177,6 +182,9 @@ export class ActivateDeviceService {
         storeId: updatedDevice.storeId ?? undefined,
         deviceId: updatedDevice.id
       })
+    const frontendUrl = getFrontendUrl()
+    const apiPublicUrl = getApiPublicUrl()
+    const socketPublicUrl = getSocketPublicUrl()
     const canonicalPublicUrl =
       updatedDevice.event
         ? buildPublicEventUrl({
@@ -203,7 +211,11 @@ export class ActivateDeviceService {
         locationName: updatedDevice.locationName
       },
       config: {
-        apiBaseUrl: null,
+        publicUrls: {
+          apiBaseUrl: apiPublicUrl,
+          frontendUrl,
+          socketUrl: socketPublicUrl
+        },
         eventId: updatedDevice.eventId,
         eventSlug: updatedDevice.event?.slug ?? null,
         organizationId: updatedDevice.organizationId,

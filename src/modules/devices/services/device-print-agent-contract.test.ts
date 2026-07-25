@@ -159,7 +159,13 @@ test('create device generates a one-time secret and stores only its hash', async
 
 test('activate device exchanges valid code and secret for a device JWT', async () => {
   const previousSecret = process.env.JWT_SECRET
+  const previousFrontendUrl = process.env.FRONTEND_URL
+  const previousApiPublicUrl = process.env.API_PUBLIC_URL
+  const previousSocketPublicUrl = process.env.SOCKET_PUBLIC_URL
   process.env.JWT_SECRET = 'test-secret'
+  process.env.FRONTEND_URL = 'https://app.example.com'
+  process.env.API_PUBLIC_URL = 'https://api.example.com'
+  process.env.SOCKET_PUBLIC_URL = 'https://socket.example.com'
   let updateArgs: any
   const restore = installDeviceMocks({
     deviceFindUnique: async () => activePrintAgent(),
@@ -193,10 +199,19 @@ test('activate device exchanges valid code and secret for a device JWT', async (
     assert.equal(decoded.deviceType, DeviceType.PRINT_AGENT)
     assert.equal(decoded.sub, 'device-1')
     assert.equal(updateArgs.data.tokenHash, hashSecret(result.deviceToken))
+    assert.equal(result.config.publicUrls.apiBaseUrl, 'https://api.example.com')
+    assert.equal(result.config.publicUrls.frontendUrl, 'https://app.example.com')
+    assert.equal(result.config.publicUrls.socketUrl, 'https://socket.example.com')
   } finally {
     restore()
     if (previousSecret === undefined) delete process.env.JWT_SECRET
     else process.env.JWT_SECRET = previousSecret
+    if (previousFrontendUrl === undefined) delete process.env.FRONTEND_URL
+    else process.env.FRONTEND_URL = previousFrontendUrl
+    if (previousApiPublicUrl === undefined) delete process.env.API_PUBLIC_URL
+    else process.env.API_PUBLIC_URL = previousApiPublicUrl
+    if (previousSocketPublicUrl === undefined) delete process.env.SOCKET_PUBLIC_URL
+    else process.env.SOCKET_PUBLIC_URL = previousSocketPublicUrl
   }
 })
 
