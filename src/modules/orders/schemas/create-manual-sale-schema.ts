@@ -13,6 +13,8 @@ export const createManualSaleBodySchema = z.object({
   items: z.array(
     z.object({
       productId: z.string().min(1),
+      catalogProductId: z.string().min(1).optional(),
+      eventProductId: z.string().min(1).optional(),
       quantity: z.number().int().positive(),
       notes: z.string().trim().nullable().optional(),
       selectedOptions: z.array(

@@ -26,6 +26,8 @@ export async function createManualOnlineOrderController(
 
     const result = await service.execute({
       organizationId,
+      userId: request.user.sub,
+      userRole: request.user.role,
       storeId,
       customerId: body.customerId,
       customer: body.customer,
@@ -35,6 +37,7 @@ export async function createManualOnlineOrderController(
       paymentMethod: body.paymentMethod as OnlineOrderPaymentMethod,
       paymentStatus: body.paymentStatus as PaymentStatus,
       amountReceivedInCents: body.amountReceivedInCents,
+      allowOutsideBusinessHours: body.allowOutsideBusinessHours,
       notes: body.notes,
       items: body.items
     })
@@ -66,7 +69,15 @@ export async function createManualOnlineOrderController(
         error.message === 'Delivery neighborhood is not served' ||
         error.message.endsWith('_DISABLED')
       ) {
-        return reply.status(400).send({ message: error.message })
+        const code = error.message
+        const statusCode =
+          code === 'OUTSIDE_BUSINESS_HOURS' || code === 'MANUALLY_CLOSED'
+            ? 409
+            : 400
+        return reply.status(statusCode).send({
+          code,
+          message: error.message
+        })
       }
 
       if (isOnlineOrderItemValidationError(error.message)) {

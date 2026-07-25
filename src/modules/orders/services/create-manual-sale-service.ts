@@ -9,6 +9,7 @@ import {
 import { prisma } from '../../../lib/prisma.js'
 import { io } from '../../../lib/socket.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
+import { catalogOperationError } from '../../catalog/shared/tenant-guard.js'
 import { CreatePrintJobsForOrderService } from '../../print-jobs/services/create-print-jobs-for-order-service.js'
 import { touchCustomerInteraction } from '../../customers/services/customer-interaction-service.js'
 import {
@@ -29,6 +30,8 @@ interface CreateManualSaleServiceRequest {
   paymentStatus: PaymentStatus
   items: {
     productId: string
+    catalogProductId?: string
+    eventProductId?: string
     quantity: number
     notes?: string | null
     selectedOptions?: {
@@ -36,7 +39,25 @@ interface CreateManualSaleServiceRequest {
       optionIds: string[]
     }[]
     selectedFlavorProductIds?: string[]
-  }[]
+  }[] 
+}
+
+type ResolvedManualSaleItem = CreateManualSaleServiceRequest['items'][number] & {
+  catalogProductId: string
+  eventProduct: {
+    id: string
+    catalogProductId: string
+    priceInCents: number | null
+    trackStock: boolean
+    stockQuantity: number | null
+    soldOut: boolean
+    active: boolean
+    catalogProduct: {
+      id: string
+      name: string
+      priceInCents: number
+    }
+  } | null
 }
 
 export class CreateManualSaleService {
@@ -80,16 +101,28 @@ export class CreateManualSaleService {
         }
       }
 
-      const eventProductIds = items.map(item => item.productId)
+      const requestedProductIds = items.map(item =>
+        item.catalogProductId ?? item.productId
+      )
+      const requestedEventProductIds = items
+        .map(item => item.eventProductId)
+        .filter((id): id is string => Boolean(id))
 
       const eventProducts = await tx.eventProduct.findMany({
         where: {
-          id: {
-            in: eventProductIds
-          },
           eventId,
-          active: true,
-          soldOut: false
+          OR: [
+            {
+              id: {
+                in: [...requestedProductIds, ...requestedEventProductIds]
+              }
+            },
+            {
+              catalogProductId: {
+                in: requestedProductIds
+              }
+            }
+          ]
         },
         include: {
           catalogProduct: {
@@ -111,9 +144,93 @@ export class CreateManualSaleService {
         }
       })
 
-      if (eventProducts.length !== items.length) {
-        throw new Error('Some products were not found or are unavailable')
-      }
+      const eventProductById = new Map(eventProducts.map(ep => [ep.id, ep]))
+      const eventProductByCatalogId = new Map(
+        eventProducts.map(ep => [ep.catalogProductId, ep])
+      )
+      const catalogProducts = await tx.catalogProduct.findMany({
+        where: {
+          id: {
+            in: requestedProductIds
+          },
+          organizationId
+        },
+        select: {
+          id: true,
+          name: true,
+          priceInCents: true,
+          active: true,
+          catalogCategory: {
+            select: {
+              active: true
+            }
+          }
+        }
+      })
+      const catalogProductById = new Map(
+        catalogProducts.map(product => [product.id, product])
+      )
+      const resolvedItems: ResolvedManualSaleItem[] = items.map((item, itemIndex) => {
+        const explicitEventProduct = item.eventProductId
+          ? eventProductById.get(item.eventProductId)
+          : undefined
+        const legacyEventProduct = eventProductById.get(item.productId)
+        const catalogProductId =
+          item.catalogProductId ??
+          explicitEventProduct?.catalogProductId ??
+          legacyEventProduct?.catalogProductId ??
+          item.productId
+        const eventProduct =
+          explicitEventProduct ??
+          legacyEventProduct ??
+          eventProductByCatalogId.get(catalogProductId) ??
+          null
+        const catalogProduct =
+          eventProduct?.catalogProduct ?? catalogProductById.get(catalogProductId)
+
+        if (!catalogProduct) {
+          throw catalogOperationError({
+            code: 'PRODUCT_NOT_FOUND',
+            message: 'Produto n\u00e3o encontrado neste cat\u00e1logo.',
+            statusCode: 404,
+            details: {
+              details: {
+                productId: item.productId,
+                catalogProductId,
+                itemIndex
+              }
+            }
+          })
+        }
+
+        if (
+          ('active' in catalogProduct && catalogProduct.active === false) ||
+          ('catalogCategory' in catalogProduct &&
+            catalogProduct.catalogCategory?.active === false) ||
+          eventProduct?.active === false ||
+          eventProduct?.soldOut === true
+        ) {
+          throw catalogOperationError({
+            code: 'PRODUCT_NOT_AVAILABLE',
+            message: 'O produto n\u00e3o est\u00e1 dispon\u00edvel para venda neste contexto.',
+            statusCode: 409,
+            details: {
+              details: {
+                productId: item.productId,
+                catalogProductId,
+                eventProductId: eventProduct?.id ?? null,
+                itemIndex
+              }
+            }
+          })
+        }
+
+        return {
+          ...item,
+          catalogProductId,
+          eventProduct
+        }
+      })
 
       const lastOrder = await tx.order.findFirst({
         where: {
@@ -129,15 +246,11 @@ export class CreateManualSaleService {
 
       const nextOrderNumber = lastOrder ? lastOrder.orderNumber + 1 : 1
 
-      for (const item of items) {
-        const eventProduct = eventProducts.find(ep => ep.id === item.productId)
-
-        if (!eventProduct) {
-          throw new Error('Product not found')
-        }
+      for (const item of resolvedItems) {
+        const eventProduct = item.eventProduct
 
         if (
-          eventProduct.trackStock &&
+          eventProduct?.trackStock &&
           eventProduct.stockQuantity !== null &&
           item.quantity > eventProduct.stockQuantity
         ) {
@@ -147,22 +260,21 @@ export class CreateManualSaleService {
         }
       }
 
-      const eventProductById = new Map(eventProducts.map(ep => [ep.id, ep]))
       const { orderItemsData, subtotalInCents: totalInCents } =
         await buildConfigurableCatalogOrderItems({
           tx,
           organizationId,
-          items: items.map(item => {
-            const eventProduct = eventProductById.get(item.productId)!
+          items: resolvedItems.map(item => {
+            const eventProduct = item.eventProduct
             return {
-              catalogProductId: eventProduct.catalogProductId,
+              catalogProductId: item.catalogProductId,
               quantity: item.quantity,
               notes: item.notes,
               selectedOptions: item.selectedOptions,
               selectedFlavorProductIds: item.selectedFlavorProductIds,
               basePriceInCents:
-                eventProduct.priceInCents ??
-                eventProduct.catalogProduct.priceInCents
+                eventProduct?.priceInCents ??
+                eventProduct?.catalogProduct.priceInCents
             }
           })
         })
@@ -210,8 +322,11 @@ export class CreateManualSaleService {
         })
       }
 
-      for (const item of items) {
-        const eventProduct = eventProducts.find(ep => ep.id === item.productId)!
+      for (const item of resolvedItems) {
+        const eventProduct = item.eventProduct
+        if (!eventProduct) {
+          continue
+        }
 
         if (eventProduct.trackStock && eventProduct.stockQuantity !== null) {
           const result = await tx.eventProduct.updateMany({

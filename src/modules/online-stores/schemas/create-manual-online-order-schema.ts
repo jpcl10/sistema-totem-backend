@@ -72,6 +72,7 @@ export const createManualOnlineOrderSchema = z.object({
   paymentMethod: z.enum(['PIX', 'CARD_ON_DELIVERY', 'CASH']),
   paymentStatus: z.nativeEnum(PaymentStatus).default(PaymentStatus.PAID),
   amountReceivedInCents: z.number().int().min(0).nullable().optional(),
+  allowOutsideBusinessHours: z.boolean().default(false),
   notes: z.string().trim().nullable().optional(),
   items: z.array(manualOnlineOrderItemSchema).min(1)
 })

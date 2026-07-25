@@ -16,5 +16,5 @@ export const listAvailableEventProductsQuerySchema = z.object({
   categoryId: z.string().min(1).optional(),
   active: booleanFromQuerySchema.default(true),
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(50)
+  limit: z.coerce.number().int().min(1).max(500).default(200)
 })

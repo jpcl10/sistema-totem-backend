@@ -1,11 +1,13 @@
 import {
   CustomerSource,
+  AuditAction,
   OnlineOrderFulfillmentType,
   OnlineOrderPaymentMethod,
   OnlineOrderStatus,
   OrderSource,
   PaymentStatus,
-  SettingsChannel
+  SettingsChannel,
+  UserRole
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
@@ -20,6 +22,7 @@ import {
   orderNotificationEvents
 } from '../../notifications/services/order-notification-service.js'
 import { buildOnlineOrderItems } from './online-order-items-builder.js'
+import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
 interface CreateManualOnlineOrderItemRequest {
   catalogProductId: string
@@ -54,6 +57,8 @@ interface CreateManualOnlineOrderCustomerRequest {
 
 interface CreateManualOnlineOrderServiceRequest {
   organizationId: string
+  userId: string
+  userRole: UserRole
   storeId: string
   customerId?: string | null
   customer?: CreateManualOnlineOrderCustomerRequest | null
@@ -63,6 +68,7 @@ interface CreateManualOnlineOrderServiceRequest {
   paymentMethod: OnlineOrderPaymentMethod
   paymentStatus: PaymentStatus
   amountReceivedInCents?: number | null
+  allowOutsideBusinessHours?: boolean
   notes?: string | null
   items: CreateManualOnlineOrderItemRequest[]
 }
@@ -97,6 +103,9 @@ export class CreateManualOnlineOrderService {
     if (!store) {
       throw new Error('Store not found')
     }
+
+    let outsideBusinessHoursOverrideReason: string | null = null
+    let outsideBusinessHoursOverrideFulfillment: OnlineOrderFulfillmentType | null = null
 
     const order = await prisma.$transaction(async tx => {
       const requestedName = request.customer?.name?.trim() || null
@@ -190,8 +199,27 @@ export class CreateManualOnlineOrderService {
           neighborhood: finalDeliverySnapshot.neighborhood
         })
 
-      if (!operation.delivery.acceptingOrders) {
-        throw new Error(operation.delivery.unavailableReason ?? 'Store is currently unavailable')
+      const operationBlockReason =
+        operation.delivery.unavailableReason ??
+        (
+          operation.delivery.acceptingOrders
+            ? null
+            : 'Store is currently unavailable'
+        )
+      const canOverrideBusinessHours =
+        request.allowOutsideBusinessHours === true &&
+        (
+          operationBlockReason === 'OUTSIDE_BUSINESS_HOURS' ||
+          operationBlockReason === 'MANUALLY_CLOSED'
+        )
+
+      if (!operation.delivery.acceptingOrders && !canOverrideBusinessHours) {
+        throw new Error(operationBlockReason ?? 'Store is currently unavailable')
+      }
+
+      if (canOverrideBusinessHours) {
+        outsideBusinessHoursOverrideReason = operationBlockReason
+        outsideBusinessHoursOverrideFulfillment = request.fulfillment
       }
 
       const deliveryFeeInCents =
@@ -284,6 +312,25 @@ export class CreateManualOnlineOrderService {
 
       return createdOrder
     })
+
+    if (outsideBusinessHoursOverrideFulfillment) {
+      await new CreateAuditLogService().execute({
+        organizationId: request.organizationId,
+        userId: request.userId,
+        entity: 'OnlineOrder',
+        entityId: order.id,
+        action: AuditAction.ORDER_CREATED,
+        description: 'Venda administrativa criada fora do hor\u00e1rio da loja',
+        metadata: {
+          storeId: store.id,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          reason: outsideBusinessHoursOverrideReason,
+          fulfillment: outsideBusinessHoursOverrideFulfillment,
+          userRole: request.userRole
+        }
+      })
+    }
 
     if (io) {
       io.to(`organization:${store.organizationId}`).emit('online-order-created', {
