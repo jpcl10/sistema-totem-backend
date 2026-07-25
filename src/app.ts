@@ -3,6 +3,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
 import fastifyRateLimit from '@fastify/rate-limit'
+import { ZodError } from 'zod'
 
 // Modules
 import { uploadsRoutes } from './modules/uploads/routes/uploads-routes.js'
@@ -163,6 +164,14 @@ app.setErrorHandler((error, request, reply) => {
         bytes: uploadMaxFileSizeInBytes,
         megabytes: uploadMaxFileSizeInMB
       }
+    })
+  }
+
+  if (error instanceof ZodError) {
+    return reply.status(400).send({
+      code: 'INVALID_REQUEST_BODY',
+      message: 'Invalid request body',
+      issues: error.issues
     })
   }
 
