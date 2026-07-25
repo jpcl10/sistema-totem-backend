@@ -98,11 +98,14 @@ export class GetMercadoPagoStatusService {
         Boolean(legacy?.accessToken?.trim())
       )
 
+    const configuredPixEnabled =
+      organizationSettings?.pixEnabled ??
+      Boolean(legacy?.enabled && legacy.pixEnabled)
+
     return {
       configured,
       pixEnabled: Boolean(
-        organizationSettings?.pixEnabled &&
-          (legacy?.pixEnabled ?? true) &&
+        configuredPixEnabled &&
           hasCredentialToken
       ),
       environment,

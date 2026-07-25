@@ -115,6 +115,19 @@ export async function paymentsRoutes(
   getCheckoutPaymentSettingsController
 )
 
+  app.get(
+  '/public/events/:eventId/checkout-payment-settings',
+  {
+    config: {
+      rateLimit: {
+        max: 60,
+        timeWindow: '1 minute'
+      }
+    }
+  },
+  getCheckoutPaymentSettingsController
+)
+
 app.post(
   '/orders/:orderId/pix-automatic-payment',
   {
