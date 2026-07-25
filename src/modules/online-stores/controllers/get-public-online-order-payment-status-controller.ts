@@ -1,7 +1,10 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 
-import { prisma } from '../../../lib/prisma.js'
+import {
+  GetPublicOnlineOrderPaymentStatusService,
+  PublicOnlineOrderPaymentStatusNotFoundError
+} from '../services/get-public-online-order-payment-status-service.js'
 
 const paramsSchema = z.object({
   orderId: z.string()
@@ -12,29 +15,18 @@ export async function getPublicOnlineOrderPaymentStatusController(
   reply: FastifyReply
 ) {
   const { orderId } = paramsSchema.parse(request.params)
+  const service = new GetPublicOnlineOrderPaymentStatusService()
 
-  const order = await prisma.onlineOrder.findUnique({
-    where: {
-      id: orderId
-    },
-    select: {
-      id: true,
-      status: true,
-      paymentStatus: true,
-      paidAt: true
+  try {
+    const status = await service.execute({ orderId })
+    return reply.status(200).send(status)
+  } catch (error) {
+    if (error instanceof PublicOnlineOrderPaymentStatusNotFoundError) {
+      return reply.status(404).send({
+        message: 'Pedido nao encontrado'
+      })
     }
-  })
 
-  if (!order) {
-    return reply.status(404).send({
-      message: 'Pedido nao encontrado'
-    })
+    throw error
   }
-
-  return reply.status(200).send({
-    orderId: order.id,
-    paymentStatus: order.paymentStatus,
-    orderStatus: order.status,
-    paidAt: order.paidAt?.toISOString() ?? null
-  })
 }
