@@ -323,7 +323,10 @@ async function main() {
       console.log(`  configured: ${mpStatus.configured}`)
       console.log(`  pixEnabled: ${mpStatus.pixEnabled}`)
       console.log(`  environment: ${mpStatus.environment}`)
-      console.log(`  methods: ${JSON.stringify(mpStatus.methods)}`)
+      console.log(`  accountReference: ${mpStatus.accountReference}`)
+      console.log(`  webhookReady: ${mpStatus.webhookReady}`)
+      console.log(`  providerActive: ${mpStatus.providerActive}`)
+      console.log(`  terminalEnabled: ${mpStatus.terminalEnabled}`)
     } catch (error) {
       console.error(`  ❌ Error:`, (error as Error).message)
     }
@@ -337,15 +340,14 @@ async function main() {
       try {
         const checkoutService = new GetCheckoutPaymentSettingsService()
         const checkoutSettings = await checkoutService.execute({
-          organizationId: organization.id,
           eventId: event.id,
-          deviceType: null
+          context: 'PUBLIC_CHECKOUT'
         })
 
-        console.log(`  mercadoPago.available: ${checkoutSettings.mercadoPago?.available}`)
-        console.log(`  mercadoPago.pixAutomaticAvailable: ${checkoutSettings.mercadoPago?.pixAutomaticAvailable}`)
-        console.log(`  totem.pixAvailable: ${checkoutSettings.totem?.pixAvailable}`)
-        console.log(`  methods: ${checkoutSettings.methods?.map((m) => m.method).join(', ') || 'none'}`)
+        console.log(`  mercadoPago.enabled: ${checkoutSettings.checkoutPaymentSettings.mercadoPago.enabled}`)
+        console.log(`  mercadoPago.pixAutomaticAvailable: ${checkoutSettings.checkoutPaymentSettings.mercadoPago.pixAutomaticAvailable}`)
+        console.log(`  totem.pixAvailable: ${checkoutSettings.checkoutPaymentSettings.totem.pixAvailable}`)
+        console.log(`  totem.cardAvailable: ${checkoutSettings.checkoutPaymentSettings.totem.cardAvailable}`)
       } catch (error) {
         console.error(`  ❌ Error:`, (error as Error).message)
       }
@@ -353,22 +355,21 @@ async function main() {
     }
 
     // 11. Runtime: GetCheckoutPaymentSettingsService (Store)
-    if (store) {
+    if (store && event) {
       console.log('⚡ RUNTIME SERVICE: GetCheckoutPaymentSettingsService (Online Store)')
       console.log('-'.repeat(80))
 
       try {
         const checkoutService = new GetCheckoutPaymentSettingsService()
         const checkoutSettings = await checkoutService.execute({
-          organizationId: organization.id,
-          onlineStoreId: store.id,
-          deviceType: null
+          eventId: event.id,
+          context: 'PUBLIC_CHECKOUT'
         })
 
-        console.log(`  mercadoPago.available: ${checkoutSettings.mercadoPago?.available}`)
-        console.log(`  mercadoPago.pixAutomaticAvailable: ${checkoutSettings.mercadoPago?.pixAutomaticAvailable}`)
-        console.log(`  totem.pixAvailable: ${checkoutSettings.totem?.pixAvailable}`)
-        console.log(`  methods: ${checkoutSettings.methods?.map((m) => m.method).join(', ') || 'none'}`)
+        console.log(`  mercadoPago.enabled: ${checkoutSettings.checkoutPaymentSettings.mercadoPago.enabled}`)
+        console.log(`  mercadoPago.pixAutomaticAvailable: ${checkoutSettings.checkoutPaymentSettings.mercadoPago.pixAutomaticAvailable}`)
+        console.log(`  totem.pixAvailable: ${checkoutSettings.checkoutPaymentSettings.totem.pixAvailable}`)
+        console.log(`  totem.cardAvailable: ${checkoutSettings.checkoutPaymentSettings.totem.cardAvailable}`)
       } catch (error) {
         console.error(`  ❌ Error:`, (error as Error).message)
       }
