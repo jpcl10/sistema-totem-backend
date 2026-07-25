@@ -7,6 +7,7 @@ import {
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { logger } from '../../../lib/logger.js'
 import { io } from '../../../lib/socket.js'
 import { mapOnlineOrderToUnifiedOrder } from '../../orders/presenters/unified-order-presenter.js'
 import { OnlineStoreSettingsService } from '../../settings/services/online-store-settings-service.js'
@@ -303,6 +304,27 @@ export class CreateOnlineOrderService {
           onlineOrderId: order.id,
           paymentMethod: 'PIX'
         })
+
+      const safePreparation =
+        paymentPreparationResult as Record<string, unknown> | null
+
+      logger.info(
+        {
+          orderId: null,
+          onlineOrderId: order.id,
+          transactionId: safePreparation?.transactionId ?? null,
+          paymentMethod:
+            safePreparation?.paymentMethod ?? order.paymentMethod,
+          paymentStatus:
+            safePreparation?.paymentStatus ?? order.paymentStatus,
+          providerStatus: safePreparation?.providerStatus ?? null,
+          qrCode: safePreparation?.qrCode ?? null,
+          qrCodeBase64: safePreparation?.qrCodeBase64 ?? null,
+          ticketUrl: safePreparation?.ticketUrl ?? null,
+          expiresAt: safePreparation?.expiresAt ?? null
+        },
+        'CreateOnlineOrderService safe PIX payload'
+      )
     }
 
     if (order.paymentMethod !== 'PIX') {

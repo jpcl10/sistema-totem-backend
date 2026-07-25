@@ -7,6 +7,7 @@ import { getPublicStoreController } from '../controllers/get-public-store-contro
 import { createOnlineOrderController } from '../controllers/create-online-order-controller.js'
 import { getCustomerByPhoneController } from '../controllers/get-customer-by-phone-controller.js'
 import { getCustomerOrdersController } from '../controllers/get-customer-orders-controller.js'
+import { getPublicOnlineOrderPaymentStatusController } from '../controllers/get-public-online-order-payment-status-controller.js'
 
 // Admin controllers
 import { listOnlineStoresController } from '../controllers/list-online-stores-controller.js'
@@ -73,6 +74,19 @@ export async function onlineStoresRoutes(app: FastifyInstance) {
       }
     },
     createOnlineOrderController
+  )
+
+  app.get(
+    '/public/online-orders/:orderId/payment-status',
+    {
+      config: {
+        rateLimit: {
+          max: 120,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    getPublicOnlineOrderPaymentStatusController
   )
 
   // Admin routes

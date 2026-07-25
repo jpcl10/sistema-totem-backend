@@ -7,6 +7,7 @@ import {
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { logger } from '../../../lib/logger.js'
 import { CreatePaymentTransactionService } from './create-payment-transaction-service.js'
 import { GetMercadoPagoStatusService } from '../../payment-settings/services/get-mercado-pago-status-service.js'
 import { PaymentSettingsResolver } from '../../payment-settings/payment-settings-resolver.js'
@@ -14,6 +15,70 @@ import { PaymentSettingsResolver } from '../../payment-settings/payment-settings
 interface PrepareOnlineCheckoutPaymentServiceRequest {
   onlineOrderId: string
   paymentMethod?: 'PIX' | 'CARD' | 'CASH'
+}
+
+type PaymentTransactionLike = {
+  id: string
+  method?: string | null
+  status?: string | null
+  qrCode?: string | null
+  qrCodeBase64?: string | null
+  pixCopyPaste?: string | null
+  gatewayStatus?: string | null
+  expiresAt?: Date | string | null
+  metadata?: unknown
+}
+
+function buildPaymentPreparation(
+  paymentStep: string,
+  isPaymentConfirmed: boolean,
+  paymentTransaction: PaymentTransactionLike | null,
+  message: string
+) {
+  const metadata =
+    paymentTransaction?.metadata && typeof paymentTransaction.metadata === 'object'
+      ? paymentTransaction.metadata as Record<string, unknown>
+      : null
+
+  return {
+    paymentStep,
+    isPaymentConfirmed,
+    transactionId: paymentTransaction?.id ?? null,
+    status: paymentTransaction?.status ?? null,
+    paymentMethod: paymentTransaction?.method ?? null,
+    paymentStatus: paymentTransaction?.status ?? null,
+    providerStatus: paymentTransaction?.gatewayStatus ?? null,
+    qrCode: paymentTransaction?.qrCode ?? paymentTransaction?.pixCopyPaste ?? undefined,
+    qrCodeBase64: paymentTransaction?.qrCodeBase64 ?? undefined,
+    ticketUrl: typeof metadata?.ticketUrl === 'string' ? metadata.ticketUrl : undefined,
+    expiresAt: paymentTransaction?.expiresAt
+      ? new Date(paymentTransaction.expiresAt).toISOString()
+      : undefined,
+    paymentTransaction,
+    message
+  }
+}
+
+function logSafeOnlinePixPayload(
+  onlineOrderId: string,
+  paymentStatus: string,
+  paymentPreparation: ReturnType<typeof buildPaymentPreparation>
+) {
+  logger.info(
+    {
+      orderId: null,
+      onlineOrderId,
+      transactionId: paymentPreparation.transactionId,
+      paymentMethod: paymentPreparation.paymentMethod,
+      paymentStatus,
+      providerStatus: paymentPreparation.providerStatus,
+      qrCode: paymentPreparation.qrCode,
+      qrCodeBase64: paymentPreparation.qrCodeBase64,
+      ticketUrl: paymentPreparation.ticketUrl,
+      expiresAt: paymentPreparation.expiresAt
+    },
+    'PrepareOnlineCheckoutPaymentService safe PIX payload'
+  )
 }
 
 export class PrepareOnlineCheckoutPaymentService {
@@ -41,48 +106,49 @@ export class PrepareOnlineCheckoutPaymentService {
       throw new Error('Online order not found')
     }
 
-    // Check if payment is already confirmed
     const isPaymentConfirmed =
       onlineOrder.paymentStatus === PaymentStatus.PAID ||
       onlineOrder.paymentStatus === PaymentStatus.NOT_REQUIRED
 
     if (isPaymentConfirmed) {
       return {
-        paymentStep: 'paid',
-        isPaymentConfirmed: true,
-        onlineOrder,
-        paymentTransaction: null,
-        message: 'Pedido já está pago'
+        ...buildPaymentPreparation(
+          'paid',
+          true,
+          null,
+          'Pedido ja esta pago'
+        ),
+        onlineOrder
       }
     }
 
-    // Check if order is cancelled
     if (
       onlineOrder.paymentStatus === PaymentStatus.CANCELLED ||
       onlineOrder.status === OnlineOrderStatus.CANCELLED
     ) {
       return {
-        paymentStep: 'cancelled',
-        isPaymentConfirmed: false,
-        onlineOrder,
-        paymentTransaction: null,
-        message: 'Pedido foi cancelado'
+        ...buildPaymentPreparation(
+          'cancelled',
+          false,
+          null,
+          'Pedido foi cancelado'
+        ),
+        onlineOrder
       }
     }
 
-    // Only PIX requires payment transaction
     if (paymentMethod !== 'PIX') {
-      // Cash and card on delivery don't need payment transaction
       return {
-        paymentStep: 'non_payment_method',
-        isPaymentConfirmed: false,
-        onlineOrder,
-        paymentTransaction: null,
-        message: `${paymentMethod} será pago na entrega/retirada`
+        ...buildPaymentPreparation(
+          'non_payment_method',
+          false,
+          null,
+          `${paymentMethod} sera pago na entrega/retirada`
+        ),
+        onlineOrder
       }
     }
 
-    // For PIX, check MP configuration
     const mercadoPagoStatus =
       await new GetMercadoPagoStatusService().execute({
         organizationId: onlineOrder.store.organizationId
@@ -104,15 +170,16 @@ export class PrepareOnlineCheckoutPaymentService {
 
     if (!pixAutomaticAvailable) {
       return {
-        paymentStep: 'pix_unavailable',
-        isPaymentConfirmed: false,
-        onlineOrder,
-        paymentTransaction: null,
-        message: 'PIX não está disponível. Selecione outro método de pagamento.'
+        ...buildPaymentPreparation(
+          'pix_unavailable',
+          false,
+          null,
+          'PIX nao esta disponivel. Selecione outro metodo de pagamento.'
+        ),
+        onlineOrder
       }
     }
 
-    // Check if there's already a waiting PIX transaction with QR code
     const existingWaitingTransaction =
       await prisma.paymentTransaction.findFirst({
         where: {
@@ -136,16 +203,25 @@ export class PrepareOnlineCheckoutPaymentService {
       (!existingWaitingTransaction.expiresAt ||
         existingWaitingTransaction.expiresAt > new Date())
     ) {
+      const paymentPreparation = buildPaymentPreparation(
+        'pix_automatic',
+        false,
+        existingWaitingTransaction,
+        'PIX aguardando pagamento'
+      )
+
+      logSafeOnlinePixPayload(
+        onlineOrder.id,
+        onlineOrder.paymentStatus,
+        paymentPreparation
+      )
+
       return {
-        paymentStep: 'pix_automatic',
-        isPaymentConfirmed: false,
-        onlineOrder,
-        paymentTransaction: existingWaitingTransaction,
-        message: 'PIX aguardando pagamento'
+        ...paymentPreparation,
+        onlineOrder
       }
     }
 
-    // Create new PIX payment transaction
     const createPaymentTransactionService =
       new CreatePaymentTransactionService()
 
@@ -172,21 +248,33 @@ export class PrepareOnlineCheckoutPaymentService {
         paymentTransaction.pixCopyPaste
       )
     ) {
-      return {
-        paymentStep: 'pix_automatic',
-        isPaymentConfirmed: false,
-        onlineOrder,
+      const paymentPreparation = buildPaymentPreparation(
+        'pix_automatic',
+        false,
         paymentTransaction,
-        message: 'PIX criado com sucesso'
+        'PIX criado com sucesso'
+      )
+
+      logSafeOnlinePixPayload(
+        onlineOrder.id,
+        onlineOrder.paymentStatus,
+        paymentPreparation
+      )
+
+      return {
+        ...paymentPreparation,
+        onlineOrder
       }
     }
 
     return {
-      paymentStep: 'payment_error',
-      isPaymentConfirmed: false,
-      onlineOrder,
-      paymentTransaction,
-      message: 'Não foi possível criar pagamento PIX. Tente novamente ou selecione outro método.'
+      ...buildPaymentPreparation(
+        'payment_error',
+        false,
+        paymentTransaction,
+        'Nao foi possivel criar pagamento PIX. Tente novamente ou selecione outro metodo.'
+      ),
+      onlineOrder
     }
   }
 }

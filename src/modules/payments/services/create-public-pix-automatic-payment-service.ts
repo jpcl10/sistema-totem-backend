@@ -5,6 +5,7 @@ import {
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { logger } from '../../../lib/logger.js'
 import { CreatePaymentTransactionService } from './create-payment-transaction-service.js'
 
 interface CreatePublicPixAutomaticPaymentServiceRequest {
@@ -61,6 +62,22 @@ export class CreatePublicPixAutomaticPaymentService {
           orderId: order.id
         }
       })
+
+    logger.info(
+      {
+        orderId: order.id,
+        onlineOrderId: null,
+        transactionId: paymentTransaction.id,
+        paymentMethod: paymentTransaction.method,
+        paymentStatus: order.paymentStatus,
+        providerStatus: paymentTransaction.gatewayStatus,
+        qrCode: paymentTransaction.qrCode ?? paymentTransaction.pixCopyPaste,
+        qrCodeBase64: paymentTransaction.qrCodeBase64,
+        ticketUrl: null,
+        expiresAt: paymentTransaction.expiresAt?.toISOString() ?? null
+      },
+      'CreatePublicPixAutomaticPaymentService safe PIX payload'
+    )
 
     return {
       paymentTransaction
