@@ -1,4 +1,5 @@
 import { prisma } from '../../../lib/prisma.js'
+import { logger } from '../../../lib/logger.js'
 import { PrintTemplateService } from '../../print-templates/print-template-service.js'
 
 const templateTypes = new Set([
@@ -69,6 +70,15 @@ export class ListDevicePendingPrintJobsService {
           }
         }
       })
+
+    logger.info({
+      deviceId,
+      jobsFound: printJobs.length,
+      jobIds: printJobs.map(job => job.id),
+      orderIds: printJobs.map(job => job.orderId).filter(Boolean),
+      onlineOrderIds: printJobs.map(job => job.onlineOrderId).filter(Boolean),
+      statuses: printJobs.map(job => job.status)
+    }, '[PRINT_QUEUE] pending jobs queried')
 
     const templateService = new PrintTemplateService()
     const enrichedPrintJobs = await Promise.all(

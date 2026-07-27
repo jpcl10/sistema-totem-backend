@@ -336,6 +336,19 @@ async function createJobsIdempotently({
     })
 
     if (existingJob) {
+      logger.info({
+        printJobId: existingJob.id,
+        orderId: existingJob.orderId,
+        onlineOrderId: existingJob.onlineOrderId,
+        organizationId,
+        eventId,
+        deviceId: existingJob.deviceId,
+        printerId: existingJob.printerId,
+        status: existingJob.status,
+        printJobCreated: false,
+        reason: 'idempotent_job_already_exists'
+      }, '[PRINT_FLOW] existing print job reused')
+
       if (!existingJob.deviceId) {
         await enqueuePrintJob(existingJob.id)
       }
@@ -352,6 +365,18 @@ async function createJobsIdempotently({
           device: true
         }
       })
+
+      logger.info({
+        printJobId: printJob.id,
+        orderId: printJob.orderId,
+        onlineOrderId: printJob.onlineOrderId,
+        organizationId,
+        eventId,
+        deviceId: printJob.deviceId,
+        printerId: printJob.printerId,
+        status: printJob.status,
+        printJobCreated: true
+      }, '[PRINT_FLOW] print job created')
 
       await audit.execute({
         organizationId,
@@ -449,6 +474,18 @@ export class OrderPrintOrchestratorService {
         order.paymentNotes === 'Venda manual criada pelo painel'
       )
 
+    logger.info({
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      organizationId: order.event.organizationId,
+      eventId: order.eventId,
+      deviceId: order.deviceId,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.status,
+      source: sourceKey,
+      items: order.items.length
+    }, '[PRINT_FLOW] evaluating event order print jobs')
+
     const effective =
       await new SettingsResolverService().execute({
         organizationId: order.event.organizationId,
@@ -459,6 +496,17 @@ export class OrderPrintOrchestratorService {
     const printingSettings = effective.printing as EffectivePrintingSettings
 
     if (!isPrintablePaymentStatus(order.paymentStatus) || order.items.length === 0) {
+      logger.warn({
+        orderId: order.id,
+        organizationId: order.event.organizationId,
+        eventId: order.eventId,
+        deviceId: order.deviceId,
+        paymentStatus: order.paymentStatus,
+        orderStatus: order.status,
+        items: order.items.length,
+        printJobCreated: false,
+        reason: 'payment_not_printable_or_empty_order'
+      }, '[PRINT_FLOW] print job not created')
       return {
         printJobs: [],
         alerts: []
@@ -516,6 +564,30 @@ export class OrderPrintOrchestratorService {
     }))
 
     const targets = deviceTargets.length > 0 ? deviceTargets : legacyTargets
+    logger.info({
+      orderId: order.id,
+      organizationId: order.event.organizationId,
+      eventId: order.eventId,
+      deviceId: order.deviceId,
+      deviceTargets: deviceTargets.map(target => ({
+        deviceId: target.deviceId,
+        sector: target.sector,
+        connectionType: target.connectionType
+      })),
+      legacyTargets: legacyTargets.map(target => ({
+        printerId: target.printerId,
+        sector: target.sector,
+        connectionType: target.connectionType
+      })),
+      selectedTargets: targets.map(target => ({
+        source: target.source,
+        deviceId: target.deviceId,
+        printerId: target.printerId,
+        sector: target.sector,
+        connectionType: target.connectionType
+      }))
+    }, '[PRINT_FLOW] print targets resolved')
+
     const source = sourceKey
     const items: PrintableItem[] = order.items.map(item => ({
       name: item.productName,
@@ -579,6 +651,20 @@ export class OrderPrintOrchestratorService {
       enabledSectors: printingSettings.sectors
     })
 
+    logger.info({
+      orderId: order.id,
+      organizationId: order.event.organizationId,
+      eventId: order.eventId,
+      deviceId: order.deviceId,
+      jobsPlanned: jobsToCreate.length,
+      plannedTargets: jobsToCreate.map(job => ({
+        deviceId: job.deviceId,
+        printerId: job.printerId,
+        sector: job.sector
+      })),
+      alerts
+    }, '[PRINT_FLOW] print jobs planned')
+
     if (jobsToCreate.length === 0 && sourceKey === 'TOTEM') {
       await recordPrintPlanningAlert({
         organizationId: order.event.organizationId,
@@ -597,6 +683,22 @@ export class OrderPrintOrchestratorService {
       organizationId: order.event.organizationId,
       eventId: order.eventId
     })
+
+    logger.info({
+      orderId: order.id,
+      organizationId: order.event.organizationId,
+      eventId: order.eventId,
+      deviceId: order.deviceId,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.status,
+      printJobCreated: printJobs.length > 0,
+      printJobs: printJobs.map(printJob => ({
+        printJobId: printJob.id,
+        printerId: printJob.printerId,
+        deviceId: printJob.deviceId,
+        status: printJob.status
+      }))
+    }, '[PRINT_FLOW] print jobs created')
 
     return {
       printJobs,

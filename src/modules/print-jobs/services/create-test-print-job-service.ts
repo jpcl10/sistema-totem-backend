@@ -6,6 +6,7 @@ import {
 } from '@prisma/client'
 
 import { prisma } from '../../../lib/prisma.js'
+import { logger } from '../../../lib/logger.js'
 import { enqueuePrintJob } from '../../../infra/queues/index.js'
 import { CreateAuditLogService } from '../../audit-logs/services/create-audit-log-service.js'
 
@@ -108,10 +109,17 @@ export class CreateTestPrintJobService {
       text: 'Teste de impressao Defumar',
       items: [
         {
-          name: 'Teste de impressao Defumar',
+          name: `TESTE DE IMPRESSAO - ${now.toLocaleString('pt-BR')}`,
           quantity: 1,
           sector,
-          notes: `Gerado em ${now.toISOString()}`,
+          notes: `Device ID: ${device.id}`,
+          options: []
+        },
+        {
+          name: `Device ID: ${device.id}`,
+          quantity: 1,
+          sector,
+          notes: 'Validacao manual de fila e SDK',
           options: []
         }
       ],
@@ -143,6 +151,16 @@ export class CreateTestPrintJobService {
     if (!printJob.deviceId) {
       await enqueuePrintJob(printJob.id)
     }
+
+    logger.info({
+      printJobId: printJob.id,
+      organizationId,
+      eventId,
+      deviceId: device.id,
+      printerId: printer?.id ?? null,
+      printJobStatus: printJob.status,
+      sector
+    }, '[PRINT_FLOW] manual test print job created')
 
     await new CreateAuditLogService().execute({
       organizationId,

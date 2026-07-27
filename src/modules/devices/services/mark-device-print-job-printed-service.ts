@@ -1,4 +1,5 @@
 import { prisma } from '../../../lib/prisma.js'
+import { logger } from '../../../lib/logger.js'
 
 function printJobNotFoundError() {
   const error = new Error('Print job not found') as Error & {
@@ -32,6 +33,10 @@ export class MarkDevicePrintJobPrintedService {
       })
 
     if (!printJob) {
+      logger.warn({
+        printJobId,
+        deviceId
+      }, '[PRINT_QUEUE] printed acknowledgement rejected')
       throw printJobNotFoundError()
     }
 
@@ -47,6 +52,15 @@ export class MarkDevicePrintJobPrintedService {
           lockedBy: null
         }
       })
+
+    logger.info({
+      printJobId: updatedPrintJob.id,
+      deviceId,
+      orderId: updatedPrintJob.orderId,
+      onlineOrderId: updatedPrintJob.onlineOrderId,
+      status: updatedPrintJob.status,
+      printedAt: updatedPrintJob.printedAt
+    }, '[PRINT_QUEUE] job acknowledged as printed')
 
     return {
       printJob: updatedPrintJob
