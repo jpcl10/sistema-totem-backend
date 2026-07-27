@@ -36,6 +36,16 @@ export async function getPublicOrderController(
           totalInCents: true,
           productName: true
         }
+      },
+      printJobs: {
+        select: {
+          id: true,
+          status: true,
+          deviceId: true,
+          printedAt: true,
+          attempts: true,
+          errorMessage: true
+        }
       }
     }
   })

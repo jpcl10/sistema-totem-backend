@@ -1,6 +1,7 @@
 import {
   AuditAction,
   CategorySector,
+  DeviceStatus,
   DeviceType,
   OrderSource,
   PaymentStatus,
@@ -539,12 +540,18 @@ export class OrderPrintOrchestratorService {
     }
 
     const deviceTargets =
-      await this.resolveDeviceTargets({
-        organizationId: order.event.organizationId,
-        eventId: order.eventId,
-        storeId: null,
-        settings: printingSettings
-      })
+      sourceKey === 'TOTEM' && order.device
+        ? this.resolveTotemInternalTarget({
+            organizationId: order.event.organizationId,
+            orderDevice: order.device,
+            settings: printingSettings
+          })
+        : await this.resolveDeviceTargets({
+            organizationId: order.event.organizationId,
+            eventId: order.eventId,
+            storeId: null,
+            settings: printingSettings
+          })
 
     const legacyPrinters = await prisma.eventPrinter.findMany({
       where: {
@@ -932,12 +939,13 @@ export class OrderPrintOrchestratorService {
             in: configuredTargets.map(target => target.deviceId)
           },
           organizationId,
-          status: 'ACTIVE',
-          type: {
-            in: [
-              DeviceType.PRINTER,
-              DeviceType.PRINT_AGENT,
-              DeviceType.SK210
+      status: 'ACTIVE',
+      type: {
+        in: [
+          DeviceType.TOTEM,
+          DeviceType.PRINTER,
+          DeviceType.PRINT_AGENT,
+          DeviceType.SK210
             ]
           }
         }
@@ -1014,6 +1022,54 @@ export class OrderPrintOrchestratorService {
         })
       }
     })
+  }
+
+  private resolveTotemInternalTarget({
+    organizationId,
+    orderDevice,
+    settings
+  }: {
+    organizationId: string
+    orderDevice: {
+      id: string
+      organizationId: string
+      type: DeviceType
+      status: DeviceStatus
+      metadata: Prisma.JsonValue | null
+    }
+    settings: EffectivePrintingSettings
+  }): PrintTarget[] {
+    if (
+      orderDevice.organizationId !== organizationId ||
+      orderDevice.status !== DeviceStatus.ACTIVE ||
+      (
+        orderDevice.type !== DeviceType.TOTEM &&
+        orderDevice.type !== DeviceType.SK210
+      )
+    ) {
+      logger.warn({
+        organizationId,
+        deviceId: orderDevice.id,
+        deviceType: orderDevice.type,
+        deviceStatus: orderDevice.status
+      }, '[PRINT_FLOW] totem internal target rejected')
+      return []
+    }
+
+    return [{
+      source: 'DEVICE',
+      id: orderDevice.id,
+      deviceId: orderDevice.id,
+      printerId: null,
+      sector: 'FULL_ORDER',
+      connectionType:
+        getMetadataValue(orderDevice.metadata, 'connectionType') ??
+        'SK210_LOCAL',
+      paperSize: resolvePaperSize({
+        targetPaperSize: getMetadataValue(orderDevice.metadata, 'paperSize'),
+        settingsPaperSize: settings.paperSize
+      })
+    }]
   }
 
   private buildJobs({

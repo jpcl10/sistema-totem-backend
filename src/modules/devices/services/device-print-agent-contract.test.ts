@@ -36,6 +36,7 @@ function installDeviceMocks(overrides: {
     printJobFindFirst: prisma.eventPrintJob.findFirst,
     printJobUpdate: prisma.eventPrintJob.update,
     printTemplateFindMany: prisma.printTemplate.findMany,
+    transaction: prisma.$transaction,
     audit: CreateAuditLogService.prototype.execute
     ,
     settingsResolver: SettingsResolverService.prototype.execute
@@ -61,6 +62,15 @@ function installDeviceMocks(overrides: {
     overrides.printJobUpdate ?? (async () => null)
   ;(prisma.printTemplate.findMany as any) =
     overrides.printTemplateFindMany ?? (async () => [])
+  ;(prisma.$transaction as any) =
+    async (callback: any) => callback({
+      eventPrintJob: {
+        findMany: overrides.printJobFindMany ?? (async () => []),
+        findFirst: overrides.printJobFindFirst ?? (async () => null),
+        update: overrides.printJobUpdate ?? (async () => null),
+        updateMany: async () => ({ count: 0 })
+      }
+    })
   ;(CreateAuditLogService.prototype.execute as any) =
     async () => ({ auditLog: { id: 'audit-1' } })
   ;(SettingsResolverService.prototype.execute as any) =
@@ -83,6 +93,7 @@ function installDeviceMocks(overrides: {
     ;(prisma.eventPrintJob.findFirst as any) = originals.printJobFindFirst
     ;(prisma.eventPrintJob.update as any) = originals.printJobUpdate
     ;(prisma.printTemplate.findMany as any) = originals.printTemplateFindMany
+    ;(prisma.$transaction as any) = originals.transaction
     CreateAuditLogService.prototype.execute = originals.audit
     SettingsResolverService.prototype.execute = originals.settingsResolver
   }
@@ -309,10 +320,13 @@ test('activate device token is scoped to the device organization', async () => {
 })
 
 test('pending queue is isolated to the authenticated device', async () => {
-  let findManyArgs: any
+  const findManyCalls: any[] = []
   const restore = installDeviceMocks({
     printJobFindMany: async (args) => {
-      findManyArgs = args
+      findManyCalls.push(args)
+      if (findManyCalls.length === 1) {
+        return [{ id: 'job-1' }]
+      }
       return []
     }
   })
@@ -322,10 +336,8 @@ test('pending queue is isolated to the authenticated device', async () => {
       deviceId: 'device-1'
     })
 
-    assert.deepEqual(findManyArgs.where, {
-      deviceId: 'device-1',
-      status: 'PENDING'
-    })
+    assert.equal(findManyCalls[0].where.deviceId, 'device-1')
+    assert.deepEqual(findManyCalls[0].where.OR[0], { status: 'PENDING' })
   } finally {
     restore()
   }
