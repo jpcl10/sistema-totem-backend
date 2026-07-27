@@ -18,6 +18,40 @@ interface PreparePublicCheckoutPaymentServiceRequest {
   paymentMethod?: 'PIX' | 'CARD'
 }
 
+type PaymentTransactionWithPix = {
+  id: string
+  qrCode?: string | null
+  qrCodeBase64?: string | null
+  pixCopyPaste?: string | null
+  expiresAt?: Date | string | null
+}
+
+function hasPixQrCode(transaction: PaymentTransactionWithPix | null) {
+  return Boolean(
+    transaction?.qrCode ||
+      transaction?.qrCodeBase64 ||
+      transaction?.pixCopyPaste
+  )
+}
+
+function isTransactionStillValid(
+  transaction: PaymentTransactionWithPix | null
+): boolean {
+  if (!transaction || !hasPixQrCode(transaction)) return false
+  return !transaction.expiresAt || new Date(transaction.expiresAt) > new Date()
+}
+
+function pixResponseFields(transaction: PaymentTransactionWithPix) {
+  return {
+    transactionId: transaction.id,
+    qrCode: transaction.qrCode ?? transaction.pixCopyPaste ?? undefined,
+    qrCodeBase64: transaction.qrCodeBase64 ?? undefined,
+    expiresAt: transaction.expiresAt
+      ? new Date(transaction.expiresAt).toISOString()
+      : undefined
+  }
+}
+
 export class PreparePublicCheckoutPaymentService {
   async execute({
     orderId,
@@ -162,20 +196,32 @@ export class PreparePublicCheckoutPaymentService {
 
       if (
         existingWaitingTransaction &&
-        (
-          existingWaitingTransaction.qrCode ||
-          existingWaitingTransaction.qrCodeBase64 ||
-          existingWaitingTransaction.pixCopyPaste
-        )
+        isTransactionStillValid(existingWaitingTransaction)
       ) {
         return {
           paymentStep: 'pix_automatic',
           isPaymentConfirmed: false,
           order,
           manualPix,
+          ...pixResponseFields(existingWaitingTransaction),
           paymentTransaction: existingWaitingTransaction,
           message: 'PIX automático aguardando pagamento'
         }
+      }
+
+      if (existingWaitingTransaction) {
+        await prisma.paymentTransaction.update({
+          where: {
+            id: existingWaitingTransaction.id
+          },
+          data: {
+            status: PaymentTransactionStatus.EXPIRED,
+            expiredAt: existingWaitingTransaction.expiresAt ?? new Date(),
+            gatewayStatus: 'expired',
+            gatewayMessage:
+              'PIX expirado antes de preparar nova cobranca'
+          }
+        })
       }
 
       const createPaymentTransactionService =
@@ -197,17 +243,14 @@ export class PreparePublicCheckoutPaymentService {
 
       if (
         paymentTransaction.status === PaymentTransactionStatus.WAITING_PAYMENT &&
-        (
-          paymentTransaction.qrCode ||
-          paymentTransaction.qrCodeBase64 ||
-          paymentTransaction.pixCopyPaste
-        )
+        hasPixQrCode(paymentTransaction)
       ) {
         return {
           paymentStep: 'pix_automatic',
           isPaymentConfirmed: false,
           order,
           manualPix,
+          ...pixResponseFields(paymentTransaction),
           paymentTransaction,
           message: 'PIX automático criado'
         }
