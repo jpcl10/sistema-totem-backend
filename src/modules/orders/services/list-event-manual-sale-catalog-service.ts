@@ -100,6 +100,11 @@ export class ListEventManualSaleCatalogService {
               sortOrder: 'asc'
             }
           },
+          {
+            catalogCategory: {
+              name: 'asc'
+            }
+          },
           { sortOrder: 'asc' },
           { name: 'asc' }
         ]

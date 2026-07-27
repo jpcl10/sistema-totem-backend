@@ -93,6 +93,11 @@ export class ListStoreManualSaleCatalogService {
               sortOrder: 'asc'
             }
           },
+          {
+            catalogCategory: {
+              name: 'asc'
+            }
+          },
           { sortOrder: 'asc' },
           { name: 'asc' }
         ]

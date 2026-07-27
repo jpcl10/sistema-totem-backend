@@ -79,6 +79,11 @@ export class SyncEventCatalogService {
             }
           },
           {
+            catalogCategory: {
+              name: 'asc'
+            }
+          },
+          {
             sortOrder: 'asc'
           },
           {

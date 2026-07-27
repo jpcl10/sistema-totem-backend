@@ -85,9 +85,32 @@ export class GetPublicEventMenuService {
               }
             }
           },
-          orderBy: {
-            createdAt: 'asc'
-          }
+          orderBy: [
+            {
+              catalogProduct: {
+                catalogCategory: {
+                  sortOrder: 'asc'
+                }
+              }
+            },
+            {
+              catalogProduct: {
+                catalogCategory: {
+                  name: 'asc'
+                }
+              }
+            },
+            {
+              catalogProduct: {
+                sortOrder: 'asc'
+              }
+            },
+            {
+              catalogProduct: {
+                name: 'asc'
+              }
+            }
+          ]
         }
       }
     })
@@ -108,6 +131,7 @@ export class GetPublicEventMenuService {
       name: string
       slug: string
       sector: string
+      sortOrder: number
       products: {
         id: string
         catalogProductId: string
@@ -120,6 +144,7 @@ export class GetPublicEventMenuService {
         stockQuantity: number | null
         soldOut: boolean
         active: boolean
+        sortOrder: number
         optionGroups: any[]
       }[]
     }>()
@@ -148,6 +173,7 @@ export class GetPublicEventMenuService {
           name: categoryName,
           slug: categorySlug,
           sector: categorySector,
+          sortOrder: category?.sortOrder ?? 0,
           products: []
         })
       }
@@ -165,6 +191,7 @@ export class GetPublicEventMenuService {
         stockQuantity: eventProduct.stockQuantity,
         soldOut: eventProduct.soldOut,
         active: eventProduct.active,
+        sortOrder: product.sortOrder,
         optionGroups: formatOptionGroups(product)
       })
     }

@@ -81,6 +81,49 @@ function logSafeOnlinePixPayload(
   )
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function logPaymentPreparationFailure(
+  onlineOrder: {
+    id: string
+    paymentStatus: PaymentStatus
+    store: {
+      organizationId: string
+    }
+  },
+  paymentTransaction: PaymentTransactionLike | null,
+  reason: string
+) {
+  const metadata =
+    isRecord(paymentTransaction?.metadata)
+      ? paymentTransaction.metadata
+      : null
+
+  logger.error(
+    {
+      orderId: null,
+      onlineOrderId: onlineOrder.id,
+      paymentTransactionId: paymentTransaction?.id ?? null,
+      organizationId: onlineOrder.store.organizationId,
+      provider: PaymentProvider.MERCADO_PAGO,
+      paymentMethod:
+        paymentTransaction?.method ?? PaymentMethod.PIX_AUTOMATIC,
+      paymentStatus: onlineOrder.paymentStatus,
+      transactionStatus: paymentTransaction?.status ?? null,
+      providerStatus: paymentTransaction?.gatewayStatus ?? null,
+      gatewayMessage: metadata?.gatewayMessage ?? null,
+      mercadoPagoError: metadata?.mercadoPagoError ?? null,
+      hasQrCode: Boolean(paymentTransaction?.qrCode),
+      hasQrCodeBase64: Boolean(paymentTransaction?.qrCodeBase64),
+      hasPixCopyPaste: Boolean(paymentTransaction?.pixCopyPaste),
+      reason
+    },
+    'PrepareOnlineCheckoutPaymentService returned paymentPreparation without PIX QR Code'
+  )
+}
+
 export class PrepareOnlineCheckoutPaymentService {
   async execute({
     onlineOrderId,
@@ -169,6 +212,24 @@ export class PrepareOnlineCheckoutPaymentService {
       )
 
     if (!pixAutomaticAvailable) {
+      logger.error(
+        {
+          orderId: null,
+          onlineOrderId: onlineOrder.id,
+          paymentTransactionId: null,
+          organizationId: onlineOrder.store.organizationId,
+          provider: PaymentProvider.MERCADO_PAGO,
+          paymentMethod: PaymentMethod.PIX_AUTOMATIC,
+          mercadoPagoConfigured: mercadoPagoStatus.configured,
+          mercadoPagoPixEnabled: mercadoPagoStatus.pixEnabled,
+          effectivePixEnabled: effectiveSettings.methods.pix,
+          environment: effectiveSettings.environment,
+          providerActive: mercadoPagoStatus.providerActive,
+          credentialReadable: mercadoPagoStatus.credentialReadable
+        },
+        'PrepareOnlineCheckoutPaymentService PIX unavailable'
+      )
+
       return {
         ...buildPaymentPreparation(
           'pix_unavailable',
@@ -222,6 +283,14 @@ export class PrepareOnlineCheckoutPaymentService {
       }
     }
 
+    if (existingWaitingTransaction) {
+      logPaymentPreparationFailure(
+        onlineOrder,
+        existingWaitingTransaction,
+        'existing_waiting_transaction_without_valid_qr_code_or_expired'
+      )
+    }
+
     const createPaymentTransactionService =
       new CreatePaymentTransactionService()
 
@@ -267,13 +336,21 @@ export class PrepareOnlineCheckoutPaymentService {
       }
     }
 
+    const paymentPreparation = buildPaymentPreparation(
+      'payment_error',
+      false,
+      paymentTransaction,
+      'Nao foi possivel criar pagamento PIX. Tente novamente ou selecione outro metodo.'
+    )
+
+    logPaymentPreparationFailure(
+      onlineOrder,
+      paymentTransaction,
+      'new_payment_transaction_without_waiting_payment_status_or_qr_code'
+    )
+
     return {
-      ...buildPaymentPreparation(
-        'payment_error',
-        false,
-        paymentTransaction,
-        'Nao foi possivel criar pagamento PIX. Tente novamente ou selecione outro metodo.'
-      ),
+      ...paymentPreparation,
       onlineOrder
     }
   }

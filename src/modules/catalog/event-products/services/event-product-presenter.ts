@@ -79,7 +79,8 @@ export function formatEventProduct(eventProduct: any) {
       id: product.catalogCategory.id,
       name: product.catalogCategory.name,
       slug: product.catalogCategory.slug,
-      sector: product.catalogCategory.sector
+      sector: product.catalogCategory.sector,
+      sortOrder: product.catalogCategory.sortOrder
     },
     catalogPriceInCents,
     eventPriceInCents,
@@ -90,6 +91,7 @@ export function formatEventProduct(eventProduct: any) {
     soldOut: eventProduct.soldOut,
     trackStock: eventProduct.trackStock,
     stockQuantity: eventProduct.stockQuantity,
+    sortOrder: product.sortOrder,
     createdAt: eventProduct.createdAt,
     updatedAt: eventProduct.updatedAt
   }
@@ -108,9 +110,11 @@ export function formatAvailableCatalogProduct(
       id: product.catalogCategory.id,
       name: product.catalogCategory.name,
       slug: product.catalogCategory.slug,
-      sector: product.catalogCategory.sector
+      sector: product.catalogCategory.sector,
+      sortOrder: product.catalogCategory.sortOrder
     },
     catalogPriceInCents: product.priceInCents,
+    sortOrder: product.sortOrder,
     optionGroups: formatOptionGroups(product),
     alreadyLinked
   }

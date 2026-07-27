@@ -70,6 +70,11 @@ export class GetOnlineStoreService {
               sortOrder: 'asc'
             }
           },
+          {
+            catalogCategory: {
+              name: 'asc'
+            }
+          },
           { sortOrder: 'asc' },
           { name: 'asc' }
         ]

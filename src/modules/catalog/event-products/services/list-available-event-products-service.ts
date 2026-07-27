@@ -77,6 +77,11 @@ export class ListAvailableEventProductsService {
             }
           },
           {
+            catalogCategory: {
+              name: 'asc'
+            }
+          },
+          {
             sortOrder: 'asc'
           },
           {

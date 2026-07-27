@@ -66,6 +66,11 @@ export class CreatePaymentTransactionService {
           eventId: true,
           orderNumber: true,
           customerName: true,
+          customer: {
+            select: {
+              email: true
+            }
+          },
           event: {
             select: {
               pixPaymentExpirationMinutes: true
@@ -99,6 +104,11 @@ export class CreatePaymentTransactionService {
           storeId: true,
           orderNumber: true,
           customerName: true,
+          customer: {
+            select: {
+              email: true
+            }
+          },
           store: {
             select: {
               id: true
@@ -190,6 +200,7 @@ export class CreatePaymentTransactionService {
         amountInCents: finalAmountInCents,
         method: finalMethod,
         description: `Pedido #${orderData.orderNumber}`,
+        payerEmail: orderData.customer?.email ?? null,
         payerName: orderData.customerName,
         expiresAt,
         metadata

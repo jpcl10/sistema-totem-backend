@@ -23,9 +23,20 @@ export class ListCatalogProductsService {
         include: {
           catalogCategory: true
         },
-        orderBy: {
-          createdAt: 'desc'
-        }
+        orderBy: [
+          {
+            catalogCategory: {
+              sortOrder: 'asc'
+            }
+          },
+          {
+            catalogCategory: {
+              name: 'asc'
+            }
+          },
+          { sortOrder: 'asc' },
+          { name: 'asc' }
+        ]
       })
 
     const leakedProduct = products.find(

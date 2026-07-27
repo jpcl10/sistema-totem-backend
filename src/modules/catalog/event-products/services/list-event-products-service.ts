@@ -37,9 +37,32 @@ export class ListEventProductsService {
           include: catalogProductInclude()
         }
       },
-      orderBy: {
-        createdAt: 'desc'
-      }
+      orderBy: [
+        {
+          catalogProduct: {
+            catalogCategory: {
+              sortOrder: 'asc'
+            }
+          }
+        },
+        {
+          catalogProduct: {
+            catalogCategory: {
+              name: 'asc'
+            }
+          }
+        },
+        {
+          catalogProduct: {
+            sortOrder: 'asc'
+          }
+        },
+        {
+          catalogProduct: {
+            name: 'asc'
+          }
+        }
+      ]
     })
 
     return {

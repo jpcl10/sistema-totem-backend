@@ -28,9 +28,10 @@ export class ListCatalogCategoriesService {
             }
           }
         },
-        orderBy: {
-          createdAt: 'desc'
-        }
+        orderBy: [
+          { sortOrder: 'asc' },
+          { name: 'asc' }
+        ]
       })
 
     const leakedCategory = categories.find(

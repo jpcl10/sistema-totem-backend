@@ -85,9 +85,32 @@ export class GetPublicEventCatalogMenuService {
               }
             }
           },
-          orderBy: {
-            createdAt: 'asc'
-          }
+          orderBy: [
+            {
+              catalogProduct: {
+                catalogCategory: {
+                  sortOrder: 'asc'
+                }
+              }
+            },
+            {
+              catalogProduct: {
+                catalogCategory: {
+                  name: 'asc'
+                }
+              }
+            },
+            {
+              catalogProduct: {
+                sortOrder: 'asc'
+              }
+            },
+            {
+              catalogProduct: {
+                name: 'asc'
+              }
+            }
+          ]
         }
       }
     })
@@ -127,6 +150,7 @@ export class GetPublicEventCatalogMenuService {
           id: categoryId,
           name: categoryName,
           slug: categorySlug,
+          sortOrder: category?.sortOrder ?? 0,
           products: []
         })
       }
@@ -140,6 +164,7 @@ export class GetPublicEventCatalogMenuService {
         description: product.description,
         imageUrl: product.imageUrl,
         priceInCents: effectivePriceInCents,
+        sortOrder: product.sortOrder,
         active: eventProduct.active,
         trackStock: eventProduct.trackStock,
         stockQuantity: eventProduct.stockQuantity,
