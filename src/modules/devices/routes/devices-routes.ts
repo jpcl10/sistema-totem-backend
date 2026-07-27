@@ -16,6 +16,7 @@ import { getDeviceController } from '../controllers/get-device-controller.js'
 import { updateDeviceController } from '../controllers/update-device-controller.js'
 import { regenerateDeviceCredentialsController } from '../controllers/regenerate-device-credentials-controller.js'
 import { getDeviceConfigController } from '../controllers/get-device-config-controller.js'
+import { resolveTotemContextController } from '../controllers/resolve-totem-context-controller.js'
 
 export async function devicesRoutes(
   app: FastifyInstance
@@ -45,6 +46,20 @@ export async function devicesRoutes(
       }
     },
     getDeviceConfigController
+  )
+
+  app.get(
+    '/devices/me/totem-v2-context',
+    {
+      preHandler: verifyDeviceJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    resolveTotemContextController
   )
 
   app.post(
