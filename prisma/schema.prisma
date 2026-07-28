@@ -60,6 +60,7 @@ enum PaymentContextType {
   EVENT
   ONLINE_STORE
   POS
+  TABLET
 }
 
 enum PaymentTransactionStatus {
@@ -129,6 +130,7 @@ enum PrintingSource {
   EVENT
   MANUAL_EVENT
   TOTEM
+  TABLET
   POS
   API
   WAITER
@@ -147,6 +149,7 @@ enum PrinterConnectionType {
 
 enum DeviceType {
   TOTEM
+  TABLET
   PRINTER
   PRINT_AGENT
   CALL_SCREEN
@@ -206,6 +209,7 @@ enum SettingsChannel {
   PICKUP
   DIGITAL_MENU
   TOTEM
+  TABLET
   COUNTER
 }
 
@@ -1339,6 +1343,7 @@ enum OnlineOrderStatus {
 enum OrderSource {
   EVENT
   TOTEM
+  TABLET
   DIGITAL_MENU
   WHATSAPP
   ADMIN
@@ -1366,6 +1371,7 @@ enum CustomerSource {
   IMPORT
   API
   TOTEM
+  TABLET
   POS
   WHATSAPP
 }

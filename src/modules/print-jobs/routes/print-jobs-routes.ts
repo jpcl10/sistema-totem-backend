@@ -7,6 +7,8 @@ import { requireTenantContext } from '../../auth/middlewares/request-context.js'
 import { listPrintJobsController } from '../controllers/list-print-jobs-controller.js'
 import { markPrintJobPrintedController } from '../controllers/mark-print-job-printed-controller.js'
 import { createTestPrintJobController } from '../controllers/create-test-print-job-controller.js'
+import { verifyDeviceJWT } from '../../devices/middlewares/verify-device-jwt.js'
+import { retryTabletPrintJobController } from '../controllers/retry-tablet-print-job-controller.js'
 
 export async function printJobsRoutes(
   app: FastifyInstance
@@ -78,6 +80,20 @@ app.patch(
     }
   },
   retryPrintJobController
+)
+
+app.patch(
+  '/public/tablet/orders/:orderId/print-jobs/:printJobId/retry',
+  {
+    preHandler: [verifyDeviceJWT],
+    config: {
+      rateLimit: {
+        max: 30,
+        timeWindow: '1 minute'
+      }
+    }
+  },
+  retryTabletPrintJobController
 )
 
 }

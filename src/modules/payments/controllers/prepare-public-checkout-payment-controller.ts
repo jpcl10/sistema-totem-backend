@@ -8,7 +8,7 @@ const preparePublicCheckoutPaymentParamsSchema = z.object({
 })
 
 const preparePublicCheckoutPaymentBodySchema = z.object({
-  context: z.enum(['TOTEM', 'PUBLIC_CHECKOUT']).optional(),
+  context: z.enum(['TOTEM', 'TABLET', 'PUBLIC_CHECKOUT']).optional(),
   paymentMethod: z.enum(['PIX', 'CARD']).optional()
 }).optional()
 

@@ -17,6 +17,7 @@ import { updateDeviceController } from '../controllers/update-device-controller.
 import { regenerateDeviceCredentialsController } from '../controllers/regenerate-device-credentials-controller.js'
 import { getDeviceConfigController } from '../controllers/get-device-config-controller.js'
 import { resolveTotemContextController } from '../controllers/resolve-totem-context-controller.js'
+import { resolveTabletContextController } from '../controllers/resolve-tablet-context-controller.js'
 
 export async function devicesRoutes(
   app: FastifyInstance
@@ -60,6 +61,20 @@ export async function devicesRoutes(
       }
     },
     resolveTotemContextController
+  )
+
+  app.get(
+    '/devices/me/tablet-context',
+    {
+      preHandler: verifyDeviceJWT,
+      config: {
+        rateLimit: {
+          max: 300,
+          timeWindow: '1 minute'
+        }
+      }
+    },
+    resolveTabletContextController
   )
 
   app.post(

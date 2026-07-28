@@ -44,6 +44,7 @@ export async function updateDeviceController(
     type: z
       .enum([
         'TOTEM',
+        'TABLET',
         'PRINTER',
         'PRINT_AGENT',
         'CALL_SCREEN',

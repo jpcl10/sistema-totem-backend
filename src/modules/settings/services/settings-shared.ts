@@ -40,6 +40,7 @@ export const printingSources = [
   'EVENT',
   'MANUAL_EVENT',
   'TOTEM',
+  'TABLET',
   'POS',
   'API',
   'WAITER'

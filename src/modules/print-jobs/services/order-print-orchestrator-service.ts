@@ -179,6 +179,10 @@ function mapOrderSourceToPrintingSource(
     return 'TOTEM'
   }
 
+  if (source === OrderSource.TABLET) {
+    return 'TABLET'
+  }
+
   if (source === OrderSource.POS) {
     return 'POS'
   }
@@ -1098,6 +1102,7 @@ export class OrderPrintOrchestratorService {
     const jobsToCreate: JobToCreate[] = []
     const alerts: PrintPlanningAlert[] = []
     const domainOrderId = orderId ?? onlineOrderId
+    const isTabletCustomerTicket = basePayload.source === 'TABLET'
 
     if (!domainOrderId) {
       return { jobsToCreate, alerts }
@@ -1134,7 +1139,8 @@ export class OrderPrintOrchestratorService {
         payload: {
           ...basePayload,
           type: 'FULL_ORDER',
-          title: 'PEDIDO COMPLETO',
+          templateType: isTabletCustomerTicket ? 'CUSTOMER' : 'PRODUCTION',
+          title: isTabletCustomerTicket ? 'FICHA DE CONSUMO' : 'PEDIDO COMPLETO',
           printerSector: 'FULL_ORDER',
           connectionType: target.connectionType,
           printTargetSource: target.source,

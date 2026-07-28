@@ -14,7 +14,7 @@ import { PaymentSettingsResolver } from '../../payment-settings/payment-settings
 
 interface PreparePublicCheckoutPaymentServiceRequest {
   orderId: string
-  context?: 'TOTEM' | 'PUBLIC_CHECKOUT'
+  context?: 'TOTEM' | 'TABLET' | 'PUBLIC_CHECKOUT'
   paymentMethod?: 'PIX' | 'CARD'
 }
 
@@ -58,8 +58,8 @@ export class PreparePublicCheckoutPaymentService {
     context = 'PUBLIC_CHECKOUT',
     paymentMethod = 'PIX'
   }: PreparePublicCheckoutPaymentServiceRequest) {
-    if (context === 'TOTEM' && paymentMethod !== 'PIX') {
-      throw new Error('Totem checkout only prepares automatic PIX payments')
+    if ((context === 'TOTEM' || context === 'TABLET') && paymentMethod !== 'PIX') {
+      throw new Error('Totem/tablet checkout only prepares automatic PIX payments')
     }
 
     const order = await prisma.order.findUnique({
@@ -89,17 +89,17 @@ export class PreparePublicCheckoutPaymentService {
         order.paymentStatus === PaymentStatus.NOT_REQUIRED
 
       const manualPix = {
-        enabled: context === 'TOTEM' ? false : order.event.pixEnabled,
-        pixKey: context === 'TOTEM'
+        enabled: context === 'TOTEM' || context === 'TABLET' ? false : order.event.pixEnabled,
+        pixKey: context === 'TOTEM' || context === 'TABLET'
           ? null
           : order.event.pixEnabled ? order.event.pixKey : null,
-        receiverName: context === 'TOTEM'
+        receiverName: context === 'TOTEM' || context === 'TABLET'
           ? null
           : order.event.pixEnabled ? order.event.pixReceiverName : null,
-        city: context === 'TOTEM'
+        city: context === 'TOTEM' || context === 'TABLET'
           ? null
           : order.event.pixEnabled ? order.event.pixCity : null,
-        instructions: context === 'TOTEM'
+        instructions: context === 'TOTEM' || context === 'TABLET'
           ? null
           : order.event.pixEnabled ? order.event.pixInstructions : null
       }
@@ -149,14 +149,14 @@ export class PreparePublicCheckoutPaymentService {
         )
 
       if (!pixAutomaticAvailable) {
-        if (context === 'TOTEM') {
+        if (context === 'TOTEM' || context === 'TABLET') {
           return {
             paymentStep: 'pix_unavailable',
             isPaymentConfirmed: false,
             order,
             manualPix,
             paymentTransaction: null,
-            message: 'PIX automático indisponível no totem. Configure Mercado Pago com PIX habilitado e token de acesso.'
+            message: 'PIX automatico indisponivel. Configure Mercado Pago com PIX habilitado e token de acesso.'
           }
         }
 
@@ -235,7 +235,7 @@ export class PreparePublicCheckoutPaymentService {
           method: PaymentMethod.PIX_AUTOMATIC,
           amountInCents: order.totalInCents,
           metadata: {
-            source: 'public-totem-checkout',
+            source: context === 'TABLET' ? 'public-tablet-checkout' : 'public-totem-checkout',
             eventId: order.eventId,
             orderId: order.id
           }
@@ -256,7 +256,7 @@ export class PreparePublicCheckoutPaymentService {
         }
       }
 
-      if (context !== 'TOTEM' && manualPix.enabled) {
+      if (context !== 'TOTEM' && context !== 'TABLET' && manualPix.enabled) {
         return {
           paymentStep: 'pix_manual',
           isPaymentConfirmed: false,

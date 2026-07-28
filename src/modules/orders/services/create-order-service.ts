@@ -31,7 +31,7 @@ interface CreateOrderServiceRequest {
 
   customerName?: string
   customerId?: string
-  checkoutContext?: 'TOTEM' | 'PUBLIC_EVENT'
+  checkoutContext?: 'TOTEM' | 'TABLET' | 'PUBLIC_EVENT'
   paymentMethod?: 'PIX' | 'CARD' | 'PIX_AUTOMATIC' | 'CREDIT_CARD' | 'DEBIT_CARD'
 
   paymentStatus?: PaymentStatus
@@ -60,40 +60,46 @@ export class CreateOrderService {
     items
   }: CreateOrderServiceRequest) {
     if (
-      checkoutContext === 'TOTEM' &&
+      (checkoutContext === 'TOTEM' || checkoutContext === 'TABLET') &&
       paymentMethod &&
       !['PIX', 'CARD'].includes(paymentMethod)
     ) {
-      throw new Error('Totem orders only allow PIX or CARD payment methods')
+      throw new Error('Totem/tablet orders only allow PIX or CARD payment methods')
     }
 
     if (
-      checkoutContext === 'TOTEM' &&
+      (checkoutContext === 'TOTEM' || checkoutContext === 'TABLET') &&
       (
         paymentStatus === PaymentStatus.PAID ||
         paymentStatus === PaymentStatus.NOT_REQUIRED
       )
     ) {
-      throw new Error('Totem orders cannot be created as paid')
+      throw new Error('Totem/tablet orders cannot be created as paid')
     }
 
     const effectivePaymentMethod =
       paymentMethod === 'PIX' || (
         checkoutContext !== 'TOTEM' &&
+        checkoutContext !== 'TABLET' &&
         paymentMethod === 'PIX_AUTOMATIC'
       )
         ? PaymentMethod.PIX_AUTOMATIC
         : paymentMethod === 'CARD' || (
           checkoutContext !== 'TOTEM' &&
+          checkoutContext !== 'TABLET' &&
           paymentMethod === 'CREDIT_CARD'
         )
           ? PaymentMethod.CREDIT_CARD
-          : checkoutContext !== 'TOTEM' && paymentMethod === 'DEBIT_CARD'
+          : checkoutContext !== 'TOTEM' &&
+            checkoutContext !== 'TABLET' &&
+            paymentMethod === 'DEBIT_CARD'
             ? PaymentMethod.DEBIT_CARD
             : null
 
     const orderSource =
-      checkoutContext === 'TOTEM'
+      checkoutContext === 'TABLET'
+        ? OrderSource.TABLET
+        : checkoutContext === 'TOTEM'
         ? OrderSource.TOTEM
         : OrderSource.EVENT
 
@@ -116,7 +122,7 @@ export class CreateOrderService {
       throw new Error('Event not found')
     }
 
-    if (checkoutContext === 'TOTEM') {
+    if (checkoutContext === 'TOTEM' || checkoutContext === 'TABLET') {
       const paymentSettings =
         await new PaymentSettingsResolver().resolve({
           organizationId: event.organizationId,
@@ -284,7 +290,7 @@ export class CreateOrderService {
           customerName,
           orderNumber: nextOrderNumber,
           paymentStatus:
-            checkoutContext === 'TOTEM'
+            checkoutContext === 'TOTEM' || checkoutContext === 'TABLET'
               ? PaymentStatus.PENDING
               : paymentStatus ?? PaymentStatus.PENDING,
           paymentMethod: effectivePaymentMethod,
@@ -321,7 +327,10 @@ export class CreateOrderService {
         await touchCustomerInteraction(tx, {
           customerId,
           organizationId: event.organizationId,
-          source: deviceId ? CustomerSource.TOTEM : CustomerSource.EVENT,
+          source:
+            checkoutContext === 'TABLET'
+              ? CustomerSource.TABLET
+              : deviceId ? CustomerSource.TOTEM : CustomerSource.EVENT,
           seenAt: createdOrder.createdAt
         })
       }
